@@ -31,7 +31,7 @@ class UserCreator implements UserCreatorInterface
         private UserPasswordHasher $hasher,
         $defaultRole,
     ) {
-        $this->defaultRole   = (int) $defaultRole;
+        $this->defaultRole = (int) $defaultRole;
     }
 
     /**
@@ -39,22 +39,56 @@ class UserCreator implements UserCreatorInterface
      */
     public function createUser(Response $response): User
     {
-        if (empty($this->defaultRole)) {
-            throw new BadCredentialsException('User does not exist.');
+        $context = $this->userMapper->pullContext($response);
+
+        if (!$context->hasRequiredGroup()) {
+            throw new BadCredentialsException('User missing required SAML group.');
         }
 
-        /** @var Role $defaultRole */
-        $defaultRole = $this->entityManager->getReference(Role::class, $this->defaultRole);
+        $roleEntity = $this->findRoleForSaml($context->getMatchedRole());
+        if (null === $roleEntity) {
+            $roleEntity = $this->getDefaultRole();
+        }
 
         $user = $this->userMapper->getUser($response);
         $user->setPassword($this->userModel->checkNewPassword($user, $this->hasher, EncryptionHelper::generateKey()));
-        $user->setRole($defaultRole);
+        $user->setRole($roleEntity);
 
         $this->validateUser($user);
 
         $this->userModel->saveEntity($user);
 
         return $user;
+    }
+
+    private function findRoleForSaml(?string $samlRole): ?Role
+    {
+        if (null === $samlRole || '' === trim($samlRole)) {
+            return null;
+        }
+
+        $normalized = strtolower(trim($samlRole));
+
+        $qb = $this->entityManager->createQueryBuilder();
+        $qb->select('r')
+            ->from(Role::class, 'r')
+            ->where('LOWER(r.name) = :name')
+            ->setParameter('name', $normalized)
+            ->setMaxResults(1);
+
+        return $qb->getQuery()->getOneOrNullResult();
+    }
+
+    private function getDefaultRole(): Role
+    {
+        if (empty($this->defaultRole)) {
+            throw new BadCredentialsException('User missing role and no default SAML role configured.');
+        }
+
+        /** @var Role $defaultRole */
+        $defaultRole = $this->entityManager->getReference(Role::class, $this->defaultRole);
+
+        return $defaultRole;
     }
 
     /**

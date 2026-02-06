@@ -191,6 +191,50 @@ class ConfigType extends AbstractType
                 'placeholder' => '',
             ]
         );
+
+        $builder->add(
+            'saml_group_attribute',
+            TextType::class,
+            [
+                'label'      => 'SAML group attribute name',
+                'label_attr' => ['class' => 'control-label'],
+                'attr'       => [
+                    'class'   => 'form-control',
+                    'tooltip' => 'Name of the SAML claim that carries group paths (e.g. Group)',
+                ],
+                'empty_data' => 'Group',
+                'required'   => true,
+            ]
+        );
+
+        $builder->add(
+            'saml_role_attribute',
+            TextType::class,
+            [
+                'label'      => 'SAML role attribute name',
+                'label_attr' => ['class' => 'control-label'],
+                'attr'       => [
+                    'class'   => 'form-control',
+                    'tooltip' => 'Name of the SAML claim that carries roles (e.g. Role)',
+                ],
+                'empty_data' => 'Role',
+                'required'   => true,
+            ]
+        );
+
+        $builder->add(
+            'saml_required_group_id',
+            TextType::class,
+            [
+                'label'      => 'Required SAML root group (UUID)',
+                'label_attr' => ['class' => 'control-label'],
+                'attr'       => [
+                    'class'   => 'form-control',
+                    'tooltip' => 'Root group path expected in the Group claim (e.g. /<org_id>)',
+                ],
+                'required' => true,
+            ]
+        );
     }
 
     public function buildView(FormView $view, FormInterface $form, array $options): void

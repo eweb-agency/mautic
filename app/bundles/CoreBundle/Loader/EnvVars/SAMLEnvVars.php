@@ -25,5 +25,8 @@ class SAMLEnvVars implements EnvVarsInterface
 
         $envVars->set('MAUTIC_SAML_LOGIN_PATH', '/s/saml/login');
         $envVars->set('MAUTIC_SAML_LOGIN_CHECK_PATH', '/s/saml/login_check');
+        $envVars->set('MAUTIC_SAML_REQUIRED_GROUP_ID', (string) $config->get('saml_required_group_id'));
+        $envVars->set('MAUTIC_SAML_GROUP_ATTRIBUTE', $config->get('saml_group_attribute') ?: 'Group');
+        $envVars->set('MAUTIC_SAML_ROLE_ATTRIBUTE', $config->get('saml_role_attribute') ?: 'Role');
     }
 }

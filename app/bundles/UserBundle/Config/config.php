@@ -220,6 +220,9 @@ return [
                         'firstname' => '%mautic.saml_idp_firstname_attribute%',
                         'lastname'  => '%mautic.saml_idp_lastname_attribute%',
                     ],
+                    '%mautic.saml_group_attribute%',
+                    '%mautic.saml_role_attribute%',
+                    '%mautic.saml_required_group_id%',
                 ],
             ],
 
@@ -269,5 +272,8 @@ return [
         'saml_idp_firstname_attribute' => '',
         'saml_idp_lastname_attribute'  => '',
         'saml_idp_default_role'        => '',
+        'saml_group_attribute'         => 'Group',
+        'saml_role_attribute'          => 'Role',
+        'saml_required_group_id'       => '',
     ],
 ];

@@ -160,6 +160,9 @@ $container->loadFromExtension(
 
 $container->setParameter('mautic.saml_idp_entity_id', '%env(MAUTIC_SAML_ENTITY_ID)%');
 $container->setParameter('mautic.saml_enabled', '%env(bool:MAUTIC_SAML_ENABLED)%');
+$container->setParameter('mautic.saml_required_group_id', '%env(string:default::MAUTIC_SAML_REQUIRED_GROUP_ID)%');
+$container->setParameter('mautic.saml_group_attribute', '%env(default::MAUTIC_SAML_GROUP_ATTRIBUTE)%');
+$container->setParameter('mautic.saml_role_attribute', '%env(default::MAUTIC_SAML_ROLE_ATTRIBUTE)%');
 $container->loadFromExtension(
     'light_saml_symfony_bridge',
     [

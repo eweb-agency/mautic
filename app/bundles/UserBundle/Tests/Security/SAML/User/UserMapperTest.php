@@ -27,7 +27,10 @@ class UserMapperTest extends TestCase
                 'firstname' => 'FirstName',
                 'lastname'  => 'LastName',
                 'username'  => null,
-            ]
+            ],
+            'Group',
+            'Role',
+            '' // pas de groupe requis pour les tests basiques
         );
 
         $emailAttribute = $this->createMock(Attribute::class);
@@ -77,6 +80,39 @@ class UserMapperTest extends TestCase
 
     public function testUsernameIsReturned(): void
     {
+        $username = $this->mapper->getUsername($this->response);
+        $this->assertEquals('hello@there.com', $username);
+    }
+
+    /**
+     * Test que getUsername lève une exception si le groupe requis est configuré mais absent.
+     */
+    public function testGetUsernameThrowsExceptionWhenRequiredGroupMissing(): void
+    {
+        $this->expectException(\Symfony\Component\Security\Core\Exception\BadCredentialsException::class);
+        $this->expectExceptionMessage('User missing required SAML group.');
+
+        $mapper = new UserMapper(
+            [
+                'email'     => 'EmailAddress',
+                'firstname' => 'FirstName',
+                'lastname'  => 'LastName',
+                'username'  => null,
+            ],
+            'Group',
+            'Role',
+            'required-org-id'
+        );
+
+        $mapper->getUsername($this->response);
+    }
+
+    /**
+     * Test que getUsername accepte l'authentification quand aucun groupe n'est requis.
+     */
+    public function testGetUsernameAcceptsWhenNoGroupRequired(): void
+    {
+        // Le mapper du setUp n'a pas de groupe requis, donc ça doit passer
         $username = $this->mapper->getUsername($this->response);
         $this->assertEquals('hello@there.com', $username);
     }
