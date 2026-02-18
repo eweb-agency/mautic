@@ -41,6 +41,14 @@ class AuthenticationHandler implements AuthenticationSuccessHandlerInterface, Au
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): Response
     {
+        // DEBUG: Log authentication failure
+        error_log('=== AUTH FAILURE DEBUG ===');
+        error_log('AUTH FAILURE: Exception class: '.get_class($exception));
+        error_log('AUTH FAILURE: Message: '.$exception->getMessage());
+        error_log('AUTH FAILURE: Previous: '.($exception->getPrevious() ? $exception->getPrevious()->getMessage() : 'none'));
+        error_log('AUTH FAILURE: Trace: '.$exception->getTraceAsString());
+        error_log('=== AUTH FAILURE DEBUG END ===');
+
         // Remove post_logout if set
         $request->getSession()->remove('post_logout');
 

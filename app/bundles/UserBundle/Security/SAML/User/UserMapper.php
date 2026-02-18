@@ -25,15 +25,24 @@ class UserMapper implements UsernameMapperInterface
 
     public function getUsername(Response $response): ?string
     {
+        error_log('=== SAML AUTH DEBUG START ===');
         $context = $this->resolveContext($response);
 
+        error_log('SAML: requiredGroupId = '.var_export($this->requiredGroupId, true));
+        error_log('SAML: hasRequiredGroup() = '.var_export($context->hasRequiredGroup(), true));
+        error_log('SAML: getMatchedGroup() = '.var_export($context->getMatchedGroup(), true));
+
         if (null !== $context->getMatchedGroup() || $context->hasRequiredGroup()) {
-            // ok
+            error_log('SAML: Group check PASSED');
         } else {
+            error_log('SAML: Group check FAILED - throwing BadCredentialsException');
+            error_log('=== SAML AUTH DEBUG END ===');
             throw new BadCredentialsException('User missing required SAML group.');
         }
 
         $user = $this->getUser($response);
+        error_log('SAML: User identifier = '.$user->getUserIdentifier());
+        error_log('=== SAML AUTH DEBUG END ===');
 
         return $user->getUserIdentifier();
     }
@@ -82,6 +91,11 @@ class UserMapper implements UsernameMapperInterface
             $roles  = array_merge($roles, $this->extractMultiValueAttributes($assertion, $this->roleAttribute));
         }
 
+        error_log('SAML buildContext: groupAttribute = '.$this->groupAttribute);
+        error_log('SAML buildContext: roleAttribute = '.$this->roleAttribute);
+        error_log('SAML buildContext: groups found = '.json_encode($groups));
+        error_log('SAML buildContext: roles found = '.json_encode($roles));
+
         return new SamlUserContext($this->requiredGroupId, $groups, $roles);
     }
 
@@ -112,6 +126,18 @@ class UserMapper implements UsernameMapperInterface
     {
         $attributes = [];
 
+        // DEBUG: Log attribute mapping config
+        error_log('SAML extractAttributes: Looking for attributes: '.json_encode($this->attributes));
+
+        // DEBUG: Log all available attributes in the assertion
+        foreach ($assertion->getAllAttributeStatements() as $attributeStatement) {
+            $allAttrs = [];
+            foreach ($attributeStatement->getAllAttributes() as $attr) {
+                $allAttrs[$attr->getName()] = $attr->getFirstAttributeValue();
+            }
+            error_log('SAML extractAttributes: Available attributes in assertion: '.json_encode($allAttrs));
+        }
+
         foreach ($this->attributes as $key => $attributeName) {
             if (!$attributeName) {
                 continue;
@@ -124,6 +150,8 @@ class UserMapper implements UsernameMapperInterface
                 }
             }
         }
+
+        error_log('SAML extractAttributes: Extracted attributes: '.json_encode($attributes));
 
         return $attributes;
     }
