@@ -185,6 +185,12 @@ class ProfileController extends FormController
                             }
 
                             $this->addFlashMessage($message, $messageVars);
+                        } else {
+                            // Invalidate translation cache so Symfony regenerates catalogues for the new language
+                            $translationCacheDir = $this->getParameter('kernel.cache_dir').'/translations';
+                            if (is_dir($translationCacheDir)) {
+                                (new \Symfony\Component\Filesystem\Filesystem())->remove($translationCacheDir);
+                            }
                         }
                     }
 

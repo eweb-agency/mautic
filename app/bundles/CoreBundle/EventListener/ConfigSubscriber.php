@@ -7,12 +7,15 @@ use Mautic\ConfigBundle\Event\ConfigBuilderEvent;
 use Mautic\ConfigBundle\Event\ConfigEvent;
 use Mautic\CoreBundle\Form\Type\ConfigType;
 use Mautic\CoreBundle\Helper\LanguageHelper;
+use Mautic\CoreBundle\Helper\PathsHelper;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\Filesystem\Filesystem;
 
 class ConfigSubscriber implements EventSubscriberInterface
 {
     public function __construct(
         private LanguageHelper $languageHelper,
+        private PathsHelper $pathsHelper,
     ) {
     }
 
@@ -64,6 +67,12 @@ class ConfigSubscriber implements EventSubscriberInterface
                 }
 
                 $event->setError($message, $messageVars);
+            } else {
+                // Invalidate translation cache so Symfony regenerates catalogues for the new language
+                $cacheDir = $this->pathsHelper->getSystemPath('cache').'/translations';
+                if (is_dir($cacheDir)) {
+                    (new Filesystem())->remove($cacheDir);
+                }
             }
         }
 
