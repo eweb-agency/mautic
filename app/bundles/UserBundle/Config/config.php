@@ -166,6 +166,10 @@ return [
             ],
 
             // SAML
+            'mautic.security.saml.login_check_guard' => [
+                'class' => Mautic\UserBundle\EventListener\SAMLLoginCheckGuardListener::class,
+                'tag'   => 'kernel.event_subscriber',
+            ],
             'mautic.security.saml.credential_store' => [
                 'class'     => Mautic\UserBundle\Security\SAML\Store\CredentialsStore::class,
                 'arguments' => [
