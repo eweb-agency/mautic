@@ -53,6 +53,14 @@ class AuthenticationHandler implements AuthenticationSuccessHandlerInterface, Au
 
             return $response;
         } else {
+            // Redirect to external URL if configured (e.g. saas-core dashboard)
+            $failureRedirectUrl = getenv('MAUTIC_AUTH_FAILURE_REDIRECT_URL');
+            if ($failureRedirectUrl && str_starts_with($failureRedirectUrl, 'http')) {
+                $separator = str_contains($failureRedirectUrl, '?') ? '&' : '?';
+
+                return new RedirectResponse($failureRedirectUrl.$separator.'error=access_denied');
+            }
+
             $request->getSession()->set(SecurityRequestAttributes::AUTHENTICATION_ERROR, $exception);
 
             return new RedirectResponse($this->router->generate('login'));
