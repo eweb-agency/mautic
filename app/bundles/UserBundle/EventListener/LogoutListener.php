@@ -7,6 +7,7 @@ use Mautic\UserBundle\Event\LogoutEvent;
 use Mautic\UserBundle\Model\UserModel;
 use Mautic\UserBundle\UserEvents;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 class LogoutListener implements \Symfony\Component\EventDispatcher\EventSubscriberInterface
 {
@@ -37,6 +38,13 @@ class LogoutListener implements \Symfony\Component\EventDispatcher\EventSubscrib
 
         // Note that a logout occurred
         $session->set('post_logout', true);
+
+        // Force redirect to external logout URL if configured (reads env var directly
+        // to avoid Symfony %env()% timing issues with Mautic's ParameterLoader)
+        $logoutRedirectUrl = getenv('MAUTIC_LOGOUT_REDIRECT_URL');
+        if ($logoutRedirectUrl && str_starts_with($logoutRedirectUrl, 'http')) {
+            $logoutEvent->setResponse(new RedirectResponse($logoutRedirectUrl));
+        }
     }
 
     /**

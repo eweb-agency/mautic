@@ -35,5 +35,9 @@ class SAMLEnvVars implements EnvVarsInterface
         $envVars->set('MAUTIC_SAML_REQUIRED_GROUP_ID', (string) ($config->get('saml_required_group_id') ?: getenv('MAUTIC_SAML_REQUIRED_GROUP_ID')));
         $envVars->set('MAUTIC_SAML_GROUP_ATTRIBUTE', $config->get('saml_group_attribute') ?: getenv('MAUTIC_SAML_GROUP_ATTRIBUTE') ?: 'Group');
         $envVars->set('MAUTIC_SAML_ROLE_ATTRIBUTE', $config->get('saml_role_attribute') ?: getenv('MAUTIC_SAML_ROLE_ATTRIBUTE') ?: 'Role');
+
+        // Logout redirect: explicit env var, fallback to /s/login
+        $envVars->set('MAUTIC_LOGOUT_REDIRECT_URL', getenv('MAUTIC_LOGOUT_REDIRECT_URL') ?: '/s/login');
+        $envVars->set('MAUTIC_AUTH_FAILURE_REDIRECT_URL', getenv('MAUTIC_AUTH_FAILURE_REDIRECT_URL') ?: '/s/login');
     }
 }

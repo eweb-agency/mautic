@@ -19,5 +19,8 @@ webimage_extra_packages: ["php${DDEV_PHP_VERSION}-imap"]
 use_dns_when_possible: true
 composer_version: "2"
 nodejs_version: "24"
-web_environment: []
+web_environment:
+    - "MAUTIC_SAML_REQUIRED_GROUP_ID=57f5ac2a-b3ca-4af6-864e-52ac500ede08"
+    - "MAUTIC_LOGOUT_REDIRECT_URL=http://localhost:3000/fr/auth/logout"
+    - "MAUTIC_AUTH_FAILURE_REDIRECT_URL=http://localhost:3000/fr/dashboard"
 corepack_enable: false
