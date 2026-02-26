@@ -106,6 +106,7 @@
 /media/js/jquery.min.js
 
 /plugins/*
+!/plugins/EwebSaasLimitBundle
 !/plugins/GrapesJsBuilderBundle
 !/plugins/MauticClearbitBundle
 !/plugins/MauticCloudStorageBundle
