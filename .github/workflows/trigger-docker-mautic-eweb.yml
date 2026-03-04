@@ -1,0 +1,51 @@
+name: Trigger Docker Build
+
+on:
+  push:
+    branches:
+      - 7.x
+      - 7.x-dev
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compute target tag
+        id: compute
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          if [[ "$BRANCH" == "7.x" ]]; then
+            TARGET_TAG="latest"
+          else
+            TARGET_TAG="dev"
+          fi
+          echo "target_tag=$TARGET_TAG" >> $GITHUB_OUTPUT
+          echo "commit_short=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "🎯 Branch: $BRANCH → Tag: $TARGET_TAG"
+
+      - name: Trigger docker-mautic build
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          repository: eweb-agency/docker-mautic
+          event-type: mautic-source-updated
+          client-payload: |
+            {
+              "branch": "${{ github.ref_name }}",
+              "commit": "${{ github.sha }}",
+              "commit_short": "${{ steps.compute.outputs.commit_short }}",
+              "target_tag": "${{ steps.compute.outputs.target_tag }}"
+            }
+
+      - name: Generate summary
+        run: |
+          echo "## 🔗 Docker Build Triggered" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | \`${{ steps.compute.outputs.commit_short }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Target Tag** | \`${{ steps.compute.outputs.target_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "➡️ Triggered \`docker-mautic\` build workflow" >> $GITHUB_STEP_SUMMARY
+
