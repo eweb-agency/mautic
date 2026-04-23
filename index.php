@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 
 ErrorHandler::register($_SERVER['APP_ENV']);
 
+$_SERVER['HTTPS'] = 'on';
 $kernel   = (new MiddlewareBuilder(new AppKernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG'])))->resolve();
 $request  = Request::createFromGlobals();
 $response = $kernel->handle($request);
