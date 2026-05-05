@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MauticPlugin\EwebSaasLimitBundle\Service;
+namespace MauticPlugin\EwebSaasBundle\Service;
 
 use Doctrine\DBAL\Connection;
-use MauticPlugin\EwebSaasLimitBundle\Exception\ContactLimitExceededException;
+use MauticPlugin\EwebSaasBundle\Exception\ContactLimitExceededException;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Contracts\Cache\CacheInterface;
@@ -33,7 +33,7 @@ class ContactLimitChecker
         $this->cache      = $cache ?? new FilesystemAdapter('eweb_saas_limit', self::CACHE_TTL);
         $this->leadsTable = (defined('MAUTIC_TABLE_PREFIX') ? MAUTIC_TABLE_PREFIX : '').'leads';
 
-        $this->logger->debug('EwebSaasLimitBundle: Initialized with MAUTIC_CONTACT_MAX_LIMIT={limit}', [
+        $this->logger->debug('EwebSaasBundle: Initialized with MAUTIC_CONTACT_MAX_LIMIT={limit}', [
             'limit' => $this->maxLimit,
         ]);
     }
@@ -66,7 +66,7 @@ class ContactLimitChecker
                 'SELECT COUNT(*) FROM '.$this->leadsTable
             );
 
-            $this->logger->debug('EwebSaasLimitBundle: Refreshed contact count from DB', [
+            $this->logger->debug('EwebSaasBundle: Refreshed contact count from DB', [
                 'count' => $count,
             ]);
 
@@ -80,7 +80,7 @@ class ContactLimitChecker
     public function invalidateCache(): void
     {
         $this->cache->delete(self::CACHE_KEY);
-        $this->logger->debug('EwebSaasLimitBundle: Contact count cache invalidated');
+        $this->logger->debug('EwebSaasBundle: Contact count cache invalidated');
     }
 
     /**
@@ -106,7 +106,7 @@ class ContactLimitChecker
     public function assertCanCreateContact(): void
     {
         if (!$this->isLimitEnabled()) {
-            $this->logger->debug('EwebSaasLimitBundle: No limit configured, allowing contact creation');
+            $this->logger->debug('EwebSaasBundle: No limit configured, allowing contact creation');
 
             return;
         }
@@ -114,7 +114,7 @@ class ContactLimitChecker
         $currentCount = $this->getCurrentContactCount();
 
         if ($currentCount >= $this->maxLimit) {
-            $this->logger->warning('EwebSaasLimitBundle: Contact limit reached, blocking creation', [
+            $this->logger->warning('EwebSaasBundle: Contact limit reached, blocking creation', [
                 'currentCount' => $currentCount,
                 'maxLimit'     => $this->maxLimit,
             ]);
@@ -122,7 +122,7 @@ class ContactLimitChecker
             throw new ContactLimitExceededException($currentCount, $this->maxLimit);
         }
 
-        $this->logger->debug('EwebSaasLimitBundle: Contact creation allowed', [
+        $this->logger->debug('EwebSaasBundle: Contact creation allowed', [
             'currentCount' => $currentCount,
             'maxLimit'     => $this->maxLimit,
         ]);

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MauticPlugin\EwebSaasLimitBundle\Tests\Unit\EventListener;
+namespace MauticPlugin\EwebSaasBundle\Tests\Unit\EventListener;
 
 use Mautic\LeadBundle\Entity\Import;
 use Mautic\LeadBundle\Entity\Lead;
@@ -10,9 +10,9 @@ use Mautic\LeadBundle\Entity\LeadEventLog;
 use Mautic\LeadBundle\Event\ImportProcessEvent;
 use Mautic\LeadBundle\Event\ImportValidateEvent;
 use Mautic\LeadBundle\Event\LeadEvent;
-use MauticPlugin\EwebSaasLimitBundle\EventListener\ContactLimitSubscriber;
-use MauticPlugin\EwebSaasLimitBundle\Exception\ContactLimitExceededException;
-use MauticPlugin\EwebSaasLimitBundle\Service\ContactLimitChecker;
+use MauticPlugin\EwebSaasBundle\EventListener\ContactLimitSubscriber;
+use MauticPlugin\EwebSaasBundle\Exception\ContactLimitExceededException;
+use MauticPlugin\EwebSaasBundle\Service\ContactLimitChecker;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -37,46 +37,11 @@ class ContactLimitSubscriberTest extends TestCase
     {
         $events = ContactLimitSubscriber::getSubscribedEvents();
 
-        $this->assertArrayHasKey('mautic.lead_pre_save', $events);
         $this->assertArrayHasKey('mautic.lead_post_save', $events);
         $this->assertArrayHasKey('mautic.lead_import_on_process', $events);
         $this->assertArrayHasKey('mautic.lead_import_on_validate', $events);
     }
 
-    public function testPreSaveSkipsExistingContacts(): void
-    {
-        $lead  = new Lead();
-        $event = new LeadEvent($lead, false);
-
-        $this->contactLimitChecker->expects($this->never())
-            ->method('assertCanCreateContact');
-
-        $this->subscriber->onLeadPreSave($event);
-    }
-
-    public function testPreSaveCallsCheckerForNewContacts(): void
-    {
-        $lead  = new Lead();
-        $event = new LeadEvent($lead, true);
-
-        $this->contactLimitChecker->expects($this->once())
-            ->method('assertCanCreateContact');
-
-        $this->subscriber->onLeadPreSave($event);
-    }
-
-    public function testPreSaveThrowsWhenLimitExceeded(): void
-    {
-        $lead  = new Lead();
-        $event = new LeadEvent($lead, true);
-
-        $this->contactLimitChecker->expects($this->once())
-            ->method('assertCanCreateContact')
-            ->willThrowException(new ContactLimitExceededException(10, 10));
-
-        $this->expectException(ContactLimitExceededException::class);
-        $this->subscriber->onLeadPreSave($event);
-    }
 
     public function testPostSaveInvalidatesCacheForNewContacts(): void
     {
@@ -90,12 +55,15 @@ class ContactLimitSubscriberTest extends TestCase
         $this->subscriber->onLeadPostSave($event);
     }
 
-    public function testPostSaveSkipsExistingContacts(): void
+    public function testPostSaveInvalidatesCacheForExistingContacts(): void
     {
+        // The subscriber invalidates cache on every save (not just new) because
+        // Mautic's double-save pattern makes isNew() unreliable.
         $lead  = new Lead();
         $event = new LeadEvent($lead, false);
 
-        $this->contactLimitChecker->expects($this->never())
+        $this->contactLimitChecker->method('isLimitEnabled')->willReturn(true);
+        $this->contactLimitChecker->expects($this->once())
             ->method('invalidateCache');
 
         $this->subscriber->onLeadPostSave($event);

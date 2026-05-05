@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace MauticPlugin\EwebSaasLimitBundle\DependencyInjection;
+namespace MauticPlugin\EwebSaasBundle\DependencyInjection;
 
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Loader\PhpFileLoader;
 
-class EwebSaasLimitExtension extends Extension
+class EwebSaasExtension extends Extension
 {
     /**
      * @param mixed[] $configs

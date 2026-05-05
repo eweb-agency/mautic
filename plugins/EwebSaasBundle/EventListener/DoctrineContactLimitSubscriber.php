@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace MauticPlugin\EwebSaasLimitBundle\EventListener;
+namespace MauticPlugin\EwebSaasBundle\EventListener;
 
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsEntityListener;
 use Doctrine\ORM\Event\LifecycleEventArgs;
 use Doctrine\ORM\Events;
 use Mautic\LeadBundle\Entity\Lead;
-use MauticPlugin\EwebSaasLimitBundle\Exception\ContactLimitExceededException;
-use MauticPlugin\EwebSaasLimitBundle\Service\ContactLimitChecker;
+use MauticPlugin\EwebSaasBundle\Exception\ContactLimitExceededException;
+use MauticPlugin\EwebSaasBundle\Service\ContactLimitChecker;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -39,12 +39,12 @@ class DoctrineContactLimitSubscriber
     public function prePersist(Lead $lead, LifecycleEventArgs $event): void
     {
         if (!$this->contactLimitChecker->isLimitEnabled()) {
-            $this->logger->debug('EwebSaasLimitBundle: [Doctrine prePersist] No limit configured, allowing contact creation');
+            $this->logger->debug('EwebSaasBundle: [Doctrine prePersist] No limit configured, allowing contact creation');
 
             return;
         }
 
-        $this->logger->info('EwebSaasLimitBundle: [Doctrine prePersist] Checking contact limit before INSERT', [
+        $this->logger->info('EwebSaasBundle: [Doctrine prePersist] Checking contact limit before INSERT', [
             'email' => $lead->getEmail(),
         ]);
 
@@ -52,7 +52,7 @@ class DoctrineContactLimitSubscriber
         $this->contactLimitChecker->invalidateCache();
         $this->contactLimitChecker->assertCanCreateContact();
 
-        $this->logger->info('EwebSaasLimitBundle: [Doctrine prePersist] Contact creation allowed', [
+        $this->logger->info('EwebSaasBundle: [Doctrine prePersist] Contact creation allowed', [
             'email'        => $lead->getEmail(),
             'currentCount' => $this->contactLimitChecker->getCurrentContactCount(),
             'maxLimit'     => $this->contactLimitChecker->getMaxLimit(),

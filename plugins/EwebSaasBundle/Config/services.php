@@ -15,6 +15,6 @@ return function (ContainerConfigurator $configurator): void {
     $excludes = [
     ];
 
-    $services->load('MauticPlugin\\EwebSaasLimitBundle\\', '../')
+    $services->load('MauticPlugin\\EwebSaasBundle\\', '../')
         ->exclude('../{'.implode(',', array_merge(MauticCoreExtension::DEFAULT_EXCLUDES, $excludes)).'}');
 };

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MauticPlugin\EwebSaasLimitBundle\Tests\Unit\Service;
+namespace MauticPlugin\EwebSaasBundle\Tests\Unit\Service;
 
 use Doctrine\DBAL\Connection;
-use MauticPlugin\EwebSaasLimitBundle\Exception\ContactLimitExceededException;
-use MauticPlugin\EwebSaasLimitBundle\Service\ContactLimitChecker;
+use MauticPlugin\EwebSaasBundle\Exception\ContactLimitExceededException;
+use MauticPlugin\EwebSaasBundle\Service\ContactLimitChecker;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;

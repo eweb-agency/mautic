@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace MauticPlugin\EwebSaasLimitBundle\EventListener;
+namespace MauticPlugin\EwebSaasBundle\EventListener;
 
 use Mautic\LeadBundle\Event\ImportProcessEvent;
 use Mautic\LeadBundle\Event\ImportValidateEvent;
 use Mautic\LeadBundle\Event\LeadEvent;
 use Mautic\LeadBundle\LeadEvents;
-use MauticPlugin\EwebSaasLimitBundle\Exception\ContactLimitExceededException;
-use MauticPlugin\EwebSaasLimitBundle\Service\ContactLimitChecker;
+use MauticPlugin\EwebSaasBundle\Exception\ContactLimitExceededException;
+use MauticPlugin\EwebSaasBundle\Service\ContactLimitChecker;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
@@ -48,7 +48,7 @@ class ContactLimitSubscriber implements EventSubscriberInterface
 
         $this->contactLimitChecker->invalidateCache();
 
-        $this->logger->debug('EwebSaasLimitBundle: Contact saved, cache invalidated', [
+        $this->logger->debug('EwebSaasBundle: Contact saved, cache invalidated', [
             'contactId' => $event->getLead()->getId(),
         ]);
     }
@@ -70,12 +70,12 @@ class ContactLimitSubscriber implements EventSubscriberInterface
         }
 
         if (!$this->contactLimitChecker->isLimitEnabled()) {
-            $this->logger->debug('EwebSaasLimitBundle: No limit configured, allowing import row');
+            $this->logger->debug('EwebSaasBundle: No limit configured, allowing import row');
 
             return;
         }
 
-        $this->logger->info('EwebSaasLimitBundle: Checking contact limit for import row', [
+        $this->logger->info('EwebSaasBundle: Checking contact limit for import row', [
             'importId' => $event->import->getId(),
         ]);
 
@@ -96,7 +96,7 @@ class ContactLimitSubscriber implements EventSubscriberInterface
         }
 
         if (!$this->contactLimitChecker->canCreateContact()) {
-            $this->logger->warning('EwebSaasLimitBundle: Contact limit already reached at import validation', [
+            $this->logger->warning('EwebSaasBundle: Contact limit already reached at import validation', [
                 'currentCount' => $this->contactLimitChecker->getCurrentContactCount(),
                 'maxLimit'     => $this->contactLimitChecker->getMaxLimit(),
             ]);

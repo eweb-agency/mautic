@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MauticPlugin\EwebSaasLimitBundle\Exception;
+namespace MauticPlugin\EwebSaasBundle\Exception;
 
 class ContactLimitExceededException extends \RuntimeException
 {

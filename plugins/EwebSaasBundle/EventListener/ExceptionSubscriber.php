@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MauticPlugin\EwebSaasLimitBundle\EventListener;
+namespace MauticPlugin\EwebSaasBundle\EventListener;
 
-use MauticPlugin\EwebSaasLimitBundle\Exception\ContactLimitExceededException;
+use MauticPlugin\EwebSaasBundle\Exception\ContactLimitExceededException;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -46,7 +46,7 @@ class ExceptionSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $this->logger->warning('EwebSaasLimitBundle: Intercepted ContactLimitExceededException in kernel.exception', [
+        $this->logger->warning('EwebSaasBundle: Intercepted ContactLimitExceededException in kernel.exception', [
             'message'      => $contactLimitException->getMessage(),
             'currentCount' => $contactLimitException->getCurrentCount(),
             'maxLimit'     => $contactLimitException->getMaxLimit(),

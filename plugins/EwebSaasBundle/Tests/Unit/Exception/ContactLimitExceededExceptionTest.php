@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MauticPlugin\EwebSaasLimitBundle\Tests\Unit\Exception;
+namespace MauticPlugin\EwebSaasBundle\Tests\Unit\Exception;
 
-use MauticPlugin\EwebSaasLimitBundle\Exception\ContactLimitExceededException;
+use MauticPlugin\EwebSaasBundle\Exception\ContactLimitExceededException;
 use PHPUnit\Framework\TestCase;
 
 class ContactLimitExceededExceptionTest extends TestCase
