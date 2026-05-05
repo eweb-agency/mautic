@@ -55,13 +55,25 @@ class UserMapper implements UsernameMapperInterface
     public function pullContext(Response $response): SamlUserContext
     {
         if (null !== $this->lastContext) {
-            $context             = $this->lastContext;
-            $this->lastContext   = null;
+            $context           = $this->lastContext;
+            $this->lastContext = null;
 
             return $context;
         }
 
         return $this->resolveContext($response);
+    }
+
+    /**
+     * Returns the last resolved context without consuming it.
+     *
+     * Useful for subscribers that need to read the matched Keycloak role after
+     * authentication (e.g. to sync an existing user's role on login). Unlike
+     * pullContext(), this does NOT clear the cached context.
+     */
+    public function getLastContext(): ?SamlUserContext
+    {
+        return $this->lastContext;
     }
 
     private function resolveContext(Response $response): SamlUserContext

@@ -230,6 +230,13 @@ return [
                 ],
             ],
 
+            'mautic.security.saml.role_mapper' => [
+                'class'     => Mautic\UserBundle\Security\SAML\User\RoleMapper::class,
+                'arguments' => [
+                    '%mautic.saml_role_id_map%',
+                ],
+            ],
+
             'mautic.security.saml.user_creator' => [
                 'class'     => Mautic\UserBundle\Security\SAML\User\UserCreator::class,
                 'arguments' => [
@@ -238,6 +245,7 @@ return [
                     'mautic.user.model.user',
                     'security.password_hasher',
                     '%mautic.saml_idp_default_role%',
+                    'mautic.security.saml.role_mapper',
                 ],
             ],
             'mautic.security.user_token_setter' => [
@@ -279,5 +287,6 @@ return [
         'saml_group_attribute'         => 'Group',
         'saml_role_attribute'          => 'Role',
         'saml_required_group_id'       => '',
+        'saml_role_id_map'             => '',
     ],
 ];

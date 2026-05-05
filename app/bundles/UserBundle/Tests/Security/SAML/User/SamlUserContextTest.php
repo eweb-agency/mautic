@@ -125,4 +125,56 @@ class SamlUserContextTest extends TestCase
         $this->assertTrue($context->hasRequiredGroup()); // accepté
         $this->assertEquals('owner', $context->getMatchedRole());
     }
+
+    /**
+     * Test que le rôle est extrait depuis le format Keycloak
+     * /org-id/apps/mautic/roles/role_name.
+     */
+    public function testGetMatchedRoleExtractsRoleFromKeycloakAppPath(): void
+    {
+        $context = new SamlUserContext(
+            'org-id',
+            ['org-id'],
+            ['org-id/apps/mautic/roles/member']
+        );
+
+        $this->assertEquals('member', $context->getMatchedRole());
+    }
+
+    /**
+     * Test que le rôle peut être extrait depuis Group en fallback quand
+     * l'attribut Role ne contient que des rôles techniques Keycloak.
+     */
+    public function testGetMatchedRoleFallsBackToGroupsWhenRoleAttributeHasOnlyTechnicalValues(): void
+    {
+        $context = new SamlUserContext(
+            'org-id',
+            [
+                '/org-id',
+                '/org-id/apps/mautic/roles/member',
+            ],
+            [
+                'offline_access',
+                'uma_authorization',
+                'default-roles-dev',
+            ]
+        );
+
+        $this->assertEquals('member', $context->getMatchedRole());
+    }
+
+    /**
+     * Sécurité: un groupe d'une autre app ne doit pas être considéré comme
+     * un rôle Mautic.
+     */
+    public function testGetMatchedRoleRejectsRolesFromOtherApps(): void
+    {
+        $context = new SamlUserContext(
+            'org-id',
+            ['org-id', '/org-id/apps/other_app/roles/superadmin'],
+            []
+        );
+
+        $this->assertNull($context->getMatchedRole());
+    }
 }

@@ -30,6 +30,7 @@ class UserCreator implements UserCreatorInterface
         private UserModel $userModel,
         private UserPasswordHasher $hasher,
         $defaultRole,
+        private RoleMapper $roleMapper,
     ) {
         $this->defaultRole = (int) $defaultRole;
     }
@@ -45,10 +46,7 @@ class UserCreator implements UserCreatorInterface
             throw new BadCredentialsException('User missing required SAML group.');
         }
 
-        $roleEntity = $this->findRoleForSaml($context->getMatchedRole());
-        if (null === $roleEntity) {
-            $roleEntity = $this->getDefaultRole();
-        }
+        $roleEntity = $this->resolveRole($context->getMatchedRole());
 
         $user = $this->userMapper->getUser($response);
         $user->setPassword($this->userModel->checkNewPassword($user, $this->hasher, EncryptionHelper::generateKey()));
@@ -61,7 +59,35 @@ class UserCreator implements UserCreatorInterface
         return $user;
     }
 
-    private function findRoleForSaml(?string $samlRole): ?Role
+    /**
+     * Resolves a Mautic Role entity from a SAML role name using a
+     * three-step fallback chain:
+     *
+     *   1. RoleMapper (env MAUTIC_SAML_ROLE_ID_MAP)  →  lookup by ID
+     *   2. Name lookup in DB (backward-compat)        →  lookup by name
+     *   3. Default role                               →  configured fallback
+     */
+    public function resolveRole(?string $samlRole): Role
+    {
+        if (null !== $samlRole && '' !== trim($samlRole)) {
+            $roleId = $this->roleMapper->mapToMauticRoleId($samlRole);
+            if (null !== $roleId) {
+                /** @var Role $role */
+                $role = $this->entityManager->getReference(Role::class, $roleId);
+
+                return $role;
+            }
+
+            $role = $this->findRoleByName($samlRole);
+            if (null !== $role) {
+                return $role;
+            }
+        }
+
+        return $this->getDefaultRole();
+    }
+
+    private function findRoleByName(?string $samlRole): ?Role
     {
         if (null === $samlRole || '' === trim($samlRole)) {
             return null;

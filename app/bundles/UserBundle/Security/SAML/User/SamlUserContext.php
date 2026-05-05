@@ -71,28 +71,67 @@ class SamlUserContext
             return null;
         }
 
-        foreach ($this->roles as $role) {
-            $role = trim((string) $role);
-            if ('' === $role) {
-                continue;
+        // Primary source: configured role attribute (legacy behavior).
+        $fromRoles = $this->matchRoleFromCandidates($this->roles);
+        if (null !== $fromRoles) {
+            return $fromRoles;
+        }
+
+        // Fallback: some IdPs (Keycloak setup here) embed app roles in Group.
+        return $this->matchRoleFromCandidates($this->groups);
+    }
+
+    /**
+     * @param string[] $candidates
+     */
+    private function matchRoleFromCandidates(array $candidates): ?string
+    {
+        foreach ($candidates as $candidate) {
+            $roleName = $this->extractRoleName($candidate);
+            if (null !== $roleName) {
+                return $roleName;
             }
+        }
 
-            $segments = explode('/', trim($role, '/'));
-            if (count($segments) < 3) {
-                continue;
-            }
+        return null;
+    }
 
-            [$orgId, $rolesKeyword, $roleName] = [$segments[0], $segments[1], $segments[2]];
+    private function extractRoleName(string $value): ?string
+    {
+        $value = trim((string) $value);
+        if ('' === $value) {
+            return null;
+        }
 
-            if (null !== $this->requiredGroupId && $orgId !== $this->matchedGroup) {
-                continue;
-            }
+        $segments = array_values(array_filter(explode('/', trim($value, '/')), static fn (string $segment): bool => '' !== trim($segment)));
+        if (count($segments) < 3) {
+            return null;
+        }
 
-            if ('roles' !== strtolower($rolesKeyword)) {
-                continue;
-            }
+        $orgId = $segments[0];
+        if (null !== $this->requiredGroupId && $orgId !== $this->matchedGroup) {
+            return null;
+        }
 
-            return $roleName;
+        // Format A: /{orgId}/roles/{roleName}
+        if ('roles' === strtolower($segments[1])) {
+            $roleName = $segments[2] ?? '';
+
+            return '' !== trim($roleName) ? $roleName : null;
+        }
+
+        // Format B: /{orgId}/apps/mautic/roles/{roleName}
+        // Strict: only the "mautic" app is accepted to avoid privilege
+        // escalation via groups belonging to other apps.
+        if (
+            count($segments) >= 5
+            && 'apps' === strtolower($segments[1])
+            && 'mautic' === strtolower($segments[2])
+            && 'roles' === strtolower($segments[3])
+        ) {
+            $roleName = $segments[4] ?? '';
+
+            return '' !== trim($roleName) ? $roleName : null;
         }
 
         return null;
