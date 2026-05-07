@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "95b9ed23db0f0d7e87c87627c2843493",
+    "content-hash": "532d8a0891198a2f4ec36f9fe0ac0098",
     "packages": [
         {
             "name": "api-platform/core",
@@ -1460,6 +1460,50 @@
                 }
             ],
             "time": "2024-05-06T16:37:16+00:00"
+        },
+        {
+            "name": "dignac3/mautic-mailgun-callback-bundle",
+            "version": "1.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/dignac3/mautic-mailgun-callback.git",
+                "reference": "80828d7a44c8d894c8780251e73d65499a02dbe0"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/dignac3/mautic-mailgun-callback/zipball/80828d7a44c8d894c8780251e73d65499a02dbe0",
+                "reference": "80828d7a44c8d894c8780251e73d65499a02dbe0",
+                "shasum": ""
+            },
+            "require": {
+                "mautic/core-lib": "^7.0"
+            },
+            "suggest": {
+                "symfony/mailgun-mailer": "Required for sending via Mailgun DSN (mailgun+api/https/smtp)."
+            },
+            "type": "mautic-plugin",
+            "extra": {
+                "install-directory-name": "MauticMailgunCallbackBundle"
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Mailgun callback handler for Mautic 7: processes bounces, spam complaints and unsubscribes into Mautic DNC.",
+            "keywords": [
+                "Mautic",
+                "bounce",
+                "dnc",
+                "email",
+                "mailgun",
+                "plugin",
+                "webhook"
+            ],
+            "support": {
+                "issues": "https://github.com/dignac3/mautic-mailgun-callback/issues",
+                "source": "https://github.com/dignac3/mautic-mailgun-callback/tree/1.0.0"
+            },
+            "time": "2026-05-06T15:55:51+00:00"
         },
         {
             "name": "doctrine/annotations",
