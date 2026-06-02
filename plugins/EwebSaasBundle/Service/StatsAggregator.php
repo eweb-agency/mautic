@@ -66,9 +66,11 @@ class StatsAggregator
      *         openedLast30d: int,
      *         clickedLast30d: int,
      *         bouncedLast30d: int,
+     *         unsubscribesLast30d: int,
      *         openRate: float|null,
      *         clickRate: float|null,
      *         bounceRate: float|null,
+     *         unsubscribeRate: float|null,
      *     },
      *     leads: array{newLast30d: int, identifiedLast30d: int},
      * }
@@ -200,9 +202,11 @@ class StatsAggregator
      *     openedLast30d: int,
      *     clickedLast30d: int,
      *     bouncedLast30d: int,
+     *     unsubscribesLast30d: int,
      *     openRate: float|null,
      *     clickRate: float|null,
      *     bounceRate: float|null,
+     *     unsubscribeRate: float|null,
      * }
      */
     private function emailStatsLast30d(): array
@@ -223,7 +227,11 @@ class StatsAggregator
             "SELECT COUNT(*) FROM {$emailStatsTable} WHERE date_sent >= :since AND is_failed = 1",
             ['since' => $since],
         );
-        // Clicked: page_hits linked to an email_stat (source='email')
+
+        // Unsubscribes come from lead_donotcontact, not email_stats.
+        $unsubscribed = $this->countUnsubscribesLast30d();
+
+        // Clicked: page_hits linked to an email (source='email'), deduplicated by source_id.
         $clicked = 0;
         try {
             $clicked = (int) $this->connection->fetchOne(
@@ -237,14 +245,42 @@ class StatsAggregator
         }
 
         return [
-            'sentLast30d'    => $sent,
-            'openedLast30d'  => $opened,
-            'clickedLast30d' => $clicked,
-            'bouncedLast30d' => $bounced,
-            'openRate'       => $sent > 0 ? round(($opened / $sent) * 100, 2) : null,
-            'clickRate'      => $sent > 0 ? round(($clicked / $sent) * 100, 2) : null,
-            'bounceRate'     => $sent > 0 ? round(($bounced / $sent) * 100, 2) : null,
+            'sentLast30d'         => $sent,
+            'openedLast30d'       => $opened,
+            'clickedLast30d'      => $clicked,
+            'bouncedLast30d'      => $bounced,
+            'unsubscribesLast30d' => $unsubscribed,
+            'openRate'            => $sent > 0 ? round(($opened / $sent) * 100, 2) : null,
+            'clickRate'           => $sent > 0 ? round(($clicked / $sent) * 100, 2) : null,
+            'bounceRate'          => $sent > 0 ? round(($bounced / $sent) * 100, 2) : null,
+            'unsubscribeRate'     => $sent > 0 ? round(($unsubscribed / $sent) * 100, 2) : null,
         ];
+    }
+
+    /**
+     * Count contacts that unsubscribed from email in the last 30 days.
+     *
+     * Mautic stores opt-outs in lead_donotcontact, not in email_stats.
+     * We filter on date_added to count only recent unsubscribes.
+     */
+    private function countUnsubscribesLast30d(): int
+    {
+        $dncTable = $this->prefix.'lead_donotcontact';
+        $since    = (new \DateTimeImmutable('-30 days'))->format('Y-m-d H:i:s');
+
+        try {
+            return (int) $this->connection->fetchOne(
+                "SELECT COUNT(*) FROM {$dncTable}
+                 WHERE channel = 'email' AND date_added >= :since",
+                ['since' => $since],
+            );
+        } catch (\Throwable $e) {
+            $this->logger->warning('EwebSaasBundle: count unsubscribes failed: {msg}', [
+                'msg' => $e->getMessage(),
+            ]);
+
+            return 0;
+        }
     }
 
     private function countContacts(): int
