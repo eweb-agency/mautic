@@ -24,6 +24,11 @@ class StatsAggregator
 {
     private const CACHE_TTL = 60; // 1 minute
 
+    /** Bounds of the `limit` used by {@see getRecentCampaigns()}. Shared with
+     *  {@see invalidateCache()} so every cache key it can produce is known. */
+    private const CAMPAIGNS_MIN_LIMIT = 1;
+    private const CAMPAIGNS_MAX_LIMIT = 50;
+
     private const CACHE_NAMESPACE = 'eweb_saas_stats';
 
     private readonly CacheInterface $cache;
@@ -140,14 +145,17 @@ class StatsAggregator
      *     name: string,
      *     isPublished: bool,
      *     createdAt: string|null,
-     *     sent: int,
-     *     opened: int,
-     *     clicked: int,
+     *     sent: int|null,
+     *     opened: int|null,
+     *     clicked: int|null,
      * }>
+     *
+     * Null counters mean the metric could not be measured (schema divergence
+     * or missing table) — deliberately distinct from a real 0.
      */
     public function getRecentCampaigns(int $limit = 5): array
     {
-        $limit = max(1, min($limit, 50));
+        $limit = max(self::CAMPAIGNS_MIN_LIMIT, min($limit, self::CAMPAIGNS_MAX_LIMIT));
 
         return $this->cache->get('campaigns.recent.'.$limit, function (ItemInterface $item) use ($limit): array {
             $item->expiresAfter(self::CACHE_TTL);
@@ -190,7 +198,16 @@ class StatsAggregator
     public function invalidateCache(): void
     {
         $this->cache->delete('stats.full');
-        // We don't know all campaign cache keys; rely on TTL expiry.
+
+        // The campaign keys are parameterised by `limit`, which is clamped to a
+        // known, bounded range — so every key that can exist is enumerable.
+        // Relying on TTL expiry instead made the dashboard's "Refresh" button
+        // dishonest: it returned stale campaign KPIs for up to CACHE_TTL
+        // seconds while reporting the data as fresh.
+        for ($limit = self::CAMPAIGNS_MIN_LIMIT; $limit <= self::CAMPAIGNS_MAX_LIMIT; ++$limit) {
+            $this->cache->delete('campaigns.recent.'.$limit);
+        }
+
         $this->logger->debug('EwebSaasBundle: Stats cache invalidated');
     }
 
@@ -330,7 +347,13 @@ class StatsAggregator
         }
     }
 
-    private function countEmailStatsForCampaign(int $campaignId, ?string $extraWhere = null): int
+    /**
+     * @return int|null Null when the metric cannot be measured (schema
+     *                  divergence, missing table) — deliberately distinct from
+     *                  a real 0, which would make a working campaign look
+     *                  broken in the dashboard.
+     */
+    private function countEmailStatsForCampaign(int $campaignId, ?string $extraWhere = null): ?int
     {
         $emailStatsTable = $this->prefix.'email_stats';
         $sql             = "SELECT COUNT(*) FROM {$emailStatsTable}
@@ -343,12 +366,20 @@ class StatsAggregator
         try {
             return (int) $this->connection->fetchOne($sql, ['cid' => $campaignId]);
         } catch (\Throwable $e) {
-            // Fallback: if campaign_lead_event_log schema differs, return 0
-            return 0;
+            $this->logger->warning('EwebSaasBundle: campaign email stats unmeasurable', [
+                'campaignId' => $campaignId,
+                'error'      => $e->getMessage(),
+            ]);
+
+            return null;
         }
     }
 
-    private function countCampaignClicks(int $campaignId): int
+    /**
+     * @return int|null Null when the metric cannot be measured (see
+     *                  {@see countEmailStatsForCampaign()}).
+     */
+    private function countCampaignClicks(int $campaignId): ?int
     {
         try {
             $hitsTable = $this->prefix.'page_hits';
@@ -358,8 +389,13 @@ class StatsAggregator
                  WHERE source = 'campaign.event' AND source_id = :cid",
                 ['cid' => $campaignId],
             );
-        } catch (\Throwable) {
-            return 0;
+        } catch (\Throwable $e) {
+            $this->logger->warning('EwebSaasBundle: campaign clicks unmeasurable', [
+                'campaignId' => $campaignId,
+                'error'      => $e->getMessage(),
+            ]);
+
+            return null;
         }
     }
 
