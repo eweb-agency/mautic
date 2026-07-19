@@ -174,7 +174,7 @@ class StatsAggregator
             foreach ($rows as $row) {
                 $cid    = (int) $row['id'];
                 $sent   = $this->countEmailStatsForCampaign($cid);
-                $opened = $this->countEmailStatsForCampaign($cid, 'is_read = 1');
+                $opened = $this->countEmailStatsForCampaign($cid, 'es.is_read = 1');
                 $clicked = $this->countCampaignClicks($cid);
 
                 $out[] = [
@@ -348,6 +348,10 @@ class StatsAggregator
     }
 
     /**
+     * @param string|null $extraWhere Extra SQL predicate. MUST be qualified
+     *                                 with the `es` alias (email_stats), e.g.
+     *                                 'es.is_read = 1'.
+     *
      * @return int|null Null when the metric cannot be measured (schema
      *                  divergence, missing table) — deliberately distinct from
      *                  a real 0, which would make a working campaign look
@@ -355,10 +359,23 @@ class StatsAggregator
      */
     private function countEmailStatsForCampaign(int $campaignId, ?string $extraWhere = null): ?int
     {
+        // Join on the campaign EVENT (source/source_id), not just on the lead:
+        // joining on lead_id alone counted every email the contact ever
+        // received (newsletters, other campaigns), and without DISTINCT each
+        // email row was multiplied by the contact's number of executed events
+        // — inflating "sent"/"opened" by an order of magnitude.
+        // Mautic stamps campaign sends with ['campaign.event', eventId]
+        // (EmailBundle/EventListener/CampaignSubscriber), which is what the
+        // core itself joins on.
         $emailStatsTable = $this->prefix.'email_stats';
-        $sql             = "SELECT COUNT(*) FROM {$emailStatsTable}
-                            INNER JOIN ".$this->prefix.'campaign_lead_event_log clel ON clel.lead_id = '.$emailStatsTable.'.lead_id
-                            WHERE clel.campaign_id = :cid';
+        $eventLogTable   = $this->prefix.'campaign_lead_event_log';
+        $sql             = "SELECT COUNT(DISTINCT es.id)
+                            FROM {$emailStatsTable} es
+                            INNER JOIN {$eventLogTable} clel
+                              ON es.source_id = clel.event_id
+                             AND es.lead_id = clel.lead_id
+                            WHERE es.source = 'campaign.event'
+                              AND clel.campaign_id = :cid";
         if ($extraWhere) {
             $sql .= ' AND '.$extraWhere;
         }
@@ -382,11 +399,21 @@ class StatsAggregator
     private function countCampaignClicks(int $campaignId): ?int
     {
         try {
-            $hitsTable = $this->prefix.'page_hits';
+            // page_hits.source_id holds the campaign EVENT id, never the
+            // campaign id — using $campaignId directly returned the clicks of
+            // an unrelated event whose id merely matched numerically. Resolve
+            // through campaign_lead_event_log, exactly as the Mautic core does.
+            $hitsTable     = $this->prefix.'page_hits';
+            $eventLogTable = $this->prefix.'campaign_lead_event_log';
 
             return (int) $this->connection->fetchOne(
-                "SELECT COUNT(*) FROM {$hitsTable}
-                 WHERE source = 'campaign.event' AND source_id = :cid",
+                "SELECT COUNT(DISTINCT ph.id)
+                 FROM {$hitsTable} ph
+                 INNER JOIN {$eventLogTable} clel
+                   ON ph.source_id = clel.event_id
+                  AND ph.lead_id = clel.lead_id
+                 WHERE ph.source = 'campaign.event'
+                   AND clel.campaign_id = :cid",
                 ['cid' => $campaignId],
             );
         } catch (\Throwable $e) {
