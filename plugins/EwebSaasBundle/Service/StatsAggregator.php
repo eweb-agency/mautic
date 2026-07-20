@@ -316,7 +316,10 @@ class StatsAggregator
 
     private function countContacts(): int
     {
-        // Reuse the existing checker so we share its cache and SQL.
+        // Reuse the existing checker so we share its cache and SQL — which
+        // also means `quotas.contacts.used` and `totals.contacts` follow the
+        // quota definition: IDENTIFIED contacts only. Display and enforcement
+        // cannot diverge because they are literally the same number.
         return $this->contactLimitChecker->getCurrentContactCount();
     }
 

@@ -38,6 +38,44 @@ class ContactLimitCheckerTest extends TestCase
         unset($_ENV['MAUTIC_CONTACT_MAX_LIMIT']);
     }
 
+    /**
+     * Pins the pricing definition (owner decision, 2026-07-20): the quota
+     * counts IDENTIFIED contacts only. An unfiltered COUNT(*) let anonymous
+     * tracked visitors exhaust a tenant's plan on traffic alone. Reverting
+     * the predicate turns this red.
+     */
+    public function testCountOnlyIncludesIdentifiedContacts(): void
+    {
+        $capturedSql = null;
+        $this->connection->method('fetchOne')
+            ->willReturnCallback(function (string $sql) use (&$capturedSql): int {
+                $capturedSql = $sql;
+
+                return 42;
+            });
+
+        $checker = $this->createChecker(100);
+        $this->assertSame(42, $checker->getCurrentContactCount());
+        $this->assertStringContainsString('date_identified IS NOT NULL', (string) $capturedSql);
+    }
+
+    /**
+     * The literal cache key is what every invalidateCache() call in the
+     * bundle deletes — StatsAggregator clears it through the checker on
+     * manual refresh. A silent rename would orphan them all.
+     */
+    public function testCacheKeyIsStable(): void
+    {
+        $cache                            = new ArrayAdapter();
+        $_ENV['MAUTIC_CONTACT_MAX_LIMIT'] = '100';
+        $checker                          = new ContactLimitChecker($this->connection, new NullLogger(), $cache);
+
+        $this->connection->method('fetchOne')->willReturn(7);
+        $checker->getCurrentContactCount();
+
+        $this->assertTrue($cache->getItem('eweb_saas_contact_count')->isHit());
+    }
+
     public function testIsLimitEnabledReturnsFalseWhenZero(): void
     {
         $checker = $this->createChecker(0);
