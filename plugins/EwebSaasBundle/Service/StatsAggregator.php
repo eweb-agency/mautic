@@ -24,6 +24,11 @@ class StatsAggregator
 {
     private const CACHE_TTL = 60; // 1 minute
 
+    /** Bounds of the `limit` used by {@see getRecentCampaigns()}. Shared with
+     *  {@see invalidateCache()} so every cache key it can produce is known. */
+    private const CAMPAIGNS_MIN_LIMIT = 1;
+    private const CAMPAIGNS_MAX_LIMIT = 50;
+
     private const CACHE_NAMESPACE = 'eweb_saas_stats';
 
     private readonly CacheInterface $cache;
@@ -86,7 +91,7 @@ class StatsAggregator
                 $maxLimit      = $this->contactLimitChecker->getMaxLimit();
 
                 $emailStats = $this->emailStatsLast30d();
-                $stats = [
+                $stats      = [
                     'instance' => [
                         'version'     => defined('MAUTIC_VERSION') ? (string) MAUTIC_VERSION : null,
                         'locale'      => $this->envOrNull('MAUTIC_DEFAULT_LOCALE'),
@@ -140,20 +145,23 @@ class StatsAggregator
      *     name: string,
      *     isPublished: bool,
      *     createdAt: string|null,
-     *     sent: int,
-     *     opened: int,
-     *     clicked: int,
+     *     sent: int|null,
+     *     opened: int|null,
+     *     clicked: int|null,
      * }>
+     *
+     * Null counters mean the metric could not be measured (schema divergence
+     * or missing table) — deliberately distinct from a real 0
      */
     public function getRecentCampaigns(int $limit = 5): array
     {
-        $limit = max(1, min($limit, 50));
+        $limit = max(self::CAMPAIGNS_MIN_LIMIT, min($limit, self::CAMPAIGNS_MAX_LIMIT));
 
         return $this->cache->get('campaigns.recent.'.$limit, function (ItemInterface $item) use ($limit): array {
             $item->expiresAfter(self::CACHE_TTL);
 
             $campaignsTable = $this->prefix.'campaigns';
-            $rows = $this->connection->fetchAllAssociative(
+            $rows           = $this->connection->fetchAllAssociative(
                 "SELECT id, name, is_published, date_added
                  FROM {$campaignsTable}
                  ORDER BY date_added DESC
@@ -164,9 +172,9 @@ class StatsAggregator
 
             $out = [];
             foreach ($rows as $row) {
-                $cid    = (int) $row['id'];
-                $sent   = $this->countEmailStatsForCampaign($cid);
-                $opened = $this->countEmailStatsForCampaign($cid, 'is_read = 1');
+                $cid     = (int) $row['id'];
+                $sent    = $this->countEmailStatsForCampaign($cid);
+                $opened  = $this->countEmailStatsForCampaign($cid, 'es.is_read = 1');
                 $clicked = $this->countCampaignClicks($cid);
 
                 $out[] = [
@@ -190,7 +198,30 @@ class StatsAggregator
     public function invalidateCache(): void
     {
         $this->cache->delete('stats.full');
-        // We don't know all campaign cache keys; rely on TTL expiry.
+
+        // The campaign keys are parameterised by `limit`, which is clamped to a
+        // known, bounded range — so every key that can exist is enumerable.
+        // Relying on TTL expiry instead made the dashboard's "Refresh" button
+        // dishonest: it returned stale campaign KPIs for up to CACHE_TTL
+        // seconds while reporting the data as fresh.
+        for ($limit = self::CAMPAIGNS_MIN_LIMIT; $limit <= self::CAMPAIGNS_MAX_LIMIT; ++$limit) {
+            $this->cache->delete('campaigns.recent.'.$limit);
+        }
+
+        // The contact count lives in ContactLimitChecker's OWN cache (a
+        // different pool, TTL 300s vs our 60s), and `countContacts()` reads it
+        // for both `quotas.contacts.used` and `totals.contacts`. Clearing only
+        // our own keys left those two KPIs untouched for up to 5 minutes —
+        // the same dishonest-Refresh bug as above, just narrower.
+        //
+        // Note this is the ONLY unguarded invalidation in the bundle. The
+        // three on the write paths (LEAD_POST_SAVE, onImportProcess,
+        // prePersist) all sit behind `isLimitEnabled()`, so on an instance
+        // with no limit configured — which includes the Enterprise plan,
+        // shipped as `maxContacts: -1` — nothing invalidates on create either.
+        // Deletions are never covered at all, by anything.
+        $this->contactLimitChecker->invalidateCache();
+
         $this->logger->debug('EwebSaasBundle: Stats cache invalidated');
     }
 
@@ -330,12 +361,35 @@ class StatsAggregator
         }
     }
 
-    private function countEmailStatsForCampaign(int $campaignId, ?string $extraWhere = null): int
+    /**
+     * @param string|null $extraWhere Extra SQL predicate. MUST be qualified
+     *                                with the `es` alias (email_stats), e.g.
+     *                                'es.is_read = 1'.
+     *
+     * @return int|null null when the metric cannot be measured (schema
+     *                  divergence, missing table) — deliberately distinct from
+     *                  a real 0, which would make a working campaign look
+     *                  broken in the dashboard
+     */
+    private function countEmailStatsForCampaign(int $campaignId, ?string $extraWhere = null): ?int
     {
+        // Join on the campaign EVENT (source/source_id), not just on the lead:
+        // joining on lead_id alone counted every email the contact ever
+        // received (newsletters, other campaigns), and without DISTINCT each
+        // email row was multiplied by the contact's number of executed events
+        // — inflating "sent"/"opened" by an order of magnitude.
+        // Mautic stamps campaign sends with ['campaign.event', eventId]
+        // (EmailBundle/EventListener/CampaignSubscriber), which is what the
+        // core itself joins on.
         $emailStatsTable = $this->prefix.'email_stats';
-        $sql             = "SELECT COUNT(*) FROM {$emailStatsTable}
-                            INNER JOIN ".$this->prefix.'campaign_lead_event_log clel ON clel.lead_id = '.$emailStatsTable.'.lead_id
-                            WHERE clel.campaign_id = :cid';
+        $eventLogTable   = $this->prefix.'campaign_lead_event_log';
+        $sql             = "SELECT COUNT(DISTINCT es.id)
+                            FROM {$emailStatsTable} es
+                            INNER JOIN {$eventLogTable} clel
+                              ON es.source_id = clel.event_id
+                             AND es.lead_id = clel.lead_id
+                            WHERE es.source = 'campaign.event'
+                              AND clel.campaign_id = :cid";
         if ($extraWhere) {
             $sql .= ' AND '.$extraWhere;
         }
@@ -343,23 +397,46 @@ class StatsAggregator
         try {
             return (int) $this->connection->fetchOne($sql, ['cid' => $campaignId]);
         } catch (\Throwable $e) {
-            // Fallback: if campaign_lead_event_log schema differs, return 0
-            return 0;
+            $this->logger->warning('EwebSaasBundle: campaign email stats unmeasurable', [
+                'campaignId' => $campaignId,
+                'error'      => $e->getMessage(),
+            ]);
+
+            return null;
         }
     }
 
-    private function countCampaignClicks(int $campaignId): int
+    /**
+     * @return int|null null when the metric cannot be measured (see
+     *                  {@see countEmailStatsForCampaign()})
+     */
+    private function countCampaignClicks(int $campaignId): ?int
     {
         try {
-            $hitsTable = $this->prefix.'page_hits';
+            // page_hits.source_id holds the campaign EVENT id, never the
+            // campaign id — using $campaignId directly returned the clicks of
+            // an unrelated event whose id merely matched numerically. Resolve
+            // through campaign_lead_event_log, exactly as the Mautic core does.
+            $hitsTable     = $this->prefix.'page_hits';
+            $eventLogTable = $this->prefix.'campaign_lead_event_log';
 
             return (int) $this->connection->fetchOne(
-                "SELECT COUNT(*) FROM {$hitsTable}
-                 WHERE source = 'campaign.event' AND source_id = :cid",
+                "SELECT COUNT(DISTINCT ph.id)
+                 FROM {$hitsTable} ph
+                 INNER JOIN {$eventLogTable} clel
+                   ON ph.source_id = clel.event_id
+                  AND ph.lead_id = clel.lead_id
+                 WHERE ph.source = 'campaign.event'
+                   AND clel.campaign_id = :cid",
                 ['cid' => $campaignId],
             );
-        } catch (\Throwable) {
-            return 0;
+        } catch (\Throwable $e) {
+            $this->logger->warning('EwebSaasBundle: campaign clicks unmeasurable', [
+                'campaignId' => $campaignId,
+                'error'      => $e->getMessage(),
+            ]);
+
+            return null;
         }
     }
 
@@ -367,7 +444,6 @@ class StatsAggregator
     {
         $v = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
 
-        return is_string($v) && $v !== '' ? $v : null;
+        return is_string($v) && '' !== $v ? $v : null;
     }
 }
-
