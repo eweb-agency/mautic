@@ -91,7 +91,7 @@ class StatsAggregator
                 $maxLimit      = $this->contactLimitChecker->getMaxLimit();
 
                 $emailStats = $this->emailStatsLast30d();
-                $stats = [
+                $stats      = [
                     'instance' => [
                         'version'     => defined('MAUTIC_VERSION') ? (string) MAUTIC_VERSION : null,
                         'locale'      => $this->envOrNull('MAUTIC_DEFAULT_LOCALE'),
@@ -151,7 +151,7 @@ class StatsAggregator
      * }>
      *
      * Null counters mean the metric could not be measured (schema divergence
-     * or missing table) — deliberately distinct from a real 0.
+     * or missing table) — deliberately distinct from a real 0
      */
     public function getRecentCampaigns(int $limit = 5): array
     {
@@ -161,7 +161,7 @@ class StatsAggregator
             $item->expiresAfter(self::CACHE_TTL);
 
             $campaignsTable = $this->prefix.'campaigns';
-            $rows = $this->connection->fetchAllAssociative(
+            $rows           = $this->connection->fetchAllAssociative(
                 "SELECT id, name, is_published, date_added
                  FROM {$campaignsTable}
                  ORDER BY date_added DESC
@@ -172,9 +172,9 @@ class StatsAggregator
 
             $out = [];
             foreach ($rows as $row) {
-                $cid    = (int) $row['id'];
-                $sent   = $this->countEmailStatsForCampaign($cid);
-                $opened = $this->countEmailStatsForCampaign($cid, 'es.is_read = 1');
+                $cid     = (int) $row['id'];
+                $sent    = $this->countEmailStatsForCampaign($cid);
+                $opened  = $this->countEmailStatsForCampaign($cid, 'es.is_read = 1');
                 $clicked = $this->countCampaignClicks($cid);
 
                 $out[] = [
@@ -363,13 +363,13 @@ class StatsAggregator
 
     /**
      * @param string|null $extraWhere Extra SQL predicate. MUST be qualified
-     *                                 with the `es` alias (email_stats), e.g.
-     *                                 'es.is_read = 1'.
+     *                                with the `es` alias (email_stats), e.g.
+     *                                'es.is_read = 1'.
      *
-     * @return int|null Null when the metric cannot be measured (schema
+     * @return int|null null when the metric cannot be measured (schema
      *                  divergence, missing table) — deliberately distinct from
      *                  a real 0, which would make a working campaign look
-     *                  broken in the dashboard.
+     *                  broken in the dashboard
      */
     private function countEmailStatsForCampaign(int $campaignId, ?string $extraWhere = null): ?int
     {
@@ -407,8 +407,8 @@ class StatsAggregator
     }
 
     /**
-     * @return int|null Null when the metric cannot be measured (see
-     *                  {@see countEmailStatsForCampaign()}).
+     * @return int|null null when the metric cannot be measured (see
+     *                  {@see countEmailStatsForCampaign()})
      */
     private function countCampaignClicks(int $campaignId): ?int
     {
@@ -444,7 +444,6 @@ class StatsAggregator
     {
         $v = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
 
-        return is_string($v) && $v !== '' ? $v : null;
+        return is_string($v) && '' !== $v ? $v : null;
     }
 }
-
