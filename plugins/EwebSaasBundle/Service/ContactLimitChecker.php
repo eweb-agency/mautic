@@ -55,7 +55,18 @@ class ContactLimitChecker
     }
 
     /**
-     * Returns the current total number of contacts (cached).
+     * Returns the current number of IDENTIFIED contacts (cached).
+     *
+     * Product decision (owner, 2026-07-20): the quota counts identified
+     * contacts only. Mautic writes a `leads` row for every anonymous tracked
+     * visitor, so an unfiltered COUNT(*) let a tenant with a tracking pixel
+     * exhaust their plan on traffic alone — and get their next REAL contact
+     * blocked. `date_identified` is set by Lead::checkDateIdentified() at the
+     * exact moment a lead stops being anonymous; the same predicate already
+     * backs the `identifiedLast30d` metric in StatsAggregator.
+     *
+     * The enforcement gate (DoctrineContactLimitSubscriber) follows the SAME
+     * definition via Lead::isAnonymous() — count and gate must never diverge.
      */
     public function getCurrentContactCount(): int
     {
@@ -64,6 +75,7 @@ class ContactLimitChecker
 
             $count = (int) $this->connection->fetchOne(
                 'SELECT COUNT(*) FROM '.$this->leadsTable
+                .' WHERE date_identified IS NOT NULL'
             );
 
             $this->logger->debug('EwebSaasBundle: Refreshed contact count from DB', [

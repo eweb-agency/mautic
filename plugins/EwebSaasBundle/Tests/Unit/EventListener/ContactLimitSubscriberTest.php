@@ -42,7 +42,6 @@ class ContactLimitSubscriberTest extends TestCase
         $this->assertArrayHasKey('mautic.lead_import_on_validate', $events);
     }
 
-
     public function testPostSaveInvalidatesCacheForNewContacts(): void
     {
         $lead  = new Lead();
