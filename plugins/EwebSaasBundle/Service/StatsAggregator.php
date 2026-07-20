@@ -208,6 +208,20 @@ class StatsAggregator
             $this->cache->delete('campaigns.recent.'.$limit);
         }
 
+        // The contact count lives in ContactLimitChecker's OWN cache (a
+        // different pool, TTL 300s vs our 60s), and `countContacts()` reads it
+        // for both `quotas.contacts.used` and `totals.contacts`. Clearing only
+        // our own keys left those two KPIs untouched for up to 5 minutes —
+        // the same dishonest-Refresh bug as above, just narrower.
+        //
+        // Note this is the ONLY unguarded invalidation in the bundle. The
+        // three on the write paths (LEAD_POST_SAVE, onImportProcess,
+        // prePersist) all sit behind `isLimitEnabled()`, so on an instance
+        // with no limit configured — which includes the Enterprise plan,
+        // shipped as `maxContacts: -1` — nothing invalidates on create either.
+        // Deletions are never covered at all, by anything.
+        $this->contactLimitChecker->invalidateCache();
+
         $this->logger->debug('EwebSaasBundle: Stats cache invalidated');
     }
 
