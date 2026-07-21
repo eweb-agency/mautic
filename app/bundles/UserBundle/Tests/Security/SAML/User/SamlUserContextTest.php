@@ -177,4 +177,67 @@ class SamlUserContextTest extends TestCase
 
         $this->assertNull($context->getMatchedRole());
     }
+
+    /**
+     * Un compte peut porter PLUSIEURS feuilles de rôle sur la même org (le
+     * superadmin de la plateforme est aussi owner de ses propres orgs).
+     * Keycloak émet les feuilles en ordre alphabétique — « owner » précède
+     * « superadmin » — et le premier-match historique rétrogradait l'admin.
+     * Le rôle retenu doit être le plus privilégié, quel que soit l'ordre.
+     */
+    public function testSuperadminWinsOverOwnerRegardlessOfAssertionOrder(): void
+    {
+        $ownerFirst = new SamlUserContext(
+            'org-id',
+            [
+                'org-id',
+                '/org-id/apps/mautic/roles/owner',
+                '/org-id/apps/mautic/roles/superadmin',
+            ],
+            []
+        );
+        $superadminFirst = new SamlUserContext(
+            'org-id',
+            [
+                'org-id',
+                '/org-id/apps/mautic/roles/superadmin',
+                '/org-id/apps/mautic/roles/owner',
+            ],
+            []
+        );
+
+        $this->assertEquals('superadmin', $ownerFirst->getMatchedRole());
+        $this->assertEquals('superadmin', $superadminFirst->getMatchedRole());
+    }
+
+    public function testOwnerWinsOverMemberWhenBothLeavesArePresent(): void
+    {
+        $context = new SamlUserContext(
+            'org-id',
+            [
+                'org-id',
+                '/org-id/apps/mautic/roles/member',
+                '/org-id/apps/mautic/roles/owner',
+            ],
+            []
+        );
+
+        $this->assertEquals('owner', $context->getMatchedRole());
+    }
+
+    /**
+     * Un rôle hors référentiel garde le comportement historique (premier
+     * extrait) : la chaîne de repli aval (map d'ids, nom en base, rôle par
+     * défaut) reste seule juge de sa valeur.
+     */
+    public function testUnknownRoleAloneStillResolvesAsBefore(): void
+    {
+        $context = new SamlUserContext(
+            'org-id',
+            ['org-id', '/org-id/apps/mautic/roles/analyste'],
+            []
+        );
+
+        $this->assertEquals('analyste', $context->getMatchedRole());
+    }
 }
