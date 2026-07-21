@@ -101,8 +101,24 @@ class SamlRoleUpdateSubscriber implements EventSubscriberInterface
         $previousRoleId = (int) $user->getRole()?->getId();
 
         try {
-            /** @var Role $newRole */
-            $newRole = $this->entityManager->getReference(Role::class, $newRoleId);
+            // find(), pas getReference() : l'id mappé peut ne pas exister
+            // dans CETTE instance (base installée avant l'ajout du rôle) —
+            // un proxy fantôme casserait le flush en violation de clé
+            // étrangère. Id absent : on garde le rôle actuel, comme pour
+            // toute map incomplète.
+            $newRole = $this->entityManager->find(Role::class, $newRoleId);
+            if (null === $newRole) {
+                $this->mauticLogger->warning(
+                    'SAML role sync: mapped role id does not exist in this instance, keeping current role',
+                    [
+                        'username'  => $user->getUserIdentifier(),
+                        'samlRole'  => $matchedRole,
+                        'newRoleId' => $newRoleId,
+                    ]
+                );
+
+                return;
+            }
             $user->setRole($newRole);
 
             // saveEntity dispatches USER_PRE_SAVE / USER_POST_SAVE so cache is
