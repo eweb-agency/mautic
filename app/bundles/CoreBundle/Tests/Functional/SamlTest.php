@@ -8,6 +8,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar as GuzzleCookieJar;
 use GuzzleHttp\RequestOptions;
 use Mautic\CoreBundle\Test\MauticMysqlTestCase;
+use Mautic\UserBundle\Entity\Role;
 use PHPUnit\Framework\Assert;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Field\ChoiceFormField;
@@ -65,7 +66,12 @@ class SamlTest extends MauticMysqlTestCase
         $samlDefaultRoleField = $configForm['config[userconfig][saml_idp_default_role]'];
         \assert($samlDefaultRoleField instanceof ChoiceFormField);
         $availableDefaultRoleOptions = $samlDefaultRoleField->availableOptionValues();
-        Assert::assertCount(3, $availableDefaultRoleOptions, print_r($availableDefaultRoleOptions, true));
+        // Une option vide + une par rôle en base. Le compte était figé à 3
+        // (upstream : Administrator + Sales Team), mais RoleData du fork
+        // installe aussi Owner et Member — tout compte codé en dur recasse
+        // à la prochaine évolution des fixtures.
+        $installedRoles = $this->em->getRepository(Role::class)->findAll();
+        Assert::assertCount(1 + count($installedRoles), $availableDefaultRoleOptions, print_r($availableDefaultRoleOptions, true));
         $samlDefaultRoleField->setValue($availableDefaultRoleOptions[1]);
 
         // Upload the metadata.xml file
