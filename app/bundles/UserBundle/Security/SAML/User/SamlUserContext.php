@@ -82,18 +82,42 @@ class SamlUserContext
     }
 
     /**
+     * Du plus privilégié au moins privilégié. Un compte peut porter
+     * PLUSIEURS feuilles de rôle sur la même org (ex. le superadmin de la
+     * plateforme est aussi owner de ses propres orgs) : le rôle retenu doit
+     * être le plus élevé, pas le premier du XML — Keycloak émet les
+     * feuilles dans un ordre non contractuel (alphabétique en pratique, où
+     * « owner » précède « superadmin » et rétrograderait l'admin).
+     */
+    private const ROLE_PRECEDENCE = ['superadmin', 'owner', 'admin', 'member'];
+
+    /**
      * @param string[] $candidates
      */
     private function matchRoleFromCandidates(array $candidates): ?string
     {
+        $found = [];
         foreach ($candidates as $candidate) {
             $roleName = $this->extractRoleName($candidate);
-            if (null !== $roleName) {
-                return $roleName;
+            if (null !== $roleName && !in_array($roleName, $found, true)) {
+                $found[] = $roleName;
             }
         }
 
-        return null;
+        if ([] === $found) {
+            return null;
+        }
+
+        foreach (self::ROLE_PRECEDENCE as $ranked) {
+            if (in_array($ranked, $found, true)) {
+                return $ranked;
+            }
+        }
+
+        // Rôle hors référentiel : comportement historique (premier extrait) —
+        // la chaîne de repli (map d'ids, nom en base, rôle par défaut)
+        // tranchera en aval.
+        return $found[0];
     }
 
     private function extractRoleName(string $value): ?string
