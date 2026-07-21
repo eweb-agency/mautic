@@ -72,10 +72,15 @@ class UserCreator implements UserCreatorInterface
         if (null !== $samlRole && '' !== trim($samlRole)) {
             $roleId = $this->roleMapper->mapToMauticRoleId($samlRole);
             if (null !== $roleId) {
-                /** @var Role $role */
-                $role = $this->entityManager->getReference(Role::class, $roleId);
-
-                return $role;
+                // find(), pas getReference() : l'id mappé peut ne pas exister
+                // dans CETTE instance (base installée avant l'ajout du rôle,
+                // faute de frappe dans la map) — un proxy fantôme partirait
+                // en violation de clé étrangère au flush. Id absent : on
+                // poursuit la chaîne de repli.
+                $role = $this->entityManager->find(Role::class, $roleId);
+                if (null !== $role) {
+                    return $role;
+                }
             }
 
             $role = $this->findRoleByName($samlRole);
@@ -111,8 +116,14 @@ class UserCreator implements UserCreatorInterface
             throw new BadCredentialsException('User missing role and no default SAML role configured.');
         }
 
-        /** @var Role $defaultRole */
-        $defaultRole = $this->entityManager->getReference(Role::class, $this->defaultRole);
+        // Même précaution que resolveRole : un rôle par défaut configuré
+        // puis supprimé de la base doit produire un refus propre, pas une
+        // violation de clé étrangère.
+        $defaultRole = $this->entityManager->find(Role::class, $this->defaultRole);
+
+        if (null === $defaultRole) {
+            throw new BadCredentialsException('User missing role and no default SAML role configured.');
+        }
 
         return $defaultRole;
     }
