@@ -59,6 +59,9 @@ class UserMapperTest extends TestCase
                     default        => $defaultAttribute,
                 }
             );
+        // Groupes/rôles : lus via getAllAttributes (aucun ici).
+        $statement->method('getAllAttributes')
+            ->willReturn([]);
 
         $assertion = $this->createMock(Assertion::class);
         $assertion->method('getAllAttributeStatements')
@@ -115,5 +118,57 @@ class UserMapperTest extends TestCase
         // Le mapper du setUp n'a pas de groupe requis, donc ça doit passer
         $username = $this->mapper->getUsername($this->response);
         $this->assertEquals('hello@there.com', $username);
+    }
+
+    /**
+     * Keycloak avec « Single Group Attribute » désactivé émet UN élément
+     * <Attribute Name="Group"> PAR groupe : le groupe requis peut arriver
+     * dans n'importe quel élément, pas seulement le premier. Ne lire que le
+     * premier faisait dépendre l'accès de l'ordre d'émission (le bug qui
+     * refusait toute org dont la racine n'arrivait pas en tête).
+     */
+    public function testEveryGroupAttributeElementIsRead(): void
+    {
+        $firstGroup = $this->createMock(Attribute::class);
+        $firstGroup->method('getName')->willReturn('Group');
+        $firstGroup->method('getAllAttributeValues')->willReturn(['/other-org-id']);
+
+        $secondGroup = $this->createMock(Attribute::class);
+        $secondGroup->method('getName')->willReturn('Group');
+        $secondGroup->method('getAllAttributeValues')->willReturn(['/required-org-id']);
+
+        $unrelated = $this->createMock(Attribute::class);
+        $unrelated->method('getName')->willReturn('EmailAddress');
+
+        $statement = $this->createMock(AttributeStatement::class);
+        $statement->method('getAllAttributes')
+            ->willReturn([$firstGroup, $unrelated, $secondGroup]);
+        $statement->method('getFirstAttributeByName')->willReturn(null);
+
+        $assertion = $this->createMock(Assertion::class);
+        $assertion->method('getAllAttributeStatements')->willReturn([$statement]);
+
+        $response = $this->createMock(Response::class);
+        $response->method('getAllAssertions')->willReturn([$assertion]);
+
+        $mapper = new UserMapper(
+            [
+                'email'     => 'EmailAddress',
+                'firstname' => 'FirstName',
+                'lastname'  => 'LastName',
+                'username'  => null,
+            ],
+            'Group',
+            'Role',
+            'required-org-id'
+        );
+
+        // Le groupe requis est porté par le SECOND élément Attribute : il
+        // doit être vu, donc aucune BadCredentialsException.
+        $mapper->getUser($response);
+        $context = $mapper->pullContext($response);
+
+        $this->assertTrue($context->hasRequiredGroup());
+        $this->assertSame('required-org-id', $context->getMatchedGroup());
     }
 }
