@@ -145,14 +145,19 @@ class UserMapper implements UsernameMapperInterface
         $values = [];
 
         foreach ($assertion->getAllAttributeStatements() as $attributeStatement) {
-            $attribute = $attributeStatement->getFirstAttributeByName($attributeName);
-            if (!$attribute) {
-                continue;
-            }
+            // Iterate EVERY attribute carrying this name: Keycloak's group
+            // mapper with "Single Group Attribute" off emits one <Attribute>
+            // element per group, so reading only the first element would drop
+            // every other membership and make access depend on emission order.
+            foreach ($attributeStatement->getAllAttributes() as $attribute) {
+                if ($attribute->getName() !== $attributeName) {
+                    continue;
+                }
 
-            foreach ((array) $attribute->getAllAttributeValues() as $value) {
-                if (is_string($value) && '' !== trim($value)) {
-                    $values[] = $value;
+                foreach ((array) $attribute->getAllAttributeValues() as $value) {
+                    if (is_string($value) && '' !== trim($value)) {
+                        $values[] = $value;
+                    }
                 }
             }
         }
