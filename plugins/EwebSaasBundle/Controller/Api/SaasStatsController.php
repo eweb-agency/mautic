@@ -163,6 +163,26 @@ final class SaasStatsController
         ]);
     }
 
+    public function contactsAction(Request $request): JsonResponse
+    {
+        $page   = (int) $request->query->get('page', 1);
+        $limit  = (int) $request->query->get('limit', 25);
+        $search = (string) $request->query->get('search', '');
+
+        try {
+            $result = $this->aggregator->getContacts($page, $limit, $search);
+        } catch (\Throwable $e) {
+            $this->logger->error('EwebSaasBundle: contacts endpoint failed: {msg}', ['msg' => $e->getMessage()]);
+
+            return new JsonResponse([
+                'error'   => 'contacts_failed',
+                'message' => 'Failed to read contacts.',
+            ], 500);
+        }
+
+        return new JsonResponse($result + ['generatedAt' => gmdate('c')]);
+    }
+
     public function refreshAction(): JsonResponse
     {
         $this->aggregator->invalidateCache();

@@ -214,6 +214,53 @@ class StatsAggregatorTest extends TestCase
         }
     }
 
+    public function testContactsPaginatesAndMapsRows(): void
+    {
+        $this->connection->method('fetchOne')->willReturn(51);
+        $this->connection->method('fetchAllAssociative')->willReturn([
+            [
+                'id'              => '12',
+                'firstname'       => 'Jade',
+                'lastname'        => null,
+                'email'           => 'jade@example.test',
+                'company'         => 'Acme',
+                'points'          => '30',
+                'date_identified' => '2026-07-01 09:00:00',
+                'last_active'     => null,
+            ],
+        ]);
+
+        $result = $this->createAggregator(new ArrayAdapter())->getContacts(2, 25, 'jade');
+
+        $this->assertSame(51, $result['total']);
+        $this->assertSame(2, $result['page']);
+        $this->assertSame(3, $result['pages'], '51 contacts / 25 par page = 3 pages');
+        $this->assertSame(
+            [
+                'id'             => 12,
+                'firstname'      => 'Jade',
+                'lastname'       => null,
+                'email'          => 'jade@example.test',
+                'company'        => 'Acme',
+                'points'         => 30,
+                'dateIdentified' => '2026-07-01 09:00:00',
+                'lastActive'     => null,
+            ],
+            $result['contacts'][0],
+        );
+    }
+
+    public function testContactsClampsPageAndLimit(): void
+    {
+        $this->connection->method('fetchOne')->willReturn(0);
+        $this->connection->method('fetchAllAssociative')->willReturn([]);
+
+        $result = $this->createAggregator(new ArrayAdapter())->getContacts(-3, 999);
+
+        $this->assertSame(1, $result['page']);
+        $this->assertSame(1, $result['pages']);
+    }
+
     private function createAggregator(ArrayAdapter $cache): StatsAggregator
     {
         return new StatsAggregator(
