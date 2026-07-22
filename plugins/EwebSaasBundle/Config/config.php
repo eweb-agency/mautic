@@ -47,6 +47,11 @@ return [
                 'controller' => 'MauticPlugin\EwebSaasBundle\Controller\Api\SaasStatsController::formsAction',
                 'method'     => 'GET',
             ],
+            'eweb_saas_api_contacts' => [
+                'path'       => '/saas/v1/contacts',
+                'controller' => 'MauticPlugin\EwebSaasBundle\Controller\Api\SaasStatsController::contactsAction',
+                'method'     => 'GET',
+            ],
             'eweb_saas_api_refresh' => [
                 'path'       => '/saas/v1/refresh',
                 'controller' => 'MauticPlugin\EwebSaasBundle\Controller\Api\SaasStatsController::refreshAction',

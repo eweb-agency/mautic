@@ -351,6 +351,67 @@ class StatsAggregator
     }
 
     /**
+     * Contacts IDENTIFIÉS, paginés, avec recherche — page « Contacts » du
+     * dashboard (D3.2). Même définition que le quota et les KPI : les
+     * visiteurs anonymes du tracking sont exclus.
+     *
+     * PAS DE CACHE, à dessein : la recherche rend l'espace de clés non
+     * borné, ce qui violerait le contrat maison « toute clé de cache est
+     * énumérable et purgée par refresh ». La requête est indexée
+     * (date_identified, last_active) et paginée — coût direct maîtrisé.
+     *
+     * @return array{contacts: list<array<string, mixed>>, total: int, page: int, pages: int}
+     */
+    public function getContacts(int $page = 1, int $limit = 25, string $search = ''): array
+    {
+        $page  = max(1, $page);
+        $limit = max(1, min(50, $limit));
+
+        $leadsTable = $this->prefix.'leads';
+        $where      = 'date_identified IS NOT NULL';
+        $params     = [];
+
+        $search = trim($search);
+        if ('' !== $search) {
+            $where .= ' AND (email LIKE :search OR firstname LIKE :search OR lastname LIKE :search OR company LIKE :search)';
+            $params['search'] = '%'.addcslashes($search, '%_').'%';
+        }
+
+        $total = (int) $this->connection->fetchOne(
+            "SELECT COUNT(*) FROM {$leadsTable} WHERE {$where}",
+            $params,
+        );
+
+        $offset = ($page - 1) * $limit;
+        $rows   = $this->connection->fetchAllAssociative(
+            "SELECT id, firstname, lastname, email, company, points, date_identified, last_active
+             FROM {$leadsTable}
+             WHERE {$where}
+             ORDER BY COALESCE(last_active, date_identified) DESC, id DESC
+             LIMIT {$limit} OFFSET {$offset}",
+            $params,
+        );
+
+        $contacts = array_map(static fn (array $row): array => [
+            'id'             => (int) $row['id'],
+            'firstname'      => null !== $row['firstname'] ? (string) $row['firstname'] : null,
+            'lastname'       => null !== $row['lastname'] ? (string) $row['lastname'] : null,
+            'email'          => null !== $row['email'] ? (string) $row['email'] : null,
+            'company'        => null !== $row['company'] ? (string) $row['company'] : null,
+            'points'         => (int) $row['points'],
+            'dateIdentified' => null !== $row['date_identified'] ? (string) $row['date_identified'] : null,
+            'lastActive'     => null !== $row['last_active'] ? (string) $row['last_active'] : null,
+        ], $rows);
+
+        return [
+            'contacts' => $contacts,
+            'total'    => $total,
+            'page'     => $page,
+            'pages'    => max(1, (int) ceil($total / $limit)),
+        ];
+    }
+
+    /**
      * Invalidates the whole stats cache. Useful for a manual refresh button.
      */
     public function invalidateCache(): void
