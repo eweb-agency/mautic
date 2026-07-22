@@ -16,4 +16,10 @@
     {% include('@MauticCore/Default/script.html.twig') %}
 
     {{ outputHeadDeclarations() }}
+{# Câblage fork : le réglage « Angles arrondis » (Paramètres des thèmes)
+   ne touchait que les contenus générés — on le propage au chrome admin
+   en surchargeant les variables de rayon d'app.css (46 usages). #}
+{% if getRoundedCorners('lg') > 0 %}
+    <style>:root{--border-radius-sm: {{ getRoundedCorners('sm') }}px;--border-radius-md: {{ getRoundedCorners('md') }}px;--border-radius-lg: {{ getRoundedCorners('lg') }}px;}</style>
+{% endif %}
 </head>
