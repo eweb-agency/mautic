@@ -31,6 +31,10 @@ class StatsAggregator
 
     private const CACHE_NAMESPACE = 'eweb_saas_stats';
 
+    /** Fenêtres autorisées pour la série e-mails — ensemble fermé, donc
+     *  chaque clé de cache possible est énumérable (cf. invalidateCache). */
+    private const SERIES_ALLOWED_DAYS = [7, 30, 90];
+
     private readonly CacheInterface $cache;
 
     private readonly string $prefix;
@@ -193,11 +197,110 @@ class StatsAggregator
     }
 
     /**
+     * Daily email series for the dashboard line chart.
+     *
+     * One point per day over the window: emails SENT that day (date_sent)
+     * and opens that HAPPENED that day (date_read) — an open belongs to the
+     * day it occurred, not to the day the email was sent. Days without
+     * activity are present with zeros: a real 0 must plot as 0, and the
+     * chart never has holes.
+     */
+    public function getEmailSeries(int $days = 30): array
+    {
+        if (!\in_array($days, self::SERIES_ALLOWED_DAYS, true)) {
+            $days = 30;
+        }
+
+        return $this->cache->get('emails.series.'.$days, function (ItemInterface $item) use ($days): array {
+            $item->expiresAfter(self::CACHE_TTL);
+
+            $emailStatsTable = $this->prefix.'email_stats';
+            $since           = (new \DateTimeImmutable(sprintf('-%d days', $days - 1)))->setTime(0, 0);
+            $sinceSql        = $since->format('Y-m-d H:i:s');
+
+            $sentRows = $this->connection->fetchAllAssociative(
+                "SELECT DATE(date_sent) AS d, COUNT(*) AS c
+                 FROM {$emailStatsTable}
+                 WHERE date_sent >= :since
+                 GROUP BY DATE(date_sent)",
+                ['since' => $sinceSql],
+            );
+            $openRows = $this->connection->fetchAllAssociative(
+                "SELECT DATE(date_read) AS d, COUNT(*) AS c
+                 FROM {$emailStatsTable}
+                 WHERE is_read = 1 AND date_read IS NOT NULL AND date_read >= :since
+                 GROUP BY DATE(date_read)",
+                ['since' => $sinceSql],
+            );
+
+            $sentByDay = [];
+            foreach ($sentRows as $row) {
+                $sentByDay[(string) $row['d']] = (int) $row['c'];
+            }
+            $openByDay = [];
+            foreach ($openRows as $row) {
+                $openByDay[(string) $row['d']] = (int) $row['c'];
+            }
+
+            $series = [];
+            for ($i = 0; $i < $days; ++$i) {
+                $date     = $since->add(new \DateInterval('P'.$i.'D'))->format('Y-m-d');
+                $series[] = [
+                    'date'   => $date,
+                    'sent'   => $sentByDay[$date] ?? 0,
+                    'opened' => $openByDay[$date] ?? 0,
+                ];
+            }
+
+            return $series;
+        });
+    }
+
+    /**
+     * E-mails programmés (publish_up dans les 60 prochains jours) pour le
+     * calendrier « Planifier une campagne » du dashboard. Fenêtre FIXE :
+     * une seule clé de cache possible.
+     */
+    public function getScheduledEmails(): array
+    {
+        return $this->cache->get('emails.scheduled.60', function (ItemInterface $item): array {
+            $item->expiresAfter(self::CACHE_TTL);
+
+            $emailsTable = $this->prefix.'emails';
+            $now         = (new \DateTimeImmutable('today'))->format('Y-m-d H:i:s');
+            $until       = (new \DateTimeImmutable('+60 days'))->format('Y-m-d H:i:s');
+
+            $rows = $this->connection->fetchAllAssociative(
+                "SELECT id, name, publish_up FROM {$emailsTable}
+                 WHERE is_published = 1
+                   AND publish_up IS NOT NULL
+                   AND publish_up BETWEEN :now AND :until
+                 ORDER BY publish_up ASC
+                 LIMIT 100",
+                ['now' => $now, 'until' => $until],
+            );
+
+            return array_map(static fn (array $row): array => [
+                'id'        => (int) $row['id'],
+                'name'      => (string) $row['name'],
+                'publishUp' => (string) $row['publish_up'],
+            ], $rows);
+        });
+    }
+
+    /**
      * Invalidates the whole stats cache. Useful for a manual refresh button.
      */
     public function invalidateCache(): void
     {
         $this->cache->delete('stats.full');
+
+        // Series keys are parameterised by a CLOSED set of windows — every
+        // possible key is enumerable, same contract as the campaign keys.
+        foreach (self::SERIES_ALLOWED_DAYS as $days) {
+            $this->cache->delete('emails.series.'.$days);
+        }
+        $this->cache->delete('emails.scheduled.60');
 
         // The campaign keys are parameterised by `limit`, which is clamped to a
         // known, bounded range — so every key that can exist is enumerable.
