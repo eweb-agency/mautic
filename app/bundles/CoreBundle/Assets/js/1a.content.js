@@ -209,10 +209,10 @@ Mautic.generatePageTitle = function(route){
         // Safely set the text content to prevent XSS
         currentModuleItem = mQuery('<div>').text(currentModuleItem).html();
 
-        mQuery('title').html( currentModule[0].toUpperCase() + currentModule.slice(1) + ' | ' + currentModuleItem + ' | Mautic' );
+        mQuery('title').html( currentModule[0].toUpperCase() + currentModule.slice(1) + ' | ' + currentModuleItem + ' | Sendly' );
     } else {
         //loading basic title
-        mQuery('title').html( mQuery('.page-header h1').text() + ' | Mautic' );
+        mQuery('title').html( mQuery('.page-header h1').text() + ' | Sendly' );
     }
 };
 
