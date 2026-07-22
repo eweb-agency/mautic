@@ -289,11 +289,75 @@ class StatsAggregator
     }
 
     /**
+     * Segments (lead lists) avec leur nombre de contacts — pour la page
+     * « Segments & formulaires » du dashboard. Tri par taille décroissante,
+     * borné à 50. Les retraits manuels sont exclus du compte.
+     */
+    public function getSegments(): array
+    {
+        return $this->cache->get('segments.list', function (ItemInterface $item): array {
+            $item->expiresAfter(self::CACHE_TTL);
+
+            $listsTable = $this->prefix.'lead_lists';
+            $joinTable  = $this->prefix.'lead_lists_leads';
+
+            $rows = $this->connection->fetchAllAssociative(
+                "SELECT ll.id, ll.name, ll.is_published, COUNT(lll.lead_id) AS contacts
+                 FROM {$listsTable} ll
+                 LEFT JOIN {$joinTable} lll
+                   ON lll.leadlist_id = ll.id AND lll.manually_removed = 0
+                 GROUP BY ll.id, ll.name, ll.is_published
+                 ORDER BY contacts DESC, ll.id ASC
+                 LIMIT 50",
+            );
+
+            return array_map(static fn (array $row): array => [
+                'id'          => (int) $row['id'],
+                'name'        => (string) $row['name'],
+                'isPublished' => (bool) $row['is_published'],
+                'contacts'    => (int) $row['contacts'],
+            ], $rows);
+        });
+    }
+
+    /**
+     * Formulaires avec leur nombre de soumissions. Tri par soumissions
+     * décroissantes, borné à 50.
+     */
+    public function getForms(): array
+    {
+        return $this->cache->get('forms.list', function (ItemInterface $item): array {
+            $item->expiresAfter(self::CACHE_TTL);
+
+            $formsTable       = $this->prefix.'forms';
+            $submissionsTable = $this->prefix.'form_submissions';
+
+            $rows = $this->connection->fetchAllAssociative(
+                "SELECT f.id, f.name, f.is_published, COUNT(fs.id) AS submissions
+                 FROM {$formsTable} f
+                 LEFT JOIN {$submissionsTable} fs ON fs.form_id = f.id
+                 GROUP BY f.id, f.name, f.is_published
+                 ORDER BY submissions DESC, f.id ASC
+                 LIMIT 50",
+            );
+
+            return array_map(static fn (array $row): array => [
+                'id'          => (int) $row['id'],
+                'name'        => (string) $row['name'],
+                'isPublished' => (bool) $row['is_published'],
+                'submissions' => (int) $row['submissions'],
+            ], $rows);
+        });
+    }
+
+    /**
      * Invalidates the whole stats cache. Useful for a manual refresh button.
      */
     public function invalidateCache(): void
     {
         $this->cache->delete('stats.full');
+        $this->cache->delete('segments.list');
+        $this->cache->delete('forms.list');
 
         // Series keys are parameterised by a CLOSED set of windows — every
         // possible key is enumerable, same contract as the campaign keys.

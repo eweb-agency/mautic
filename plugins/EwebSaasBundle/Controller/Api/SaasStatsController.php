@@ -125,6 +125,44 @@ final class SaasStatsController
         ]);
     }
 
+    public function segmentsAction(): JsonResponse
+    {
+        try {
+            $segments = $this->aggregator->getSegments();
+        } catch (\Throwable $e) {
+            $this->logger->error('EwebSaasBundle: segments endpoint failed: {msg}', ['msg' => $e->getMessage()]);
+
+            return new JsonResponse([
+                'error'   => 'segments_failed',
+                'message' => 'Failed to read segments.',
+            ], 500);
+        }
+
+        return new JsonResponse([
+            'segments'    => $segments,
+            'generatedAt' => gmdate('c'),
+        ]);
+    }
+
+    public function formsAction(): JsonResponse
+    {
+        try {
+            $forms = $this->aggregator->getForms();
+        } catch (\Throwable $e) {
+            $this->logger->error('EwebSaasBundle: forms endpoint failed: {msg}', ['msg' => $e->getMessage()]);
+
+            return new JsonResponse([
+                'error'   => 'forms_failed',
+                'message' => 'Failed to read forms.',
+            ], 500);
+        }
+
+        return new JsonResponse([
+            'forms'       => $forms,
+            'generatedAt' => gmdate('c'),
+        ]);
+    }
+
     public function refreshAction(): JsonResponse
     {
         $this->aggregator->invalidateCache();
