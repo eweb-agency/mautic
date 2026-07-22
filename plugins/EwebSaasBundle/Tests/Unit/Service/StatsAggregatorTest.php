@@ -149,6 +149,41 @@ class StatsAggregatorTest extends TestCase
         );
     }
 
+    public function testSegmentsAndFormsMapRowsToTypedEntries(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturnOnConsecutiveCalls(
+            [['id' => '3', 'name' => 'Clients', 'is_published' => '1', 'contacts' => '42']],
+            [['id' => '9', 'name' => 'Contact', 'is_published' => '0', 'submissions' => '7']],
+        );
+        $aggregator = $this->createAggregator(new ArrayAdapter());
+
+        $this->assertSame(
+            [['id' => 3, 'name' => 'Clients', 'isPublished' => true, 'contacts' => 42]],
+            $aggregator->getSegments(),
+        );
+        $this->assertSame(
+            [['id' => 9, 'name' => 'Contact', 'isPublished' => false, 'submissions' => 7]],
+            $aggregator->getForms(),
+        );
+    }
+
+    public function testInvalidateCacheClearsSegmentsAndFormsKeys(): void
+    {
+        $cache = new ArrayAdapter();
+        foreach (['segments.list', 'forms.list'] as $key) {
+            $cache->get($key, static fn (): array => ['stale' => true]);
+        }
+
+        $this->createAggregator($cache)->invalidateCache();
+
+        foreach (['segments.list', 'forms.list'] as $key) {
+            $this->assertFalse(
+                $cache->getItem($key)->isHit(),
+                sprintf('%s must be cleared by a manual refresh', $key),
+            );
+        }
+    }
+
     public function testInvalidateCacheClearsScheduledEmailsKey(): void
     {
         $cache = new ArrayAdapter();
