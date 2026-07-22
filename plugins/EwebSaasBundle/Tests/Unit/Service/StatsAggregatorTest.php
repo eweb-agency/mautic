@@ -102,6 +102,83 @@ class StatsAggregatorTest extends TestCase
         return new ContactLimitChecker($this->connection, new NullLogger(), $cache);
     }
 
+    public function testEmailSeriesFillsMissingDaysWithZeros(): void
+    {
+        $today     = (new \DateTimeImmutable('today'))->format('Y-m-d');
+        $yesterday = (new \DateTimeImmutable('yesterday'))->format('Y-m-d');
+
+        // Deux requêtes GROUP BY (envois puis ouvertures) : hier a eu des
+        // envois et des ouvertures, aujourd'hui rien — le point d'aujourd'hui
+        // doit exister à 0/0, pas manquer.
+        $this->connection->method('fetchAllAssociative')->willReturnOnConsecutiveCalls(
+            [['d' => $yesterday, 'c' => '12']],
+            [['d' => $yesterday, 'c' => '5']],
+        );
+
+        $series = $this->createAggregator(new ArrayAdapter())->getEmailSeries(7);
+
+        $this->assertCount(7, $series, 'one point per day of the window');
+        $byDate = array_column($series, null, 'date');
+        $this->assertSame(12, $byDate[$yesterday]['sent']);
+        $this->assertSame(5, $byDate[$yesterday]['opened']);
+        $this->assertSame(0, $byDate[$today]['sent'], 'a day without activity plots as 0');
+        $this->assertSame(0, $byDate[$today]['opened']);
+    }
+
+    public function testEmailSeriesRejectsUnknownWindows(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturn([]);
+
+        // 13 n'est pas une fenêtre autorisée → retombe sur 30 jours.
+        $series = $this->createAggregator(new ArrayAdapter())->getEmailSeries(13);
+
+        $this->assertCount(30, $series);
+    }
+
+    public function testScheduledEmailsMapsRowsToTypedEntries(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturn([
+            ['id' => '7', 'name' => 'Newsletter', 'publish_up' => '2026-08-01 09:00:00'],
+        ]);
+
+        $emails = $this->createAggregator(new ArrayAdapter())->getScheduledEmails();
+
+        $this->assertSame(
+            [['id' => 7, 'name' => 'Newsletter', 'publishUp' => '2026-08-01 09:00:00']],
+            $emails,
+        );
+    }
+
+    public function testInvalidateCacheClearsScheduledEmailsKey(): void
+    {
+        $cache = new ArrayAdapter();
+        $cache->get('emails.scheduled.60', static fn (): array => ['stale' => true]);
+
+        $this->createAggregator($cache)->invalidateCache();
+
+        $this->assertFalse(
+            $cache->getItem('emails.scheduled.60')->isHit(),
+            'emails.scheduled.60 must be cleared by a manual refresh',
+        );
+    }
+
+    public function testInvalidateCacheClearsEmailSeriesKeys(): void
+    {
+        $cache = new ArrayAdapter();
+        foreach ([7, 30, 90] as $days) {
+            $cache->get('emails.series.'.$days, static fn (): array => ['stale' => true]);
+        }
+
+        $this->createAggregator($cache)->invalidateCache();
+
+        foreach ([7, 30, 90] as $days) {
+            $this->assertFalse(
+                $cache->getItem('emails.series.'.$days)->isHit(),
+                sprintf('emails.series.%d must be cleared by a manual refresh', $days),
+            );
+        }
+    }
+
     private function createAggregator(ArrayAdapter $cache): StatsAggregator
     {
         return new StatsAggregator(

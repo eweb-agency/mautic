@@ -27,6 +27,16 @@ return [
                 'controller' => 'MauticPlugin\EwebSaasBundle\Controller\Api\SaasStatsController::campaignsAction',
                 'method'     => 'GET',
             ],
+            'eweb_saas_api_email_series' => [
+                'path'       => '/saas/v1/email-series',
+                'controller' => 'MauticPlugin\EwebSaasBundle\Controller\Api\SaasStatsController::emailSeriesAction',
+                'method'     => 'GET',
+            ],
+            'eweb_saas_api_scheduled_emails' => [
+                'path'       => '/saas/v1/scheduled-emails',
+                'controller' => 'MauticPlugin\EwebSaasBundle\Controller\Api\SaasStatsController::scheduledEmailsAction',
+                'method'     => 'GET',
+            ],
             'eweb_saas_api_refresh' => [
                 'path'       => '/saas/v1/refresh',
                 'controller' => 'MauticPlugin\EwebSaasBundle\Controller\Api\SaasStatsController::refreshAction',

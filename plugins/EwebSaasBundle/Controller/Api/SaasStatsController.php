@@ -22,10 +22,11 @@ use Symfony\Component\HttpFoundation\Response;
  * this controller, the firewall has already validated the access token.
  *
  * Endpoints:
- *   GET  /api/saas/v1/health     → liveness probe (cheap, no DB)
- *   GET  /api/saas/v1/stats      → aggregated stats (cached 60s)
- *   GET  /api/saas/v1/campaigns  → recent campaigns with KPIs
- *   POST /api/saas/v1/refresh    → invalidate cache so next read is fresh
+ *   GET  /api/saas/v1/health        → liveness probe (cheap, no DB)
+ *   GET  /api/saas/v1/stats         → aggregated stats (cached 60s)
+ *   GET  /api/saas/v1/campaigns     → recent campaigns with KPIs
+ *   GET  /api/saas/v1/email-series  → daily sent/opened series (cached 60s)
+ *   POST /api/saas/v1/refresh       → invalidate cache so next read is fresh
  *
  * This controller intentionally does NOT extend Mautic's CommonController to
  * avoid pulling the user-bound security context. It's a thin transport layer.
@@ -49,7 +50,6 @@ final class SaasStatsController
 
     public function statsAction(): JsonResponse
     {
-
         try {
             $stats = $this->aggregator->getStats();
         } catch (\Throwable $e) {
@@ -66,7 +66,6 @@ final class SaasStatsController
 
     public function campaignsAction(Request $request): JsonResponse
     {
-
         $limit = (int) $request->query->get('limit', 5);
 
         try {
@@ -86,6 +85,46 @@ final class SaasStatsController
         ]);
     }
 
+    public function emailSeriesAction(Request $request): JsonResponse
+    {
+        $days = (int) $request->query->get('days', 30);
+
+        try {
+            $series = $this->aggregator->getEmailSeries($days);
+        } catch (\Throwable $e) {
+            $this->logger->error('EwebSaasBundle: email-series endpoint failed: {msg}', ['msg' => $e->getMessage()]);
+
+            return new JsonResponse([
+                'error'   => 'email_series_failed',
+                'message' => 'Failed to build email series.',
+            ], 500);
+        }
+
+        return new JsonResponse([
+            'series'      => $series,
+            'generatedAt' => gmdate('c'),
+        ]);
+    }
+
+    public function scheduledEmailsAction(): JsonResponse
+    {
+        try {
+            $emails = $this->aggregator->getScheduledEmails();
+        } catch (\Throwable $e) {
+            $this->logger->error('EwebSaasBundle: scheduled-emails endpoint failed: {msg}', ['msg' => $e->getMessage()]);
+
+            return new JsonResponse([
+                'error'   => 'scheduled_emails_failed',
+                'message' => 'Failed to read scheduled emails.',
+            ], 500);
+        }
+
+        return new JsonResponse([
+            'emails'      => $emails,
+            'generatedAt' => gmdate('c'),
+        ]);
+    }
+
     public function refreshAction(): JsonResponse
     {
         $this->aggregator->invalidateCache();
@@ -93,4 +132,3 @@ final class SaasStatsController
         return new JsonResponse(['status' => 'ok'], Response::HTTP_ACCEPTED);
     }
 }
-
