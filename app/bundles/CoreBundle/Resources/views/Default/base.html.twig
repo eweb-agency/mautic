@@ -27,8 +27,8 @@
             <footer id="app-footer">
                 <div class="container-fluid">
                     <div class="row">
-                        <div class="col-xs-6 text-secondary">{% trans with {'%date%': 'now' | date('Y') } %}mautic.core.copyright{% endtrans %}</div>
-                        <div class="col-xs-6 text-secondary text-right small">v{{ mauticAppVersion() }}</div>
+                        {# Marque blanche : copyright brandé et indépendant de la langue (le pack FR rendait « Copyright … Mautic »), version masquée côté client. #}
+                        <div class="col-xs-12 text-secondary">&copy; {{ 'now' | date('Y') }} Sendly</div>
                     </div>
                 </div>
             </footer>
