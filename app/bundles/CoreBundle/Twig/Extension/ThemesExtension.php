@@ -55,6 +55,7 @@ final class ThemesExtension extends AbstractExtension
 
         $radiusMapping = [
             8  => ['md' => 4, 'sm' => 3],
+            12 => ['md' => 10, 'sm' => 8],
             16 => ['md' => 6, 'sm' => 4],
             32 => ['md' => 8, 'sm' => 5],
         ];
