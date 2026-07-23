@@ -5,6 +5,17 @@ on:
 #    branches:
 #      - '[0-9].*'
   pull_request:
+    # Une PR qui ne touche QUE des assets inertes (CSS compilé, LESS, images)
+    # ou de la doc ne peut pas changer le résultat de PHPUnit, PHPStan, Rector
+    # ou Twig Lint : lui faire tourner 9 combinaisons PHP/base coûtait ~25 min
+    # pour zéro information. Dès qu'un seul fichier hors de cette liste est
+    # touché, la matrice complète re-tourne — et le run planifié quotidien
+    # reste le filet de sécurité.
+    paths-ignore:
+      - '**/*.css'
+      - '**/*.less'
+      - '**/Assets/images/**'
+      - '**.md'
   merge_group:
   schedule:
     # Run every day at 10:45 AM UTC to discover potential issues with dependencies like PHP updates etc.
