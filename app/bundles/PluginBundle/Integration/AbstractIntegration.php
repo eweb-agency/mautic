@@ -2023,7 +2023,7 @@ abstract class AbstractIntegration implements UnifiedIntegrationInterface
     public function getFormNotes($section)
     {
         if ('leadfield_match' == $section) {
-            return ['mautic.integration.form.field_match_notes', 'info'];
+            return ['mautic.saas.integration.field_match_notes', 'info'];
         } else {
             return ['', 'info'];
         }

@@ -95,7 +95,7 @@
         {% if 5 == numberOfFields -%}
           <div class="col-sm-2"></div>
         {%- endif %}
-        <div class="mb-xs col-sm-{{ (5 == numberOfFields) ? 5 : 6 }} text-center"><h4>{{ 'mautic.plugins.mautic.fields'|trans }}</h4></div>
+        <div class="mb-xs col-sm-{{ (5 == numberOfFields) ? 5 : 6 }} text-center"><h4>{{ 'mautic.saas.integration.local_fields'|trans }}</h4></div>
       </div>
       {% for child in form.children %}
           {% set selected = false %}

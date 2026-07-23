@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\EwebSaasBundle\Command;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Mautic\UserBundle\Entity\Permission;
 use Mautic\UserBundle\Entity\Role;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -12,28 +13,52 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * Strips white-label-breaking permissions from tenant roles.
+ * Reconciles tenant roles with the white-label contract.
  *
- * The install fixtures historically granted the Owner role (non-admin)
- * access to the native Plugins page and the Marketplace — both screens
- * expose the upstream product name, which tenants must never see. New
- * installs no longer grant them; this command heals EXISTING tenants.
+ * Two screens were stripped from tenant roles together, on the assumption
+ * that both leaked the upstream product name. Only one of them does. The
+ * Marketplace announces itself as the upstream marketplace and links to
+ * the upstream docs. The Plugins page — where a tenant connects Zapier or
+ * their CRM — names the engine nowhere: not in the connector list, not in
+ * the connection forms. Three labels do, buried in CRM field-mapping, and
+ * those are translation strings we own.
  *
- * Idempotent and safe to run on every container start (wired into the
- * web entrypoint after migrations): it only ever REMOVES the forbidden
- * grants, never touches admin roles, and exits 0 even when there is
- * nothing to do.
+ * Blocking Plugins therefore cost tenants every native connector and
+ * bought no branding in return. This command now REMOVES the marketplace
+ * grant and RESTORES the plugins one.
  *
- * Output (stdout, JSON): {"rolesScanned": n, "permissionsRemoved": n}
+ * The restore targets owner-level roles only, recognised by the webhook
+ * grant the install fixtures give to Owner and withhold from Member: it
+ * already marks the role that administers a tenant's integrations.
+ * Members keep their narrower reach.
+ *
+ * Mirrors the fixtures by creating Permission entities and leaving
+ * `rawPermissions` alone — that field is written only by the role form,
+ * and guessing its shape here would risk corrupting it. Forbidden grants
+ * are still pruned from it defensively, as before.
+ *
+ * Idempotent and safe to run on every container start (wired into the web
+ * entrypoint after migrations): it never touches admin roles and exits 0
+ * even when there is nothing to do.
+ *
+ * Output (stdout, JSON):
+ * {"rolesScanned": n, "permissionsRemoved": n, "permissionsGranted": n}
  */
 #[AsCommand(
     name: 'mautic:saas:roles:harden',
-    description: 'Remove plugin/marketplace permissions from non-admin roles (white-label enforcement).',
+    description: 'Reconcile tenant roles with the white-label contract (drop marketplace, restore plugins).',
 )]
 final class HardenRolesCommand extends Command
 {
     /** Bundles whose screens leak the upstream product name. */
-    public const FORBIDDEN_BUNDLES = ['plugin', 'marketplace'];
+    public const FORBIDDEN_BUNDLES = ['marketplace'];
+
+    /** Restored to owner-level roles. Bundle => [name => bitwise]. */
+    public const OWNER_GRANTS = ['plugin' => ['plugins' => 1024]];
+
+    /** Withheld from Member by the fixtures, so it marks an owner role. */
+    private const OWNER_MARKER_BUNDLE = 'webhook';
+    private const OWNER_MARKER_NAME   = 'webhooks';
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -46,6 +71,7 @@ final class HardenRolesCommand extends Command
         /** @var Role[] $roles */
         $roles   = $this->em->getRepository(Role::class)->findBy(['isAdmin' => false]);
         $removed = 0;
+        $granted = 0;
 
         foreach ($roles as $role) {
             foreach ($role->getPermissions() as $permission) {
@@ -66,17 +92,59 @@ final class HardenRolesCommand extends Command
                     $role->setRawPermissions($raw);
                 }
             }
+
+            if (!$this->isOwnerRole($role)) {
+                continue;
+            }
+
+            foreach (self::OWNER_GRANTS as $bundle => $names) {
+                foreach ($names as $name => $bitwise) {
+                    if ($this->hasPermission($role, $bundle, $name)) {
+                        continue;
+                    }
+
+                    $permission = new Permission();
+                    $permission->setBundle($bundle);
+                    $permission->setName($name);
+                    $permission->setBitwise($bitwise);
+                    $permission->setRole($role);
+                    $role->addPermission($permission);
+                    $this->em->persist($permission);
+                    ++$granted;
+                }
+            }
         }
 
-        if ($removed > 0) {
+        if ($removed > 0 || $granted > 0) {
             $this->em->flush();
         }
 
         $output->writeln((string) json_encode([
             'rolesScanned'       => \count($roles),
             'permissionsRemoved' => $removed,
+            'permissionsGranted' => $granted,
         ]));
 
         return Command::SUCCESS;
+    }
+
+    private function isOwnerRole(Role $role): bool
+    {
+        return $this->hasPermission(
+            $role,
+            self::OWNER_MARKER_BUNDLE,
+            self::OWNER_MARKER_NAME,
+        );
+    }
+
+    private function hasPermission(Role $role, string $bundle, string $name): bool
+    {
+        foreach ($role->getPermissions() as $permission) {
+            if ($permission->getBundle() === $bundle && $permission->getName() === $name) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
