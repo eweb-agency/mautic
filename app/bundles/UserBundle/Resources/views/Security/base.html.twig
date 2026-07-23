@@ -32,7 +32,8 @@
         </div>
          <div class="row">
             <div class="col-lg-4 col-lg-offset-4 text-center text-secondary">
-                {{ 'mautic.core.copyright'|trans({'%date%' : date('Y').format('Y') }) }}
+                {# Marque blanche : copyright brandé sur la page de connexion (le pack FR rendait « Copyright … Mautic »). #}
+                &copy; {{ 'now'|date('Y') }} Sendly
             </div>
         </div>
     </div>
