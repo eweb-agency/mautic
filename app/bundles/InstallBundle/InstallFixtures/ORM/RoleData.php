@@ -37,6 +37,10 @@ class RoleData extends AbstractFixture implements OrderedFixtureInterface, Fixtu
         'dynamiccontent'    => ['categories' => 1024, 'dynamiccontents' => 1024],
         'point'             => ['categories' => 1024, 'points' => 1024, 'triggers' => 1024, 'groups' => 1024],
         'mauticSocial'      => ['categories' => 1024, 'monitoring' => 1024, 'tweets' => 1024],
+        // Connecteurs natifs (Zapier, CRM…). La page les liste sans jamais
+        // nommer le moteur ; seul le Marketplace le fait, et lui reste hors
+        // d'atteinte (cf. EwebSaasBundle\Command\HardenRolesCommand).
+        'plugin'            => ['plugins' => 1024],
         'user'              => ['users' => 20, 'roles' => 1024, 'profile' => 1024],
     ];
 

@@ -543,7 +543,7 @@ class SalesforceIntegration extends CrmAbstractIntegration
                     ],
                     'expanded'          => true,
                     'multiple'          => true,
-                    'label'             => 'mautic.integrations.form.blanks',
+                    'label'             => 'mautic.saas.integration.update_blanks',
                     'label_attr'        => ['class' => 'control-label'],
                     'placeholder'       => false,
                     'required'          => false,
