@@ -32,13 +32,16 @@ class AiCopilotService
     private const ANTHROPIC_VERSION = '2023-06-01';
     private const DEFAULT_MODEL     = 'claude-haiku-4-5-20251001';
 
-    /** Plafonds de tokens de sortie par mode. */
+    /** Plafonds de tokens de sortie par mode de contenu. */
     private const MAX_TOKENS = [
-        'subject'   => 256,
         'generate'  => 2048,
         'improve'   => 2048,
         'translate' => 2048,
     ];
+
+    /** Nombre de propositions d'objet (borné). */
+    private const SUBJECTS_DEFAULT = 3;
+    private const SUBJECTS_MAX      = 5;
 
     private readonly ?string $apiKey;
     private readonly string $model;
@@ -61,9 +64,10 @@ class AiCopilotService
     }
 
     /**
-     * Point d'entrée unique appelé par le contrôleur.
+     * Génération de CONTENU d'e-mail (rédiger / améliorer / traduire).
+     * L'objet passe par suggestSubjects() (retour multiple).
      *
-     * @param array{content?: string, subject?: string, instruction?: string, lang?: string, format?: string} $params
+     * @param array{content?: string, instruction?: string, lang?: string, format?: string} $params
      *
      * @throws \InvalidArgumentException mode inconnu
      * @throws \RuntimeException         échec d'appel Anthropic (message neutre)
@@ -79,7 +83,6 @@ class AiCopilotService
         $format = 'mjml' === ($params['format'] ?? 'html') ? 'mjml' : 'html';
 
         [$system, $userContent] = match ($mode) {
-            'subject'   => $this->buildSubjectPrompt($params),
             'generate'  => $this->buildGeneratePrompt($params, $format),
             'improve'   => $this->buildImprovePrompt($params, $format),
             'translate' => $this->buildTranslatePrompt($params, $format),
@@ -91,6 +94,32 @@ class AiCopilotService
         return $this->stripFences(trim($text));
     }
 
+    /**
+     * Suggestion d'OBJET façon Webmecanik : renvoie N propositions distinctes,
+     * paramétrées (ton, emojis, langue). count=1 sert à régénérer une ligne.
+     *
+     * @param array{content?: string, subject?: string, tone?: string, emojis?: bool, instructions?: string, lang?: string, count?: int} $params
+     *
+     * @return list<string>
+     *
+     * @throws \RuntimeException échec d'appel Anthropic (message neutre)
+     */
+    public function suggestSubjects(array $params): array
+    {
+        if (!$this->isEnabled()) {
+            throw new \RuntimeException('AI copilot disabled.');
+        }
+
+        $count = (int) ($params['count'] ?? self::SUBJECTS_DEFAULT);
+        $count = max(1, min(self::SUBJECTS_MAX, $count));
+
+        [$system, $user] = $this->buildSubjectPrompt($params, $count);
+
+        $raw = $this->callAnthropic($system, $user, 90 * $count + 150);
+
+        return $this->parseSubjects($raw, $count);
+    }
+
     // ── Construction des prompts (contenu client = messages[].content) ──────
 
     /**
@@ -98,21 +127,78 @@ class AiCopilotService
      *
      * @return array{0: string, 1: string}
      */
-    private function buildSubjectPrompt(array $params): array
+    private function buildSubjectPrompt(array $params, int $count): array
     {
-        $system = 'You are an expert email-marketing copywriter. From the body of a marketing email, propose ONE compelling subject line. '
-            .'Reply with ONLY the subject line as plain text: a single line, no surrounding quotes, no preamble, no explanation, at most ~80 characters. '
-            .'Write it in the same language as the email body.';
+        $tone   = $this->sanitizeTone((string) ($params['tone'] ?? ''));
+        $emojis = (bool) ($params['emojis'] ?? false);
+        $lang   = trim((string) ($params['lang'] ?? '')) ?: 'the same language as the email body';
 
-        $body    = $this->plainText((string) ($params['content'] ?? ''));
-        $current = trim((string) ($params['subject'] ?? ''));
+        $system = 'You are an expert email-marketing copywriter. Propose '.$count
+            .' DISTINCT, compelling subject lines for a marketing email, based on its body. '
+            .('' !== $tone ? 'Desired tone: '.$tone.'. ' : '')
+            .($emojis
+                ? 'You may add ONE relevant emoji per subject. '
+                : 'Do not use any emoji. ')
+            .'Write them in '.$lang.'. '
+            .'Output EXACTLY '.$count.' subject line(s), each on its own line, at most ~80 characters, '
+            .'no numbering, no bullet points, no surrounding quotes, no preamble and no commentary.';
+
+        $body         = $this->plainText((string) ($params['content'] ?? ''));
+        $current      = trim((string) ($params['subject'] ?? ''));
+        $instructions = trim((string) ($params['instructions'] ?? ''));
 
         $user = "Email body:\n".($body !== '' ? $body : '(empty)');
         if ($current !== '') {
-            $user .= "\n\nCurrent subject (improve on it): ".$current;
+            $user .= "\n\nCurrent subject (for reference): ".$current;
+        }
+        if ($instructions !== '') {
+            $user .= "\n\nExtra guidance from the user: ".$instructions;
         }
 
         return [$system, $user];
+    }
+
+    /**
+     * Découpe la réponse en propositions propres (une par ligne), en retirant
+     * numérotation, puces et guillemets résiduels.
+     *
+     * @return list<string>
+     */
+    private function parseSubjects(string $raw, int $count): array
+    {
+        $lines = preg_split('/\R/', trim($raw)) ?: [];
+        $out   = [];
+
+        foreach ($lines as $line) {
+            $s = (string) preg_replace('/^\s*(?:\d+[.)]\s*|[-*•]\s*)/u', '', (string) $line);
+            // Trim Unicode-aware : retire espaces + guillemets ASCII/courbes/chevrons
+            // SANS rogner les octets de continuation d'un emoji final (trim() le ferait).
+            $s = (string) preg_replace('/^[\s"\x{0027}\x{201C}\x{201D}\x{00AB}\x{00BB}]+|[\s"\x{0027}\x{201C}\x{201D}\x{00AB}\x{00BB}]+$/u', '', $s);
+            if ('' !== $s) {
+                $out[] = mb_substr($s, 0, 160);
+            }
+            if (count($out) >= $count) {
+                break;
+            }
+        }
+
+        if ([] === $out) {
+            $this->logger->warning('EwebAiBundle: no subject parsed from AI response.');
+            throw new \RuntimeException('AI request returned no content.');
+        }
+
+        return $out;
+    }
+
+    /**
+     * Le ton vient d'un select côté UI, mais on le nettoie par prudence
+     * (longueur bornée, une seule ligne) avant de l'insérer dans le system prompt.
+     */
+    private function sanitizeTone(string $tone): string
+    {
+        $tone = trim((string) preg_replace('/\s+/u', ' ', $tone));
+
+        return mb_substr($tone, 0, 40);
     }
 
     /**

@@ -74,12 +74,25 @@ export default class AiCopilotCommand {
         ${t('grapesjsbuilder.aiSaveHint')}
       </p>
       <div class="sendly-ai-error alert alert-danger" style="display:none;margin-top:10px"></div>
-      <div class="sendly-ai-actions" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+      <div class="sendly-ai-actions" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button type="button" class="btn btn-default sendly-ai-improve">
           ${t('grapesjsbuilder.aiImproveBtn')}
         </button>
         <button type="button" class="btn btn-primary sendly-ai-generate">
           ${t('grapesjsbuilder.aiGenerateBtn')}
+        </button>
+        <span style="flex-basis:100%;height:0"></span>
+        <select class="sendly-ai-lang" style="height:34px;border:1px solid #d1d5db;border-radius:4px;padding:0 8px">
+          <option value="French">Français</option>
+          <option value="English">English</option>
+          <option value="Spanish">Español</option>
+          <option value="German">Deutsch</option>
+          <option value="Italian">Italiano</option>
+          <option value="Portuguese">Português</option>
+          <option value="Dutch">Nederlands</option>
+        </select>
+        <button type="button" class="btn btn-default sendly-ai-translate">
+          ${t('grapesjsbuilder.aiTranslateBtn')}
         </button>
       </div>`;
 
@@ -87,14 +100,20 @@ export default class AiCopilotCommand {
     const $error = wrap.querySelector('.sendly-ai-error');
     const $improve = wrap.querySelector('.sendly-ai-improve');
     const $generate = wrap.querySelector('.sendly-ai-generate');
+    const $translate = wrap.querySelector('.sendly-ai-translate');
+    const $lang = wrap.querySelector('.sendly-ai-lang');
 
-    const setBusy = (busy) => {
-      [$improve, $generate].forEach((b) => {
+    const btnFor = { generate: $generate, improve: $improve, translate: $translate };
+    const setBusy = (busy, mode) => {
+      [$improve, $generate, $translate].forEach((b) => {
         b.disabled = busy;
       });
-      $generate.textContent = busy
-        ? t('grapesjsbuilder.aiGenerating')
-        : t('grapesjsbuilder.aiGenerateBtn');
+      $generate.textContent = t('grapesjsbuilder.aiGenerateBtn');
+      $improve.textContent = t('grapesjsbuilder.aiImproveBtn');
+      $translate.textContent = t('grapesjsbuilder.aiTranslateBtn');
+      if (busy && btnFor[mode]) {
+        btnFor[mode].textContent = t('grapesjsbuilder.aiGenerating');
+      }
     };
 
     const showError = () => {
@@ -104,13 +123,17 @@ export default class AiCopilotCommand {
 
     const run = (mode) => {
       $error.style.display = 'none';
-      setBusy(true);
+      setBusy(true, mode);
 
       const payload = {
         mode,
         format,
         instruction: $instruction.value || '',
-        content: 'improve' === mode ? AiCopilotCommand.readContent(editor) : '',
+        content:
+          'improve' === mode || 'translate' === mode
+            ? AiCopilotCommand.readContent(editor)
+            : '',
+        lang: 'translate' === mode ? $lang.value || '' : '',
       };
 
       AiCopilotCommand.request(cfg.endpoint, payload)
@@ -133,6 +156,7 @@ export default class AiCopilotCommand {
 
     $generate.addEventListener('click', () => run('generate'));
     $improve.addEventListener('click', () => run('improve'));
+    $translate.addEventListener('click', () => run('translate'));
 
     editor.Modal.setTitle(t('grapesjsbuilder.aiModalTitle'));
     editor.Modal.setContent(wrap);
