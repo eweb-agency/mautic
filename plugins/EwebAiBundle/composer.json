@@ -1,0 +1,19 @@
+{
+    "name": "eweb-agency/mautic-ai",
+    "description": "Eweb Agency AI copilot for Mautic (subject and email content assistance, gated by an Anthropic API key).",
+    "type": "mautic-plugin",
+    "keywords": [
+        "mautic",
+        "plugin",
+        "ai",
+        "copilot"
+    ],
+    "license": "proprietary",
+    "extra": {
+        "install-directory-name": "EwebAiBundle"
+    },
+    "minimum-stability": "dev",
+    "require": {
+        "mautic/core-lib": "^7.0"
+    }
+}

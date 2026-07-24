@@ -106,6 +106,8 @@
 /media/js/jquery.min.js
 
 /plugins/*
+!/plugins/EwebAiBundle
+!/plugins/EwebAiBundle/*
 !/plugins/EwebSaasBundle
 !/plugins/EwebSaasBundle/*
 !/plugins/EwebSaasLimitBundle
