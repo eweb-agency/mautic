@@ -2045,7 +2045,7 @@ body > #app-wrapper {
   -o-transition: width 0.3s ease;
   transition: width 0.3s ease;
   width: 230px;
-  background-color: #4e5e9e;
+  background-color: #004FFF;
 }
 .app-sidebar.sidebar-left .sidebar-content {
   padding-right: 1px;
@@ -4482,7 +4482,7 @@ kbd {
   color: var(--support-error);
 }
 .alert-primary {
-  background: #aeb6d7;
+  background: #99b9ff;
 }
 .alert-secondary {
   background: #feedcb;
@@ -11104,7 +11104,7 @@ code:hover > .copy-icon {
   height: 48px;
 }
 .mautic-brand > svg.mautic-logo-figure .circle {
-  fill: #4e5e9e;
+  fill: #004FFF;
 }
 .mautic-brand > svg.mautic-logo-figure .m,
 .mautic-brand > svg.mautic-logo-figure .m-arrow {
@@ -11120,7 +11120,7 @@ code:hover > .copy-icon {
 .mautic-brand > svg.mautic-logo-text .t,
 .mautic-brand > svg.mautic-logo-text .i,
 .mautic-brand > svg.mautic-logo-text .c {
-  fill: #4e5e9e;
+  fill: #004FFF;
 }
 @media (max-width: 768px) {
   svg.mautic-logo-text {
