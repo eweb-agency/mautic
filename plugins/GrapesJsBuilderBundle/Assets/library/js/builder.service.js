@@ -21,6 +21,7 @@ import StorageService from './storage.service';
 // import grapesjsmautic from '../../../../../../grapesjs-preset-mautic/src';
 
 import CodeModeButton from './codeMode/codeMode.button';
+import AiCopilotButton from './aiCopilot/aiCopilot.button';
 import CompCopyPaste from './commands/compCopyPaste';
 import MjmlService from 'grapesjs-preset-mautic/dist/mjml/mjml.service';
 
@@ -197,6 +198,14 @@ export default class BuilderService {
     const codeModeButton = new CodeModeButton(this.editor);
     codeModeButton.addCommand();
     codeModeButton.addButton();
+
+    // add AI copilot button — only when a key is configured server-side
+    // (AiConfigAssetsSubscriber injects window.SendlyAiConfig). Absent otherwise.
+    if (window.SendlyAiConfig && window.SendlyAiConfig.enabled) {
+      const aiCopilotButton = new AiCopilotButton(this.editor);
+      aiCopilotButton.addCommand();
+      aiCopilotButton.addButton();
+    }
 
     /**
      * Add command that will allow users
