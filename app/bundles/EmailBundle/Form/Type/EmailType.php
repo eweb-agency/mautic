@@ -60,18 +60,6 @@ class EmailType extends AbstractType
         $this->isDraftEnabled = $emailConfig->isDraftEnabled();
     }
 
-    /**
-     * Copilote IA (EwebAiBundle) : la surface « suggérer un objet » n'apparaît
-     * que si une clé Anthropic est configurée en environnement. Lecture
-     * self-contained (indépendante du plugin) — aucune UI sans clé.
-     */
-    private function isAiCopilotEnabled(): bool
-    {
-        $key = $_ENV['SENDLY_ANTHROPIC_KEY'] ?? $_SERVER['SENDLY_ANTHROPIC_KEY'] ?? getenv('SENDLY_ANTHROPIC_KEY');
-
-        return is_string($key) && '' !== trim($key);
-    }
-
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder->addEventSubscriber(new CleanFormSubscriber(['content' => 'html', 'customHtml' => 'html', 'headers' => 'clean']));
@@ -90,28 +78,16 @@ class EmailType extends AbstractType
             ]
         );
 
-        $subjectAttr = [
-            'class'   => 'form-control',
-            'onBlur'  => 'Mautic.copySubjectToName(mQuery(this))',
-        ];
-        if ($this->isAiCopilotEnabled()) {
-            // Icône cliquable collée à droite du champ (block form_widget_simple).
-            // Clé postaddon_attr séparée → ne touche pas au onBlur existant.
-            $subjectAttr['postaddon']      = 'ri-sparkling-2-line';
-            $subjectAttr['postaddon_attr'] = [
-                'id'      => 'email-subject-ai',
-                'onclick' => "Mautic.suggestEmailSubject(mQuery('#emailform_subject'))",
-                'title'   => $this->translator->trans('mautic.email.subject.ai_suggest'),
-            ];
-        }
-
         $builder->add(
             'subject',
             TextType::class,
             [
                 'label'      => 'mautic.email.subject',
                 'label_attr' => ['class' => 'control-label'],
-                'attr'       => $subjectAttr,
+                'attr'       => [
+                    'class'   => 'form-control',
+                    'onBlur'  => 'Mautic.copySubjectToName(mQuery(this))',
+                ],
             ]
         );
 

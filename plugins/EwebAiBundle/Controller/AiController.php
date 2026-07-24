@@ -58,24 +58,36 @@ final class AiController
             return new JsonResponse(['error' => 'bad_request'], Response::HTTP_BAD_REQUEST);
         }
 
-        $params = [
-            'content'     => mb_substr((string) ($payload['content'] ?? ''), 0, self::MAX_CONTENT),
-            'subject'     => mb_substr((string) ($payload['subject'] ?? ''), 0, self::MAX_SUBJECT),
-            'instruction' => mb_substr((string) ($payload['instruction'] ?? ''), 0, self::MAX_INSTRUCTION),
-            'lang'        => mb_substr((string) ($payload['lang'] ?? ''), 0, 60),
-            'format'      => 'mjml' === ($payload['format'] ?? '') ? 'mjml' : 'html',
-        ];
-
         try {
-            $text = $this->copilot->generate($mode, $params);
+            // Objet : N propositions (façon Webmecanik). Contenu : un seul bloc.
+            if ('subject' === $mode) {
+                $suggestions = $this->copilot->suggestSubjects([
+                    'content'      => mb_substr((string) ($payload['content'] ?? ''), 0, self::MAX_CONTENT),
+                    'subject'      => mb_substr((string) ($payload['subject'] ?? ''), 0, self::MAX_SUBJECT),
+                    'tone'         => mb_substr((string) ($payload['tone'] ?? ''), 0, 40),
+                    'emojis'       => filter_var($payload['emojis'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                    'instructions' => mb_substr((string) ($payload['instructions'] ?? ''), 0, self::MAX_INSTRUCTION),
+                    'lang'         => mb_substr((string) ($payload['lang'] ?? ''), 0, 60),
+                    'count'        => (int) ($payload['count'] ?? 3),
+                ]);
+
+                return new JsonResponse(['suggestions' => $suggestions]);
+            }
+
+            $text = $this->copilot->generate($mode, [
+                'content'     => mb_substr((string) ($payload['content'] ?? ''), 0, self::MAX_CONTENT),
+                'instruction' => mb_substr((string) ($payload['instruction'] ?? ''), 0, self::MAX_INSTRUCTION),
+                'lang'        => mb_substr((string) ($payload['lang'] ?? ''), 0, 60),
+                'format'      => 'mjml' === ($payload['format'] ?? '') ? 'mjml' : 'html',
+            ]);
+
+            return new JsonResponse(['text' => $text]);
         } catch (\InvalidArgumentException) {
             return new JsonResponse(['error' => 'bad_request'], Response::HTTP_BAD_REQUEST);
         } catch (\Throwable) {
             // Le service a déjà journalisé la cause réelle (sans secret).
             return new JsonResponse(['error' => 'ai_failed'], Response::HTTP_BAD_GATEWAY);
         }
-
-        return new JsonResponse(['text' => $text]);
     }
 
     /**
