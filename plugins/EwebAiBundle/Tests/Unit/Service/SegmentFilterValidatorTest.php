@@ -25,26 +25,26 @@ final class SegmentFilterValidatorTest extends TestCase
     private const CATALOG = [
         'lead' => [
             'city' => [
-                'label' => 'Ville', 'type' => 'text', 'list' => null,
+                'label'     => 'Ville', 'type' => 'text', 'list' => null,
                 'operators' => ['=', '!=', 'empty', '!empty', 'like'],
             ],
             'points' => [
-                'label' => 'Points', 'type' => 'number', 'list' => null,
+                'label'     => 'Points', 'type' => 'number', 'list' => null,
                 'operators' => ['=', '!=', 'gt', 'gte', 'lt', 'lte'],
             ],
             'date_added' => [
-                'label' => 'Date d ajout', 'type' => 'date', 'list' => null,
+                'label'     => 'Date d ajout', 'type' => 'date', 'list' => null,
                 'operators' => ['=', '!=', 'gt', 'gte', 'lt', 'lte'],
             ],
             'tags' => [
-                'label' => 'Tags', 'type' => 'tags',
-                'list' => ['12' => 'VIP', '7' => 'Newsletter'],
+                'label'     => 'Tags', 'type' => 'tags',
+                'list'      => ['12' => 'VIP', '7' => 'Newsletter'],
                 'operators' => ['in', '!in', 'empty', '!empty'],
             ],
         ],
         'behaviors' => [
             'lead_email_read_count' => [
-                'label' => 'E-mails lus', 'type' => 'number', 'list' => null,
+                'label'     => 'E-mails lus', 'type' => 'number', 'list' => null,
                 'operators' => ['=', 'gt', 'gte', 'lt', 'lte'],
             ],
         ],
@@ -81,7 +81,7 @@ final class SegmentFilterValidatorTest extends TestCase
     private function filter(array $overrides = []): array
     {
         return array_merge([
-            'glue' => 'and', 'object' => 'lead', 'field' => 'city',
+            'glue'     => 'and', 'object' => 'lead', 'field' => 'city',
             'operator' => '=', 'value' => 'Paris',
         ], $overrides);
     }

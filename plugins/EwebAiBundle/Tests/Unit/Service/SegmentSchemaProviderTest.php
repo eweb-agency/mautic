@@ -82,7 +82,7 @@ final class SegmentSchemaProviderTest extends TestCase
         // proposer produirait des segments dont on ne garantit rien.
         $catalog = $this->provider([
             'core' => [
-                'city'      => $this->choice(),
+                'city'        => $this->choice(),
                 'companyname' => $this->choice(['object' => 'company']),
             ],
         ])->getCatalog();

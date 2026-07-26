@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace MauticPlugin\EwebAiBundle\Service;
 
-use Mautic\LeadBundle\Segment\RelativeDate;
 use Mautic\LeadBundle\Model\ListModel;
+use Mautic\LeadBundle\Segment\RelativeDate;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**

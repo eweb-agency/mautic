@@ -40,7 +40,7 @@ class AiCopilotService
     ];
 
     /** Nombre de propositions d'objet (borné). */
-    private const SUBJECTS_DEFAULT = 3;
+    private const SUBJECTS_DEFAULT  = 3;
     private const SUBJECTS_MAX      = 5;
 
     /** Plafond de sortie et nombre de critères pour la segmentation. */
@@ -81,8 +81,8 @@ class AiCopilotService
     private function segmentTool(): array
     {
         return [
-            'name'        => 'emit_segment_filters',
-            'description' => 'Renvoie les critères de segmentation correspondant à la cible décrite.',
+            'name'         => 'emit_segment_filters',
+            'description'  => 'Renvoie les critères de segmentation correspondant à la cible décrite.',
             'input_schema' => [
                 'type'                 => 'object',
                 'additionalProperties' => false,
@@ -280,7 +280,7 @@ class AiCopilotService
         // façon pas besoin d'un roman pour cibler une audience.
         $description = mb_substr((string) preg_replace('/\s+/u', ' ', $description), 0, 1000);
 
-        $user = 'Audience to target: '.($description !== '' ? $description : '(not specified)');
+        $user = 'Audience to target: '.('' !== $description ? $description : '(not specified)');
 
         return [$system, $user];
     }
@@ -363,11 +363,11 @@ class AiCopilotService
         $current      = trim((string) ($params['subject'] ?? ''));
         $instructions = trim((string) ($params['instructions'] ?? ''));
 
-        $user = "Email body:\n".($body !== '' ? $body : '(empty)');
-        if ($current !== '') {
+        $user = "Email body:\n".('' !== $body ? $body : '(empty)');
+        if ('' !== $current) {
             $user .= "\n\nCurrent subject (for reference): ".$current;
         }
-        if ($instructions !== '') {
+        if ('' !== $instructions) {
             $user .= "\n\nExtra guidance from the user: ".$instructions;
         }
 
@@ -430,7 +430,7 @@ class AiCopilotService
             .' Write in the same language as the brief. Reply with ONLY the markup — no markdown code fences, no commentary.';
 
         $brief = trim((string) ($params['instruction'] ?? ''));
-        $user  = "Brief:\n".($brief !== '' ? $brief : 'Write a short, friendly marketing email.');
+        $user  = "Brief:\n".('' !== $brief ? $brief : 'Write a short, friendly marketing email.');
 
         return [$system, $user];
     }
@@ -450,7 +450,7 @@ class AiCopilotService
         $instruction = trim((string) ($params['instruction'] ?? ''));
         $content     = (string) ($params['content'] ?? '');
 
-        $user = 'Instruction: '.($instruction !== '' ? $instruction : 'General improvement: clarity, persuasiveness and structure, meaning unchanged.')
+        $user = 'Instruction: '.('' !== $instruction ? $instruction : 'General improvement: clarity, persuasiveness and structure, meaning unchanged.')
             ."\n\nContent to improve:\n".$content;
 
         return [$system, $user];

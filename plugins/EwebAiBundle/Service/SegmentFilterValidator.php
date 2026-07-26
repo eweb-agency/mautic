@@ -96,9 +96,9 @@ class SegmentFilterValidator
     }
 
     /**
-     * @param array<string, mixed>                     $raw
+     * @param array<string, mixed>                               $raw
      * @param array<string, array<string, array<string, mixed>>> $catalog
-     * @param array<string, string>                    $dateMap
+     * @param array<string, string>                              $dateMap
      *
      * @return array{filter?: array<string, mixed>, reason?: string}
      */
