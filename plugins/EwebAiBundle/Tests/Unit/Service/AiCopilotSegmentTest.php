@@ -114,8 +114,14 @@ final class AiCopilotSegmentTest extends TestCase
 
         self::assertFalse($items['additionalProperties']);
         self::assertSame(10, $schema['properties']['filters']['maxItems']);
-        self::assertSame(['lead', 'behaviors'], $items['properties']['object']['enum']);
         self::assertSame(['and', 'or'], $items['properties']['glue']['enum']);
+
+        // PAS d'énumération sur `object` : les objets sont les groupes du
+        // catalogue de l'instance, dont certains sont créés dynamiquement (un
+        // par groupe de points). Une liste en dur exclurait des champs réels —
+        // c'est exactement le raccourci qui avait cassé les champs de
+        // comportement en production.
+        self::assertArrayNotHasKey('enum', $items['properties']['object']);
     }
 
     public function testSendsTheInstanceCatalogAndDateTokensInThePrompt(): void
