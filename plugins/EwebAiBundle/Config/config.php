@@ -17,6 +17,14 @@ return [
                 'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiController::generateAction',
                 'method'     => 'POST',
             ],
+            // Assistant de segmentation. Ne mute rien : propose des critères et
+            // le décompte de contacts correspondant. C'est le formulaire natif
+            // du segment qui enregistre, avec sa propre protection CSRF.
+            'eweb_ai_segment_suggest' => [
+                'path'       => '/ai/segment/suggest',
+                'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiSegmentController::suggestAction',
+                'method'     => 'POST',
+            ],
         ],
     ],
 ];
