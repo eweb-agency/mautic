@@ -183,7 +183,7 @@ final class AiCopilotSegmentTest extends TestCase
 
     public function testDropsNonObjectEntriesAndCapsAtTenFilters(): void
     {
-        $noise = array_fill(0, 15, ['field' => 'city']);
+        $noise   = array_fill(0, 15, ['field' => 'city']);
         $noise[] = 'du texte';
 
         $out = $this->service($this->toolResponse($noise))->suggestSegmentFilters($this->params());
