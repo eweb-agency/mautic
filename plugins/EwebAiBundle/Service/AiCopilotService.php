@@ -268,25 +268,46 @@ class AiCopilotService
 
     // ── Appel HTTP Anthropic (fail-soft) ────────────────────────────────────
 
-    private function callAnthropic(string $system, string $userContent, int $maxTokens): string
-    {
+    /**
+     * @param array<string, mixed>|null $tool  outil imposé : force une SORTIE
+     *                                         STRUCTURÉE (ce n'est pas une
+     *                                         capacité — le modèle ne peut rien
+     *                                         exécuter, seulement remplir une
+     *                                         forme validée par un schéma)
+     * @param string|null               $model surcharge de modèle pour un usage
+     *                                         plus difficile que la rédaction
+     */
+    private function callAnthropic(
+        string $system,
+        string $userContent,
+        int $maxTokens,
+        ?array $tool = null,
+        ?string $model = null,
+    ): string {
+        $payload = [
+            'model'      => $model ?? $this->model,
+            'max_tokens' => $maxTokens,
+            'system'     => $system,
+            'messages'   => [
+                ['role' => 'user', 'content' => $userContent],
+            ],
+        ];
+
+        if (null !== $tool) {
+            $payload['tools']       = [$tool];
+            $payload['tool_choice'] = ['type' => 'tool', 'name' => $tool['name']];
+        }
+
         try {
             $response = $this->httpClient->request('POST', self::ENDPOINT, [
                 RequestOptions::HEADERS => [
                     'x-api-key'         => (string) $this->apiKey,
                     'anthropic-version' => self::ANTHROPIC_VERSION,
                 ],
-                RequestOptions::JSON => [
-                    'model'      => $this->model,
-                    'max_tokens' => $maxTokens,
-                    'system'     => $system,
-                    'messages'   => [
-                        ['role' => 'user', 'content' => $userContent],
-                    ],
-                ],
-                RequestOptions::HTTP_ERRORS    => false,
+                RequestOptions::JSON            => $payload,
+                RequestOptions::HTTP_ERRORS     => false,
                 RequestOptions::CONNECT_TIMEOUT => 5,
-                RequestOptions::TIMEOUT        => 60,
+                RequestOptions::TIMEOUT         => 60,
             ]);
         } catch (\Throwable $e) {
             // Réseau / transport : ne jamais faire remonter le détail à l'UI.
@@ -310,9 +331,19 @@ class AiCopilotService
             throw new \RuntimeException('AI request failed.');
         }
 
+        // Sortie structurée : le contenu utile est dans le bloc d'outil, pas
+        // dans du texte. On le renvoie en JSON pour que l'appelant le décode —
+        // avec repli sur le texte si le modèle a répondu en clair malgré la
+        // contrainte (le parseur en aval traite les deux cas identiquement).
         $text = '';
         foreach ($decoded['content'] ?? [] as $block) {
-            if (is_array($block) && ($block['type'] ?? null) === 'text') {
+            if (!is_array($block)) {
+                continue;
+            }
+            if (null !== $tool && ($block['type'] ?? null) === 'tool_use' && is_array($block['input'] ?? null)) {
+                return json_encode($block['input'], JSON_THROW_ON_ERROR);
+            }
+            if (($block['type'] ?? null) === 'text') {
                 $text .= (string) ($block['text'] ?? '');
             }
         }
