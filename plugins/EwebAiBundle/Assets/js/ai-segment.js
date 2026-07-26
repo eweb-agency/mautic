@@ -88,6 +88,10 @@
       '.sendly-seg-row .crit b{font-weight:600}' +
       '.sendly-seg-todo{display:inline-block;margin-top:3px;font-size:11px;color:#92400e;' +
       'background:#fef3c7;border-radius:4px;padding:2px 7px}' +
+      '.sendly-seg-note{margin:0 0 10px;font-size:12px;color:#6b7280}' +
+      '.sendly-seg-row.dup{opacity:.6}' +
+      '.sendly-seg-dup{display:inline-block;margin-top:3px;font-size:11px;color:#4b5563;' +
+      'background:#f3f4f6;border-radius:4px;padding:2px 7px}' +
       '.sendly-seg-drop{margin:12px 0 0;padding:12px 14px;background:#fffbeb;' +
       'border:1px solid #fde68a;border-radius:8px;font-size:12px;color:#78350f}' +
       '.sendly-seg-drop p{margin:0 0 6px;font-weight:600}' +
@@ -119,9 +123,57 @@
     return mQuery('#available_' + f.object + '_' + f.field);
   }
 
+  /**
+   * ⚠️ LE LIBELLÉ DE CHAMP CONTIENT DU BALISAGE, PAR CONCEPTION.
+   * `mautic.lead_list.filter.field.label` vaut « <em>%object%</em>: %field% »
+   * (LeadBundle/Translations/en_US/messages.ini:1187), donc `data-field-label`
+   * porte de vraies balises. Les échapper telles quelles affichait
+   * « <em>Contact</em>: Ville » à l'écran ; les insérer telles quelles serait
+   * pire — le nom d'un champ personnalisé vient du client. On retire donc les
+   * balises AVANT l'échappement : le texte reste juste, et rien d'exécutable
+   * ne passe.
+   */
+  function stripTags(s) {
+    return String(s == null ? '' : s).replace(/<[^>]*>/g, '');
+  }
+
   function fieldLabel(f) {
     var $o = option(f);
-    return ($o.length && ($o.data('field-label') || $o.text().trim())) || f.field;
+    var raw = ($o.length && ($o.data('field-label') || $o.text().trim())) || f.field;
+    return stripTags(raw).trim();
+  }
+
+  /**
+   * Le critère est-il DÉJÀ dans le formulaire ? Le tiroir ajoute aux critères
+   * existants ; sans ce contrôle, relancer l'assistant empile des doublons —
+   * ce que le client lit comme un bug alors que chaque ajout a « réussi ».
+   */
+  function alreadyPresent(f) {
+    var mine = Array.isArray(f.value) ? f.value.join('|') : String(f.value == null ? '' : f.value);
+    var found = false;
+
+    mQuery('#leadlist_filters').find('.filter--row').each(function () {
+      if (found) {
+        return;
+      }
+      var $r = mQuery(this);
+      if ($r.find('input[id$="_field"]').val() !== f.field) {
+        return;
+      }
+      if ($r.find('input[id$="_object"]').val() !== f.object) {
+        return;
+      }
+      if ($r.find('select[id$="_operator"]').val() !== f.operator) {
+        return;
+      }
+      var v = $r.find('[id$="_properties_filter"]').val();
+      var theirs = Array.isArray(v) ? v.join('|') : String(v == null ? '' : v);
+      if (theirs === mine) {
+        found = true;
+      }
+    });
+
+    return found;
   }
 
   function operatorLabel(f) {
@@ -285,16 +337,30 @@
         '</span></div>';
     }
 
+    // On dit AVANT le clic que l'ajout se cumule : c'est ce qui explique une
+    // liste qui s'allonge quand on relance l'assistant.
+    html += '<p class="sendly-seg-note">' +
+      esc(t('mautic.lead_list.ai.adds_to_existing', 'Ces critères s’ajoutent à ceux déjà présents dans le segment.')) +
+      '</p>';
+
     for (var i = 0; i < state.filters.length; i++) {
       var f = state.filters[i];
       var glue = i === 0 ? '' : t('mautic.lead_list.ai.glue_' + f.glue, f.glue === 'or' ? 'ou' : 'et');
       var val = valueLabel(f);
-      html += '<div class="sendly-seg-row"><span class="glue">' + esc(glue) + '</span><span class="crit">' +
+      var dup = alreadyPresent(f);
+      html += '<div class="sendly-seg-row' + (dup ? ' dup' : '') + '"><span class="glue">' + esc(glue) +
+        '</span><span class="crit">' +
         '<b>' + esc(fieldLabel(f)) + '</b> ' + esc(operatorLabel(f)) +
         (val ? ' <b>' + esc(val) + '</b>' : '');
       if (f.needsInput) {
         html += '<br><span class="sendly-seg-todo">' +
           esc(t('mautic.lead_list.ai.needs_input', 'valeur à choisir après application')) + '</span>';
+      }
+      // Signalé ici plutôt qu'annoncé après coup : sinon le client clique,
+      // rien ne bouge à l'écran, et il croit que le bouton est cassé.
+      if (dup) {
+        html += '<br><span class="sendly-seg-dup">' +
+          esc(t('mautic.lead_list.ai.already_present', 'déjà présent — ne sera pas ajouté en double')) + '</span>';
       }
       html += '</span></div>';
     }
@@ -489,6 +555,15 @@
       }
 
       var f = queue.shift();
+
+      // Déjà là : on ne le rajoute pas. Un doublon ne change rien au segment
+      // (il est chaîné en « et »), mais il donne au client une liste qu'il n'a
+      // pas demandée et qu'il devra nettoyer à la main.
+      if (alreadyPresent(f)) {
+        next();
+        return;
+      }
+
       applyOne(f, function (ok) {
         if (!ok) {
           missed.push(fieldLabel(f));
