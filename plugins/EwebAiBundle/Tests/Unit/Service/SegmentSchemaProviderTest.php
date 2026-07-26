@@ -17,14 +17,13 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * deux côtés à la fois, et reste invisible — le modèle proposerait des critères
  * cohérents avec un vocabulaire faux.
  *
- * Ces tests verrouillent en priorité les deux formes du cœur qui ne sont pas
- * celles qu'on croit :
- *
- *  - `operators` est un tableau [LIBELLÉ TRADUIT => jeton] et non une liste,
- *    parce que le cœur termine par un array_flip(). Prendre les clés donnerait
- *    au modèle des libellés français en guise d'opérateurs ;
- *  - les jetons de date sont le DERNIER segment de clés de traduction du type
- *    « mautic.lead.list.month_last ».
+ * ⚠️ CES DONNÉES D'ESSAI REPRODUISENT LA FORME EXACTE DU CŒUR, ET C'EST LE POINT.
+ * La version précédente de ce fichier inventait un groupe `core` qui n'existe
+ * nulle part, ce qui rendait INDÉTECTABLE la confusion entre la clé de groupe et
+ * la propriété `object` — le défaut qui a cassé l'assistant en production. Les
+ * groupes ci-dessous sont ceux que le cœur produit réellement (`lead`,
+ * `behaviors`, `groups`), et la divergence groupe ≠ propriété `object` y est
+ * reproduite telle quelle.
  */
 final class SegmentSchemaProviderTest extends TestCase
 {
@@ -56,9 +55,68 @@ final class SegmentSchemaProviderTest extends TestCase
         ], $overrides);
     }
 
+    // ── Le défaut de production, verrouillé ────────────────────────────────
+
+    public function testCataloguesAFieldUnderItsGroupNotUnderItsDeclaredObject(): void
+    {
+        // RÉGRESSION. `FilterOperatorSubscriber` range les champs de comportement
+        // dans le groupe `behaviors` alors que chacun se DÉCLARE `object: lead`.
+        // C'est la clé de groupe qui fait foi : le gabarit en dérive l'identifiant
+        // `#available_behaviors_...` et le filtre enregistré porte `behaviors`.
+        // Indexer par la propriété rendait le champ introuvable dans la page.
+        $catalog = $this->provider([
+            'behaviors' => ['lead_email_read_count' => $this->choice([
+                'label'      => 'E-mails lus',
+                'object'     => 'lead',
+                'properties' => ['type' => 'number'],
+                'operators'  => ['plus grand que' => 'gt'],
+            ])],
+        ])->getCatalog();
+
+        self::assertArrayHasKey('behaviors', $catalog, 'le champ doit être classé sous son GROUPE');
+        self::assertArrayHasKey('lead_email_read_count', $catalog['behaviors']);
+        self::assertArrayNotHasKey('lead', $catalog, 'la propriété `object` ne doit pas servir de clé');
+    }
+
+    public function testTheDigestNamesTheGroupSoTheBrowserCanFindTheOption(): void
+    {
+        // Le condensé alimente la proposition du modèle, qui alimente à son tour
+        // `#available_<objet>_<alias>` côté navigateur. Une divergence ici casse
+        // l'ajout du critère ET fait retomber le libellé sur l'alias brut.
+        $digest = $this->provider([
+            'behaviors' => ['lead_email_read_count' => $this->choice([
+                'object'     => 'lead',
+                'properties' => ['type' => 'number'],
+                'operators'  => ['plus grand que' => 'gt'],
+            ])],
+        ])->toPromptDigest();
+
+        self::assertStringContainsString('behaviors.lead_email_read_count|number|gt', $digest);
+        self::assertStringNotContainsString('lead.lead_email_read_count', $digest);
+    }
+
+    public function testKeepsGroupsThatAreBuiltDynamically(): void
+    {
+        // `PointBundle` crée un groupe `groups` contenant un champ par groupe de
+        // points, chacun déclaré `object: lead`. Ces champs étaient cassés de la
+        // même façon, et une liste blanche d'objets en dur les exclurait.
+        $catalog = $this->provider([
+            'groups' => ['group_points_3' => $this->choice([
+                'object'     => 'lead',
+                'properties' => ['type' => 'number'],
+                'operators'  => ['plus grand que' => 'gt'],
+            ])],
+        ])->getCatalog();
+
+        self::assertArrayHasKey('groups', $catalog);
+        self::assertArrayHasKey('group_points_3', $catalog['groups']);
+    }
+
+    // ── Les formes du cœur qui ne sont pas celles qu'on croit ──────────────
+
     public function testKeepsTheOperatorTokensNotTheirTranslatedLabels(): void
     {
-        $catalog = $this->provider(['core' => ['city' => $this->choice()]])->getCatalog();
+        $catalog = $this->provider(['lead' => ['city' => $this->choice()]])->getCatalog();
 
         self::assertSame(['=', '!=', 'empty'], $catalog['lead']['city']['operators']);
     }
@@ -66,44 +124,52 @@ final class SegmentSchemaProviderTest extends TestCase
     public function testDropsOperatorsDeliberatelyOutOfScope(): void
     {
         $catalog = $this->provider([
-            'core' => ['city' => $this->choice(['operators' => [
-                'égal à'      => '=',
-                'expression'  => 'regexp',
-                'entre'       => 'between',
+            'lead' => ['city' => $this->choice(['operators' => [
+                'égal à'     => '=',
+                'expression' => 'regexp',
+                'entre'      => 'between',
             ]])],
         ])->getCatalog();
 
         self::assertSame(['='], $catalog['lead']['city']['operators']);
     }
 
-    public function testIgnoresObjectsThatAreNotSupported(): void
-    {
-        // `company` a son propre constructeur de requête, non audité : le
-        // proposer produirait des segments dont on ne garantit rien.
-        $catalog = $this->provider([
-            'core' => [
-                'city'        => $this->choice(),
-                'companyname' => $this->choice(['object' => 'company']),
-            ],
-        ])->getCatalog();
-
-        self::assertArrayHasKey('city', $catalog['lead']);
-        self::assertArrayNotHasKey('company', $catalog);
-    }
-
     public function testIgnoresAFieldLeftWithoutAnyUsableOperator(): void
     {
         $catalog = $this->provider([
-            'core' => ['weird' => $this->choice(['operators' => ['entre' => 'between']])],
+            'lead' => ['weird' => $this->choice(['operators' => ['entre' => 'between']])],
         ])->getCatalog();
 
         self::assertSame([], $catalog);
     }
 
+    public function testTurnsTranslationKeysIntoNeutralDateTokens(): void
+    {
+        $map = $this->provider([], [
+            'mautic.lead.list.month_last' => 'le mois dernier',
+            'mautic.lead.list.today'      => "aujourd'hui",
+        ])->relativeDateMap();
+
+        self::assertSame(['month_last' => 'le mois dernier', 'today' => "aujourd'hui"], $map);
+    }
+
+    public function testEntersTheSegmentationContextTheCoreInspects(): void
+    {
+        // Sans cet attribut, le cœur retire les champs statiques et TOUT le groupe
+        // `behaviors` : plus de date d'ajout, de points, de tags, d'e-mails
+        // ouverts. L'assistant deviendrait cosmétique — sans erreur visible.
+        $request = new Request();
+        $this->provider([], [], $request)->enterSegmentationContext();
+
+        self::assertSame('loadSegmentFilterForm', $request->attributes->get('action'));
+    }
+
+    // ── Le condensé envoyé au modèle ───────────────────────────────────────
+
     public function testListsShortValueSetsInline(): void
     {
         $digest = $this->provider([
-            'core' => ['tags' => $this->choice([
+            'lead' => ['tags' => $this->choice([
                 'label'      => 'Tags',
                 'properties' => ['type' => 'tags', 'list' => ['12' => 'VIP', '7' => 'Newsletter']],
             ])],
@@ -123,7 +189,7 @@ final class SegmentSchemaProviderTest extends TestCase
         }
 
         $digest = $this->provider([
-            'core' => ['campaign' => $this->choice([
+            'lead' => ['campaign' => $this->choice([
                 'properties' => ['type' => 'leadlist', 'list' => $long],
             ])],
         ])->toPromptDigest();
@@ -137,7 +203,7 @@ final class SegmentSchemaProviderTest extends TestCase
         // Le condensé est délimité par | et , : un libellé client qui en contient
         // décalerait la lecture de toute la ligne.
         $digest = $this->provider([
-            'core' => ['tags' => $this->choice([
+            'lead' => ['tags' => $this->choice([
                 'properties' => ['type' => 'tags', 'list' => ['1' => "A|B,C\nD"]],
             ])],
         ])->toPromptDigest();
@@ -145,33 +211,12 @@ final class SegmentSchemaProviderTest extends TestCase
         self::assertStringContainsString('VALUES:1=A B C D', $digest);
     }
 
-    public function testTurnsTranslationKeysIntoNeutralDateTokens(): void
-    {
-        $map = $this->provider([], [
-            'mautic.lead.list.month_last' => 'le mois dernier',
-            'mautic.lead.list.today'      => "aujourd'hui",
-        ])->relativeDateMap();
-
-        self::assertSame(['month_last' => 'le mois dernier', 'today' => "aujourd'hui"], $map);
-    }
-
-    public function testEntersTheSegmentationContextTheCoreInspects(): void
-    {
-        // Sans cet attribut, le cœur retire les champs statiques et TOUT l'objet
-        // `behaviors` : plus de date d'ajout, de points, de tags, d'e-mails
-        // ouverts. L'assistant deviendrait cosmétique — sans erreur visible.
-        $request = new Request();
-        $this->provider([], [], $request)->enterSegmentationContext();
-
-        self::assertSame('loadSegmentFilterForm', $request->attributes->get('action'));
-    }
-
-    public function testEmitsOneDigestLinePerFieldPrefixedByItsObject(): void
+    public function testEmitsOneDigestLinePerFieldPrefixedByItsGroup(): void
     {
         $digest = $this->provider([
-            'core'      => ['city' => $this->choice()],
+            'lead'      => ['city' => $this->choice()],
             'behaviors' => ['lead_email_read_count' => $this->choice([
-                'object'     => 'behaviors',
+                'object'     => 'lead',
                 'properties' => ['type' => 'number'],
                 'operators'  => ['plus grand que' => 'gt'],
             ])],

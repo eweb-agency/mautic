@@ -96,8 +96,15 @@ class AiCopilotService
                             'additionalProperties' => false,
                             'required'             => ['glue', 'object', 'field', 'operator'],
                             'properties'           => [
-                                'glue'     => ['type' => 'string', 'enum' => ['and', 'or']],
-                                'object'   => ['type' => 'string', 'enum' => ['lead', 'behaviors']],
+                                'glue' => ['type' => 'string', 'enum' => ['and', 'or']],
+                                // Pas d'énumération figée ici : les objets sont
+                                // les GROUPES du catalogue de l'instance, et
+                                // certains sont dynamiques (un groupe par groupe
+                                // de points). Une liste en dur exclurait
+                                // silencieusement des champs réels. Le catalogue
+                                // du prompt donne les couples exacts, et le
+                                // validateur rectifie l'objet d'après le champ.
+                                'object'   => ['type' => 'string'],
                                 'field'    => ['type' => 'string'],
                                 'operator' => ['type' => 'string'],
                                 'value'    => [
@@ -262,6 +269,7 @@ class AiCopilotService
             - When a line carries VALUES with key=label pairs, put the matching KEY in `value` (not the label).
             - When a line carries `VALUES:DEFER`, the list is too long to show: propose the field and the operator, and set `value` to null. The user will pick the value in the interface.
             - `empty` / `!empty` take no value: set `value` to null.
+            - OTHERWISE `value` IS REQUIRED — never leave it null. A number field with `gt` needs a number: "opened at least one email" is `lead_email_read_count gt 0`, not `lead_email_read_count gt null`. A filter with no value cannot be counted and forces the user to finish your work by hand.
             - `in` / `!in` / `in_all` / `!in_all` take an ARRAY of values.
             - `glue` chains a filter with the ones before it: "and" narrows, "or" widens. The FIRST filter is always "and".
             - Write each `explanation` in {$lang}, one short sentence, addressed to a non-technical marketer.

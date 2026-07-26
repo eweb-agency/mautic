@@ -263,14 +263,25 @@
     var html = '';
 
     // Le nombre d'abord : c'est ce qui permet de juger la proposition.
+    //
+    // Trois cas DISTINCTS, à ne pas confondre — c'est tout l'intérêt du chiffre :
+    //   un nombre        → la proposition est jugeable ;
+    //   rien à compter   → des critères attendent une valeur, ce n'est pas une panne ;
+    //   échec du calcul  → la requête n'a pas abouti.
+    // Afficher « n'a pas pu être calculé » dans le deuxième cas fait passer un
+    // fonctionnement normal pour une panne.
     if (state.count !== null && !state.failed) {
       var suffix = state.ignored > 0
         ? t('mautic.lead_list.ai.count_partial', 'contacts, hors critères à compléter')
         : t('mautic.lead_list.ai.count', 'contacts correspondent à ces critères');
       html += '<div class="sendly-seg-count"><b>' + esc(String(state.count)) + '</b><span>' + esc(suffix) + '</span></div>';
-    } else {
+    } else if (state.failed) {
       html += '<div class="sendly-seg-count"><span>' +
         esc(t('mautic.lead_list.ai.count_unavailable', 'Le nombre de contacts n’a pas pu être calculé. Les critères restent applicables.')) +
+        '</span></div>';
+    } else {
+      html += '<div class="sendly-seg-count"><span>' +
+        esc(t('mautic.lead_list.ai.count_pending', 'Le nombre sera calculable une fois les valeurs ci-dessous choisies.')) +
         '</span></div>';
     }
 

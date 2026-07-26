@@ -39,9 +39,6 @@ use Symfony\Component\HttpFoundation\RequestStack;
  */
 class SegmentSchemaProvider
 {
-    /** Objets de filtre supportés en V1 (company exclu : query-builder non audité). */
-    private const SUPPORTED_OBJECTS = ['lead', 'behaviors'];
-
     /** Opérateurs volontairement hors périmètre (coût de fiabilisation > valeur). */
     private const EXCLUDED_OPERATORS = ['regexp', '!regexp', 'between', '!between', 'date'];
 
@@ -76,6 +73,36 @@ class SegmentSchemaProvider
     /**
      * Catalogue de validation : [objet][alias] => métadonnées du champ.
      *
+     * ⚠️⚠️ PIÈGE N°4, LE PLUS COÛTEUX — L'OBJET D'UN CHAMP EST SA CLÉ DE GROUPE,
+     * PAS SA PROPRIÉTÉ `object`. Les deux existent, elles DIFFÈRENT, et c'est la
+     * clé de groupe qui gagne partout où ça compte.
+     *
+     * `getChoiceFields()` renvoie `[groupe][alias] => choix`, et beaucoup de choix
+     * portent en plus une propriété `'object'`. Pour les champs de comportement,
+     * les deux divergent : `FilterOperatorSubscriber:592` les ajoute au groupe
+     * `behaviors` alors que chacun se déclare `'object' => 'lead'`. Idem pour les
+     * groupes de points (`PointBundle/EventListener/SegmentFilterSubscriber:52,57`
+     * → groupe `groups`, propriété `lead`).
+     *
+     * Or c'est la CLÉ DE GROUPE que le reste de Mautic emploie :
+     *  - le gabarit itère `{% for object, field in form.vars.fields %}` et écrit
+     *    `id="available_{{ object }}_{{ value }}"` (List/form.html.twig:82) ;
+     *  - `Mautic.addLeadListFilter` reconstruit ce même identifiant et copie
+     *    `data-field-object` dans le filtre enregistré (lead.js:639,679) ;
+     *  - les fixtures de segments du cœur enregistrent donc bien
+     *    `'object' => 'behaviors'` (Tests/DataFixtures/ORM/LoadSegmentsData.php:872).
+     *
+     * Indexer par la propriété `object` produisait DEUX défauts : côté navigateur
+     * l'option `#available_lead_lead_email_read_count` n'existe pas (l'ajout du
+     * critère échouait et le libellé retombait sur l'alias brut) ; côté moteur le
+     * filtre aurait porté `object: 'lead'` au lieu de `'behaviors'`, ce que
+     * `BaseDecorator::getTable()` interprète différemment.
+     *
+     * On n'exclut plus aucun groupe : `company` n'en est pas un ici (aucun
+     * `addChoice('company')` dans le cœur), et tout groupe présent est rendu à
+     * l'identique dans la page. Les garde-fous restent l'assemblage à blanc côté
+     * serveur et la vérification d'existence de l'option côté navigateur.
+     *
      * @return array<string, array<string, array{label: string, type: string, operators: list<string>, list: array<string, string>|null}>>
      */
     public function getCatalog(): array
@@ -87,13 +114,13 @@ class SegmentSchemaProvider
                 continue;
             }
 
+            $object = (string) $group;
+            if ('' === $object) {
+                continue;
+            }
+
             foreach ($choices as $alias => $choice) {
                 if (!is_array($choice)) {
-                    continue;
-                }
-
-                $object = (string) ($choice['object'] ?? 'lead');
-                if (!in_array($object, self::SUPPORTED_OBJECTS, true)) {
                     continue;
                 }
 
