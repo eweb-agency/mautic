@@ -7,6 +7,18 @@ return [
     'author'      => 'Eweb Agency',
 
     'routes' => [
+        // Public routes — NO prefix, no authentication: served to the visitors
+        // of the customer's own website.
+        'public' => [
+            // Neutral alias of /mtc.js so the snippet the customer pastes on
+            // their site never names the engine (white-label). The original
+            // /mtc.js keeps working for snippets already deployed.
+            'eweb_saas_tracking_js' => [
+                'path'       => '/sendly.js',
+                'controller' => 'MauticPlugin\EwebSaasBundle\Controller\TrackingJsController::indexAction',
+            ],
+        ],
+
         // API routes — automatically prefixed with /api by Mautic's RouteLoader
         // and protected by Mautic's native OAuth2 firewall (client_credentials).
         // No custom auth: saas-core authenticates with a Bearer access token
