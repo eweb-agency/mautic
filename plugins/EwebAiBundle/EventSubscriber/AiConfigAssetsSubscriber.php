@@ -51,10 +51,14 @@ class AiConfigAssetsSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $endpoint = $this->router->generate('eweb_ai_generate', [], UrlGeneratorInterface::ABSOLUTE_PATH);
+        $config = [
+            'enabled'         => true,
+            'endpoint'        => $this->router->generate('eweb_ai_generate', [], UrlGeneratorInterface::ABSOLUTE_PATH),
+            'segmentEndpoint' => $this->router->generate('eweb_ai_segment_suggest', [], UrlGeneratorInterface::ABSOLUTE_PATH),
+        ];
 
         $assetsEvent->addScriptDeclaration(
-            'window.SendlyAiConfig = {enabled: true, endpoint: '.json_encode($endpoint, JSON_THROW_ON_ERROR).'};'
+            'window.SendlyAiConfig = '.json_encode($config, JSON_THROW_ON_ERROR).';'
         );
     }
 
