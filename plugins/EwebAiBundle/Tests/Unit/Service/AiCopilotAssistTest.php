@@ -129,6 +129,21 @@ final class AiCopilotAssistTest extends TestCase
         self::assertStringContainsString('called Sendly and ONLY Sendly', $system);
     }
 
+    public function testLeMarkdownResiduelEstAplatiEnTexteBrut(): void
+    {
+        // Constaté à la première vérification en prod : le panneau rend du
+        // texte brut, un « # Titre » et des « **gras** » s'affichaient tels
+        // quels malgré la consigne. Le filet aplatit ; les listes numérotées
+        // et les tirets, lisibles en brut, restent intacts.
+        $answer = $this->service("# Créer un segment\n\n1. Allez dans **Segments → Nouveau**\n2. Cliquez sur `Créer`\n- astuce : 2 ** seuls restent")
+            ->assist(['question' => 'q']);
+
+        self::assertSame(
+            "Créer un segment\n\n1. Allez dans Segments → Nouveau\n2. Cliquez sur Créer\n- astuce : 2 ** seuls restent",
+            $answer
+        );
+    }
+
     public function testUneQuestionVideEstRefuseeAvantToutAppel(): void
     {
         $service = $this->service('jamais appelé');
