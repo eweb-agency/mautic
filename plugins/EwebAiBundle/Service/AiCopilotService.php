@@ -244,7 +244,7 @@ class AiCopilotService
             $messages
         );
 
-        return $this->enforceBrand(trim($text));
+        return $this->enforceBrand($this->stripLightMarkdown(trim($text)));
     }
 
     /**
@@ -669,6 +669,7 @@ class AiCopilotService
             'RULES:',
             '- Answer in '.$language.'.',
             '- Be concise. When guiding, use short numbered steps and quote interface paths like « Segments → Nouveau ».',
+            '- Plain text only: no Markdown syntax (no #, no **, no backticks) — the panel renders raw text.',
             '- The product is called Sendly and ONLY Sendly. Never mention any other product, engine or brand name.',
             '- If the question is not about using Sendly or marketing automation, politely say you can only help with Sendly.',
             '- Never invent a feature: if unsure, say so and suggest contacting support.',
@@ -682,6 +683,22 @@ class AiCopilotService
     private function enforceBrand(string $text): string
     {
         return preg_replace('/mautic/i', 'Sendly', $text) ?? $text;
+    }
+
+    /**
+     * Le filet de forme : le panneau rend du TEXTE BRUT (échappé, jamais
+     * interprété) — un « # Titre » ou des « **gras** » s'afficheraient tels
+     * quels (constaté à la première vérification en prod). La consigne
+     * interdit le Markdown ; ce filet retire ce qui échapperait : marqueurs
+     * de titre en tête de ligne, paires ** et backticks. Les tirets et les
+     * numéros de liste restent — ils se lisent naturellement en texte brut.
+     */
+    private function stripLightMarkdown(string $text): string
+    {
+        $text = preg_replace('/^#{1,6}\s+/m', '', $text) ?? $text;
+        $text = preg_replace('/\*\*(.+?)\*\*/s', '$1', $text) ?? $text;
+
+        return str_replace('`', '', $text);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
