@@ -14,13 +14,18 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\RouterInterface;
 
 /**
- * Injecte le drapeau de configuration du copilote côté navigateur — et
- * UNIQUEMENT si une clé Anthropic est configurée (isEnabled()). Sans clé,
- * `window.SendlyAiConfig` reste undefined : le handler d'objet (ai-copilot.js,
- * auto-agrégé dans app.js) et le bouton de l'éditeur GrapesJS ne s'attachent
- * à rien. La surface IA est donc ABSENTE, pas seulement masquée.
+ * Injecte les configurations du bundle côté navigateur — DEUX régimes :
  *
- * Seuls un booléen et l'URL de l'endpoint transitent — jamais la clé API.
+ *  - `window.SendlyAiConfig` (copilote, assistant de segments) : UNIQUEMENT si
+ *    une clé Anthropic est configurée (isEnabled()). Sans clé, il reste
+ *    undefined : le handler d'objet (ai-copilot.js, auto-agrégé dans app.js)
+ *    et le bouton de l'éditeur GrapesJS ne s'attachent à rien. La surface IA
+ *    est donc ABSENTE, pas seulement masquée.
+ *  - `window.SendlySegmentCountConfig` (compteur en continu du formulaire de
+ *    segment) : TOUJOURS injecté sur les pages admin. C'est de la valeur
+ *    moteur, pas de l'IA — la clé n'a pas voix au chapitre.
+ *
+ * Seuls des booléens et des URL d'endpoints transitent — jamais la clé API.
  *
  * Calqué sur GrapesJsBuilderBundle/EventSubscriber/AssetsSubscriber.
  */
@@ -46,6 +51,17 @@ class AiConfigAssetsSubscriber implements EventSubscriberInterface
         if (!$this->installer->checkIfInstalled() || !$this->isAdministrationPage()) {
             return;
         }
+
+        // Le compteur en continu du formulaire de segment n'est PAS une
+        // surface IA : c'est le moteur qui compte, aucune clé n'intervient.
+        // Sa configuration s'injecte donc AVANT la garde de clé — un tenant
+        // sans copilote garde le nombre. Seul l'endpoint transite.
+        $assetsEvent->addScriptDeclaration(
+            'window.SendlySegmentCountConfig = '.json_encode(
+                ['endpoint' => $this->router->generate('eweb_ai_segment_count', [], UrlGeneratorInterface::ABSOLUTE_PATH)],
+                JSON_THROW_ON_ERROR
+            ).';'
+        );
 
         if (!$this->copilot->isEnabled()) {
             return;

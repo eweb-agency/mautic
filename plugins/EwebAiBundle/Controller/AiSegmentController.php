@@ -8,6 +8,7 @@ use Mautic\CoreBundle\Security\Permissions\CorePermissions;
 use Mautic\LeadBundle\Security\Permissions\LeadPermissions;
 use MauticPlugin\EwebAiBundle\Service\AiCopilotService;
 use MauticPlugin\EwebAiBundle\Service\SegmentFilterValidator;
+use MauticPlugin\EwebAiBundle\Service\SegmentFormFilterParser;
 use MauticPlugin\EwebAiBundle\Service\SegmentPreviewService;
 use MauticPlugin\EwebAiBundle\Service\SegmentSchemaProvider;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -67,6 +68,7 @@ final class AiSegmentController
         private readonly SegmentSchemaProvider $schema,
         private readonly SegmentFilterValidator $validator,
         private readonly SegmentPreviewService $preview,
+        private readonly SegmentFormFilterParser $formParser,
         private readonly CorePermissions $security,
         private readonly TranslatorInterface $translator,
     ) {
@@ -82,16 +84,7 @@ final class AiSegmentController
             return new JsonResponse(['error' => 'bad_request'], Response::HTTP_BAD_REQUEST);
         }
 
-        $allowed = $this->security->isGranted(
-            [
-                LeadPermissions::LISTS_CREATE,
-                LeadPermissions::LISTS_EDIT_OWN,
-                LeadPermissions::LISTS_EDIT_OTHER,
-            ],
-            'MATCH_ONE'
-        );
-
-        if (!$allowed) {
+        if (!$this->isAllowed()) {
             return new JsonResponse(['error' => 'forbidden'], Response::HTTP_FORBIDDEN);
         }
 
@@ -149,6 +142,62 @@ final class AiSegmentController
             'failed'  => $preview['failed'],
             'dropped' => $this->describeDropped($sanitized['dropped']),
         ]);
+    }
+
+    /**
+     * Le compteur EN CONTINU du formulaire de segment : combien de contacts
+     * correspondent aux critères ACTUELLEMENT saisis, avant enregistrement.
+     *
+     * PAS de garde `isEnabled()`, délibérément : ce décompte est de la valeur
+     * MOTEUR pure — aucune clé Anthropic n'intervient. Un tenant sans clé IA
+     * a droit au nombre ; seule la surface IA disparaît avec la clé.
+     *
+     * Même exposition que `suggestAction` (l'endpoint RÉVÈLE un décompte pour
+     * des critères arbitraires), donc la même permission exactement. L'entrée
+     * est le formulaire natif sérialisé tel quel (`leadlist[filters]`) : les
+     * champs, opérateurs et types sont déjà ceux du moteur — le parseur borne
+     * et structure, il n'interprète pas.
+     */
+    public function countAction(Request $request): JsonResponse
+    {
+        if ('XMLHttpRequest' !== $request->headers->get('X-Requested-With')) {
+            return new JsonResponse(['error' => 'bad_request'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (!$this->isAllowed()) {
+            return new JsonResponse(['error' => 'forbidden'], Response::HTTP_FORBIDDEN);
+        }
+
+        $leadlist = $request->request->all()['leadlist'] ?? null;
+        $rows     = is_array($leadlist) && is_array($leadlist['filters'] ?? null)
+            ? $leadlist['filters']
+            : [];
+
+        $filters = $this->formParser->parse($rows);
+
+        // Aucun critère : rien à compter — pas un échec, et surtout pas un 0
+        // (un segment sans filtre ne cible pas 0 contact).
+        $preview = [] === $filters
+            ? ['count' => null, 'ignored' => 0, 'failed' => false]
+            : $this->preview->preview($filters);
+
+        return new JsonResponse($preview);
+    }
+
+    /**
+     * La borne commune des deux actions : celle de créer ou modifier un
+     * segment — car les deux RÉVÈLENT des décomptes pour critères arbitraires.
+     */
+    private function isAllowed(): bool
+    {
+        return $this->security->isGranted(
+            [
+                LeadPermissions::LISTS_CREATE,
+                LeadPermissions::LISTS_EDIT_OWN,
+                LeadPermissions::LISTS_EDIT_OTHER,
+            ],
+            'MATCH_ONE'
+        );
     }
 
     /**

@@ -25,6 +25,14 @@ return [
                 'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiSegmentController::suggestAction',
                 'method'     => 'POST',
             ],
+            // Compteur en continu du formulaire de segment. Valeur MOTEUR
+            // pure (aucune clé IA requise) : disponible pour tous les tenants,
+            // même sans copilote. Ne mute rien ; même permission que suggest.
+            'eweb_ai_segment_count' => [
+                'path'       => '/ai/segment/count',
+                'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiSegmentController::countAction',
+                'method'     => 'POST',
+            ],
         ],
     ],
 ];
