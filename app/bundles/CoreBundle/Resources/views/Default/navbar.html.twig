@@ -45,10 +45,13 @@
 
     <!-- start: right nav -->
     <ul class="nav navbar-nav navbar-right">
-        {{ include('@MauticCore/Menu/portal.html.twig') }}
         {{ render(controller('Mautic\\CoreBundle\\Controller\\DefaultController::notificationsAction')) }}
         {{ include('@MauticCore/Menu/quick_help.html.twig') }}
         {{ menuRender('admin') }}
+        {# « Vos logiciels » entre l'engrenage et le profil — la position du
+           motif de référence, constatée sur capture réelle du dashboard
+           (dépouillement du 05/08). #}
+        {{ include('@MauticCore/Menu/portal.html.twig') }}
         {{ include('@MauticCore/Menu/profile.html.twig') }}
     </ul>
     <div class="navbar-toolbar pull-right mt-15 mr-10">
