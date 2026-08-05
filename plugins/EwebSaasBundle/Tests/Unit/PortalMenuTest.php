@@ -51,6 +51,23 @@ final class PortalMenuTest extends TestCase
         self::assertStringNotContainsString('/fr/dashboard', $partial);
 
         // Les libellés passent par la traduction, jamais en dur.
-        self::assertStringContainsString("'eweb.saas.portal.back'|trans", $partial);
+        self::assertStringContainsString("'eweb.saas.portal.portal_title'|trans", $partial);
+    }
+
+    public function testLePanneauListeLesLogicielsSansLierLApplicationCourante(): void
+    {
+        // Le motif « Vos logiciels » repris à l'identique (2e itération,
+        // capture du proprio) : l'application courante est LISTÉE mais pas
+        // liée — un lien vers soi-même se lit comme un bug — et le portail
+        // s'ouvre, lui, par un vrai lien.
+        $partial = (string) file_get_contents(self::PARTIAL);
+
+        self::assertStringContainsString("'eweb.saas.portal.marketing_title'|trans", $partial);
+        self::assertStringContainsString("'eweb.saas.portal.current'|trans", $partial);
+        self::assertSame(
+            1,
+            substr_count($partial, '<a class="sendly-soft-row"'),
+            'une seule ligne du panneau doit être un lien : le portail'
+        );
     }
 }
