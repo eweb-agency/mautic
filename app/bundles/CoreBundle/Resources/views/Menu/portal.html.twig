@@ -1,41 +1,71 @@
-{# Le pont instance → portail — la couture qui manquait (05/08).
+{# « Vos logiciels » — le commutateur inter-logiciels, repris À L'IDENTIQUE du
+   motif Webmecanik sur capture du proprio (05/08, 2e itération — la pastille
+   ronde de la v1 a été rejetée) : un bouton-grille dans la barre haute, et un
+   panneau qui LISTE LES LOGICIELS — tuile carrée arrondie, nom en gras,
+   sous-titre, flèche d'ouverture à droite.
 
-   La couture portail→instance existe (« Ouvrir l'espace marketing », /go) ;
-   celle-ci est son retour : une pastille ronde à la marque, à gauche de la
-   cloche — le motif du commutateur inter-logiciels de Webmecanik (annonce du
-   16/02/2026), transposé aux jetons Sendly (pastille pleine #004FFF, marque
-   en blanc, chevron).
-
-   L'URL vient du paramètre `saas_portal_url` (EwebSaasBundle) — vide, le menu
-   disparaît entièrement : une instance hors SaaS ne montre aucun vestige.
-   Les liens sont SANS préfixe de langue : le portail (next-intl) redirige
-   vers la locale du visiteur. #}
+   Deux logiciels chez Sendly : l'ESPACE MARKETING (l'application courante —
+   listée sans lien, marquée « Vous y êtes ») et le PORTAIL (pilotage du
+   compte, s'ouvre via la flèche). L'URL vient du paramètre `saas_portal_url`
+   (EwebSaasBundle) — vide, le menu disparaît entièrement. Liens SANS préfixe
+   de langue : le portail (next-intl) choisit la locale du visiteur. #}
 {% set portalUrl = configGetParameter('saas_portal_url') %}
 {% if portalUrl %}
-<li class="dropdown sendly-portal">
+<li class="dropdown sendly-softwares">
     <style>
         /* Styles portés par le partial : la surface vit et meurt d'un bloc. */
-        .sendly-portal .dropdown-toggle { display: inline-flex; align-items: center; gap: 2px; }
-        .sendly-portal-badge {
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 26px; height: 26px; border-radius: 50%; background: #004FFF;
+        .sendly-softwares > a { display: inline-flex; align-items: center; }
+        .sendly-softwares .dropdown-menu {
+            min-width: 320px; padding: 8px; border-radius: 10px;
+            box-shadow: 0 12px 32px rgba(22, 35, 59, .16); border: 0;
         }
-        .sendly-portal-badge svg { width: 15px; height: 15px; }
-        .sendly-portal-badge svg path { fill: #fff; }
+        .sendly-soft-row {
+            display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+            border-radius: 8px;
+        }
+        a.sendly-soft-row:hover, a.sendly-soft-row:focus { background: #f2f5fa; text-decoration: none; }
+        .sendly-soft-tile {
+            width: 42px; height: 42px; border-radius: 10px; flex: none;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .sendly-soft-tile--marketing { background: #004FFF; }
+        .sendly-soft-tile--portal { background: #16233b; }
+        .sendly-soft-tile svg { width: 22px; height: 22px; }
+        .sendly-soft-tile svg path { fill: #fff; }
+        .sendly-soft-text { min-width: 0; flex: 1; }
+        .sendly-soft-name { display: block; font-weight: 700; color: #24303f; line-height: 1.25; }
+        .sendly-soft-sub { display: block; color: #6a7486; font-size: 12px; line-height: 1.3; }
+        .sendly-soft-action { color: #4a5264; font-size: 16px; flex: none; }
+        .sendly-soft-current {
+            flex: none; font-size: 11px; color: #6a7486; background: #eef1f5;
+            border-radius: 999px; padding: 2px 8px;
+        }
     </style>
-    <a class="dropdown-toggle" data-toggle="dropdown" href="#" aria-label="{{ 'eweb.saas.portal.menu'|trans }}">
-        <span class="sendly-portal-badge">{{ source('@MauticCore/Assets/images/logo--minimized.svg') }}</span>
-        <i class="ri-arrow-down-s-line"></i>
+    <a class="dropdown-toggle" data-toggle="dropdown" href="#" aria-label="{{ 'eweb.saas.portal.menu'|trans }}" title="{{ 'eweb.saas.portal.menu'|trans }}">
+        <i class="ri-apps-2-line ri-xl"></i>
     </a>
     <ul class="dropdown-menu dropdown-menu-right">
         <li>
-            <a href="{{ portalUrl }}/dashboard/organization">
-                <i class="ri-dashboard-2-line ri-lg"></i><span>{{ 'eweb.saas.portal.back'|trans }}</span>
-            </a>
+            {# L'application courante : on la liste (le panneau dit ce que
+               vous avez), on ne la lie pas (un lien vers soi-même se lit
+               comme un bug). #}
+            <span class="sendly-soft-row">
+                <span class="sendly-soft-tile sendly-soft-tile--marketing">{{ source('@MauticCore/Assets/images/logo--minimized.svg') }}</span>
+                <span class="sendly-soft-text">
+                    <span class="sendly-soft-name">{{ 'eweb.saas.portal.marketing_title'|trans }}</span>
+                    <span class="sendly-soft-sub">{{ 'eweb.saas.portal.marketing_subtitle'|trans }}</span>
+                </span>
+                <span class="sendly-soft-current">{{ 'eweb.saas.portal.current'|trans }}</span>
+            </span>
         </li>
         <li>
-            <a href="{{ portalUrl }}/dashboard/organization/deliverability">
-                <i class="ri-mail-check-line ri-lg"></i><span>{{ 'eweb.saas.portal.deliverability'|trans }}</span>
+            <a class="sendly-soft-row" href="{{ portalUrl }}/dashboard/organization">
+                <span class="sendly-soft-tile sendly-soft-tile--portal">{{ source('@MauticCore/Assets/images/logo--minimized.svg') }}</span>
+                <span class="sendly-soft-text">
+                    <span class="sendly-soft-name">{{ 'eweb.saas.portal.portal_title'|trans }}</span>
+                    <span class="sendly-soft-sub">{{ 'eweb.saas.portal.portal_subtitle'|trans }}</span>
+                </span>
+                <span class="sendly-soft-action"><i class="ri-external-link-line"></i></span>
             </a>
         </li>
     </ul>
