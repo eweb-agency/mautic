@@ -1,0 +1,43 @@
+{# Le pont instance → portail — la couture qui manquait (05/08).
+
+   La couture portail→instance existe (« Ouvrir l'espace marketing », /go) ;
+   celle-ci est son retour : une pastille ronde à la marque, à gauche de la
+   cloche — le motif du commutateur inter-logiciels de Webmecanik (annonce du
+   16/02/2026), transposé aux jetons Sendly (pastille pleine #004FFF, marque
+   en blanc, chevron).
+
+   L'URL vient du paramètre `saas_portal_url` (EwebSaasBundle) — vide, le menu
+   disparaît entièrement : une instance hors SaaS ne montre aucun vestige.
+   Les liens sont SANS préfixe de langue : le portail (next-intl) redirige
+   vers la locale du visiteur. #}
+{% set portalUrl = configGetParameter('saas_portal_url') %}
+{% if portalUrl %}
+<li class="dropdown sendly-portal">
+    <style>
+        /* Styles portés par le partial : la surface vit et meurt d'un bloc. */
+        .sendly-portal .dropdown-toggle { display: inline-flex; align-items: center; gap: 2px; }
+        .sendly-portal-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 26px; height: 26px; border-radius: 50%; background: #004FFF;
+        }
+        .sendly-portal-badge svg { width: 15px; height: 15px; }
+        .sendly-portal-badge svg path { fill: #fff; }
+    </style>
+    <a class="dropdown-toggle" data-toggle="dropdown" href="#" aria-label="{{ 'eweb.saas.portal.menu'|trans }}">
+        <span class="sendly-portal-badge">{{ source('@MauticCore/Assets/images/logo--minimized.svg') }}</span>
+        <i class="ri-arrow-down-s-line"></i>
+    </a>
+    <ul class="dropdown-menu dropdown-menu-right">
+        <li>
+            <a href="{{ portalUrl }}/dashboard/organization">
+                <i class="ri-dashboard-2-line ri-lg"></i><span>{{ 'eweb.saas.portal.back'|trans }}</span>
+            </a>
+        </li>
+        <li>
+            <a href="{{ portalUrl }}/dashboard/organization/deliverability">
+                <i class="ri-mail-check-line ri-lg"></i><span>{{ 'eweb.saas.portal.deliverability'|trans }}</span>
+            </a>
+        </li>
+    </ul>
+</li>
+{% endif %}

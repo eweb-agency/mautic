@@ -118,4 +118,3 @@ final class EnsureOAuthClientCommand extends Command
         return $role instanceof Role ? $role : null;
     }
 }
-

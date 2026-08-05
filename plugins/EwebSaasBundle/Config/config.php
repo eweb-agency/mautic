@@ -76,4 +76,13 @@ return [
             ],
         ],
     ],
+
+    'parameters' => [
+        // Le portail SaaS (cabine de pilotage) de cette instance. Alimente le
+        // menu « Retour au portail » de la barre haute — la couture
+        // instance→portail, symétrique de la couture portail→instance (/go).
+        // Surchargeable par instance via MAUTIC_SAAS_PORTAL_URL ; une valeur
+        // vide retire le menu (instance autonome, hors SaaS).
+        'saas_portal_url' => 'https://marketing.eweb-agency.fr',
+    ],
 ];
