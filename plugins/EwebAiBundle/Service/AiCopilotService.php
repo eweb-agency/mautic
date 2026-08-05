@@ -47,6 +47,11 @@ class AiCopilotService
     private const SEGMENT_MAX_TOKENS  = 3000;
     private const SEGMENT_MAX_FILTERS = 10;
 
+    /** Assistant d'aide : bornes de la conversation (protège l'appel et la facture). */
+    private const ASSIST_MAX_TOKENS   = 1200;
+    private const ASSIST_MAX_QUESTION = 1000;
+    private const ASSIST_MAX_HISTORY  = 6;
+
     private readonly ?string $apiKey;
     private readonly string $model;
     private readonly string $segmentModel;
@@ -174,6 +179,72 @@ class AiCopilotService
         $text = $this->callAnthropic($system, $userContent, self::MAX_TOKENS[$mode] ?? 1024);
 
         return $this->stripFences(trim($text));
+    }
+
+    /**
+     * L'assistant d'aide — « posez votre question sur l'outil ».
+     *
+     * Q&R produit en conversation courte : l'historique est BORNÉ (les
+     * dernières tournures seulement) et re-validé tour par tour — rôles
+     * inconnus rabattus sur « user », tours vides écartés, alternance imposée
+     * (l'API refuse deux tours consécutifs du même rôle, et le premier doit
+     * être « user »).
+     *
+     * ⚠️ MARQUE BLANCHE : le modèle connaît le moteur sous son nom d'origine ;
+     * la consigne l'interdit ET `enforceBrand()` réécrit toute échappée. Une
+     * réponse d'aide qui nomme le moteur est une fuite de marque publiée
+     * directement chez le client (règle B-02).
+     *
+     * @param array{question?: string, history?: mixed, lang?: string} $params
+     *
+     * @throws \InvalidArgumentException question vide
+     * @throws \RuntimeException         échec d'appel Anthropic (message neutre)
+     */
+    public function assist(array $params): string
+    {
+        if (!$this->isEnabled()) {
+            throw new \RuntimeException('AI copilot disabled.');
+        }
+
+        $question = trim((string) ($params['question'] ?? ''));
+        if ('' === $question) {
+            throw new \InvalidArgumentException('Empty question.');
+        }
+
+        $messages = [];
+        $history  = is_array($params['history'] ?? null) ? $params['history'] : [];
+        foreach (array_slice($history, -self::ASSIST_MAX_HISTORY) as $turn) {
+            if (!is_array($turn)) {
+                continue;
+            }
+            $content = trim((string) ($turn['content'] ?? ''));
+            if ('' === $content) {
+                continue;
+            }
+            $role = 'assistant' === ($turn['role'] ?? '') ? 'assistant' : 'user';
+            if ([] === $messages && 'assistant' === $role) {
+                continue; // le premier tour doit venir de l'utilisateur
+            }
+            if ([] !== $messages && $messages[count($messages) - 1]['role'] === $role) {
+                continue; // alternance stricte exigée par l'API
+            }
+            $messages[] = ['role' => $role, 'content' => mb_substr($content, 0, self::ASSIST_MAX_QUESTION)];
+        }
+        if ([] !== $messages && 'user' === $messages[count($messages) - 1]['role']) {
+            array_pop($messages); // la question courante EST le tour utilisateur suivant
+        }
+        $messages[] = ['role' => 'user', 'content' => mb_substr($question, 0, self::ASSIST_MAX_QUESTION)];
+
+        $text = $this->callAnthropic(
+            $this->buildAssistSystem((string) ($params['lang'] ?? '')),
+            '',
+            self::ASSIST_MAX_TOKENS,
+            null,
+            null,
+            $messages
+        );
+
+        return $this->enforceBrand(trim($text));
     }
 
     /**
@@ -507,12 +578,15 @@ class AiCopilotService
         int $maxTokens,
         ?array $tool = null,
         ?string $model = null,
+        ?array $messages = null,
     ): string {
         $payload = [
             'model'      => $model ?? $this->model,
             'max_tokens' => $maxTokens,
             'system'     => $system,
-            'messages'   => [
+            // `$messages` sert aux surfaces conversationnelles (assistant) ;
+            // les autres restent au tour unique historique.
+            'messages'   => $messages ?? [
                 ['role' => 'user', 'content' => $userContent],
             ],
         ];
@@ -578,6 +652,36 @@ class AiCopilotService
         }
 
         return $text;
+    }
+
+    /**
+     * La consigne de l'assistant d'aide. Elle borne le SUJET (l'outil et le
+     * marketing automation, rien d'autre) et la MARQUE (le produit s'appelle
+     * Sendly, aucun autre nom de produit ou de moteur, jamais).
+     */
+    private function buildAssistSystem(string $lang): string
+    {
+        $language = '' !== trim($lang) ? trim($lang) : 'French';
+
+        return implode("\n", [
+            'You are the in-app help assistant of Sendly, a marketing automation platform.',
+            'You help signed-in users operate the tool: contacts, segments, campaigns, emails, forms, landing pages, deliverability, reports.',
+            'RULES:',
+            '- Answer in '.$language.'.',
+            '- Be concise. When guiding, use short numbered steps and quote interface paths like « Segments → Nouveau ».',
+            '- The product is called Sendly and ONLY Sendly. Never mention any other product, engine or brand name.',
+            '- If the question is not about using Sendly or marketing automation, politely say you can only help with Sendly.',
+            '- Never invent a feature: if unsure, say so and suggest contacting support.',
+        ]);
+    }
+
+    /**
+     * Le filet de marque blanche : toute mention du moteur qui échapperait à
+     * la consigne est réécrite avant d'atteindre l'écran du client.
+     */
+    private function enforceBrand(string $text): string
+    {
+        return preg_replace('/mautic/i', 'Sendly', $text) ?? $text;
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
