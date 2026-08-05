@@ -33,6 +33,14 @@ return [
                 'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiSegmentController::countAction',
                 'method'     => 'POST',
             ],
+            // Assistant d'aide (panneau « Assistant IA » de la barre haute) :
+            // questions-réponses sur l'outil. Ne mute rien, ne lit aucune
+            // donnée du compte.
+            'eweb_ai_assist' => [
+                'path'       => '/ai/assist',
+                'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiController::assistAction',
+                'method'     => 'POST',
+            ],
         ],
     ],
 ];

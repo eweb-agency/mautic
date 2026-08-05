@@ -91,6 +91,42 @@ final class AiController
     }
 
     /**
+     * L'assistant d'aide — panneau « Assistant IA » de la barre haute.
+     *
+     * Mêmes gardes que generateAction (clé, XHR même-origine), aucune
+     * permission métier : l'aide s'adresse à tout utilisateur connecté et ne
+     * révèle aucune donnée du compte — le service ne reçoit que la question
+     * et l'historique de la conversation, jamais le contenu de l'instance.
+     */
+    public function assistAction(Request $request): JsonResponse
+    {
+        if (!$this->copilot->isEnabled()) {
+            return new JsonResponse(['error' => 'disabled'], Response::HTTP_SERVICE_UNAVAILABLE);
+        }
+
+        if ('XMLHttpRequest' !== $request->headers->get('X-Requested-With')) {
+            return new JsonResponse(['error' => 'bad_request'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $payload = $this->decode($request);
+
+        try {
+            $answer = $this->copilot->assist([
+                'question' => mb_substr((string) ($payload['question'] ?? ''), 0, self::MAX_INSTRUCTION),
+                'history'  => $payload['history'] ?? [],
+                'lang'     => mb_substr((string) ($payload['lang'] ?? ''), 0, 60),
+            ]);
+
+            return new JsonResponse(['answer' => $answer]);
+        } catch (\InvalidArgumentException) {
+            return new JsonResponse(['error' => 'bad_request'], Response::HTTP_BAD_REQUEST);
+        } catch (\Throwable) {
+            // Le service a déjà journalisé la cause réelle (sans secret).
+            return new JsonResponse(['error' => 'ai_failed'], Response::HTTP_BAD_GATEWAY);
+        }
+    }
+
+    /**
      * Décode le corps JSON, avec repli sur les paramètres POST classiques.
      *
      * @return array<string, mixed>
