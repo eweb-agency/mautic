@@ -17,7 +17,17 @@
                     {{ source('@MauticCore/Assets/images/logo--expanded.svg') }}
                 </div>
                 <div class="brand-logo--mobile mautic-brand visible-xs pr-sm">
-                    {{ source('@MauticCore/Assets/images/logo--minimized.svg') }}
+                    {# Le VRAI logo (wordmark), pas le monogramme — demande
+                       proprio 05/08. La règle générique du thème masque
+                       `svg.mautic-logo-text` sous 768px (custom.less) : on la
+                       neutralise UNIQUEMENT dans ce conteneur mobile. #}
+                    {# Override MINIMAL : seul le display est neutralisé — le
+                       logo hérite ainsi des dimensions officielles du
+                       wordmark (mêmes règles que le desktop). #}
+                    <style>
+                        .brand-logo--mobile svg.mautic-logo-text { display: block; }
+                    </style>
+                    {{ source('@MauticCore/Assets/images/logo--expanded.svg') }}
                 </div>
             </a>
             <!--/ brand -->

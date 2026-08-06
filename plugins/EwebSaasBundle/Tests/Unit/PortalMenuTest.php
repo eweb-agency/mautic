@@ -70,4 +70,21 @@ final class PortalMenuTest extends TestCase
             'une seule ligne du panneau doit être un lien : le portail'
         );
     }
+
+    public function testLesTuilesPortentLesGlyphesDuPortailPasLeMonogramme(): void
+    {
+        // 3e itération (demande proprio) : le monogramme de marque était
+        // illisible en tuile — les glyphes du portail le remplacent, inlinés
+        // au trait. Le monogramme ne doit pas revenir, ni dans le panneau ni
+        // dans le header mobile (qui porte désormais le wordmark).
+        $partial = (string) file_get_contents(self::PARTIAL);
+        self::assertStringNotContainsString('logo--minimized.svg', $partial);
+        self::assertSame(2, substr_count($partial, 'stroke="#fff"'), 'deux tuiles, deux glyphes au trait');
+
+        $navbar = (string) file_get_contents(self::NAVBAR);
+        self::assertStringContainsString('brand-logo--mobile', $navbar);
+        $mobile = (string) substr($navbar, (int) strpos($navbar, 'brand-logo--mobile'));
+        self::assertStringContainsString('logo--expanded.svg', $mobile, 'le header mobile porte le wordmark');
+        self::assertStringNotContainsString('logo--minimized.svg', $mobile, 'le monogramme ne doit pas revenir en mobile');
+    }
 }
