@@ -40,13 +40,20 @@
     }
     var css =
       '@keyframes sendly-seg-count-spin{to{transform:rotate(360deg)}}' +
-      '#sendly-seg-count{display:inline-flex;align-items:center;gap:6px;margin-left:10px;' +
-      'padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;' +
-      'background:rgba(0,79,255,.08);color:#004FFF;vertical-align:middle}' +
-      '#sendly-seg-count .sendly-seg-count-spin{display:inline-block;width:10px;height:10px;' +
+      /* Pilule FLOTTANTE centrée en bas d'écran — la position du motif de
+         référence, choisie par le proprio sur capture réelle (05/08).
+         position:fixed, mais l'élément vit DANS le conteneur du formulaire :
+         la navigation ajax de Mautic l'emporte avec la page. */
+      '#sendly-seg-count{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);' +
+      'display:flex;align-items:center;gap:10px;padding:12px 18px;background:#fff;' +
+      'border-radius:10px;border-left:4px solid #004FFF;box-shadow:0 10px 28px rgba(22,35,59,.18);' +
+      'font-size:13px;color:#55617a;z-index:1030;white-space:nowrap}' +
+      '#sendly-seg-count .sendly-seg-count-num{font-size:17px;font-weight:700;color:#24303f}' +
+      '#sendly-seg-count .ri-group-line{color:#004FFF;font-size:17px}' +
+      '#sendly-seg-count .sendly-seg-count-spin{display:inline-block;width:12px;height:12px;' +
       'border:2px solid rgba(0,79,255,.25);border-top-color:#004FFF;border-radius:50%;' +
       'animation:sendly-seg-count-spin .8s linear infinite}' +
-      '#sendly-seg-count.muted{background:rgba(0,0,0,.05);color:inherit;opacity:.65;font-weight:500}';
+      '#sendly-seg-count.muted{opacity:.7}';
     var style = document.createElement('style');
     style.id = 'sendly-seg-count-style';
     style.textContent = css;
@@ -61,13 +68,23 @@
     return document.getElementById('sendly-seg-count');
   }
 
-  function render(html, muted) {
+  /** La pilule : icône contacts + nombre en gras + libellé (motif de la
+   *  capture de référence). `num` = chaîne déjà formatée ou spinner HTML. */
+  function render(numHtml, labelText, muted) {
     var el = badge();
     if (!el) {
       return;
     }
-    el.innerHTML = html;
+    el.innerHTML = '<i class="ri-group-line"></i>' +
+      '<span class="sendly-seg-count-num">' + numHtml + '</span>' +
+      '<span>' + esc(labelText) + '</span>';
     el.className = muted ? 'muted' : '';
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
   }
 
   function formatCount(n) {
@@ -96,12 +113,12 @@
     lastPayload = payload;
 
     if (!payload) {
-      render('—', true);
+      render('—', t('mautic.lead_list.live_count.pill_other', 'contacts correspondants'), true);
       return;
     }
 
     var mySeq = ++seq;
-    render('<span class="sendly-seg-count-spin"></span> ' +
+    render('<span class="sendly-seg-count-spin"></span>',
       t('mautic.lead_list.live_count.counting', 'Calcul…'), false);
 
     mQuery.ajax({
@@ -114,23 +131,20 @@
           return; // une saisie plus récente a relancé le calcul
         }
         if (!res || res.count === null || res.count === undefined) {
-          render(t('mautic.lead_list.live_count.unavailable', '—'), true);
+          render('—', t('mautic.lead_list.live_count.unavailable', 'Nombre indisponible'), true);
           return;
         }
         var label = Number(res.count) === 1
-          ? t('mautic.lead_list.live_count.one', 'contact')
-          : t('mautic.lead_list.live_count.contacts', 'contacts');
-        var html = formatCount(res.count) + ' ' + label;
+          ? t('mautic.lead_list.live_count.pill_one', 'contact correspondant')
+          : t('mautic.lead_list.live_count.pill_other', 'contacts correspondants');
         if (res.ignored > 0) {
-          html += ' <span style="font-weight:500;opacity:.75">· ' +
-            t('mautic.lead_list.live_count.partial', 'hors critères à compléter') +
-            '</span>';
+          label += ' · ' + t('mautic.lead_list.live_count.partial', 'hors critères à compléter');
         }
-        render(html, false);
+        render(esc(formatCount(res.count)), label, false);
       },
       error: function () {
         if (mySeq === seq) {
-          render(t('mautic.lead_list.live_count.unavailable', '—'), true);
+          render('—', t('mautic.lead_list.live_count.unavailable', 'Nombre indisponible'), true);
         }
       }
     });
@@ -163,9 +177,10 @@
     ensureStyles();
     var pill = document.createElement('span');
     pill.id = 'sendly-seg-count';
-    pill.className = 'muted';
-    pill.textContent = '—';
+    // Insérée DANS la zone du formulaire (la navigation ajax l'emporte avec
+    // la page) mais affichée en position fixe, centrée en bas d'écran.
     $available.closest('.available-filters').before(pill);
+    render('—', t('mautic.lead_list.live_count.pill_other', 'contacts correspondants'), true);
 
     // Une seule délégation par surface : les lignes vont et viennent, le
     // conteneur reste. `filter.properties.form.loaded` est l'événement que
