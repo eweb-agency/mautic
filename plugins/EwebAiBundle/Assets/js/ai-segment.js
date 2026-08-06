@@ -66,10 +66,6 @@
     var css =
       '@keyframes sendly-seg-spin{to{transform:rotate(360deg)}}' +
       '.sendly-seg-spin{display:inline-block;animation:sendly-seg-spin .8s linear infinite}' +
-      '#sendly-seg-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;' +
-      'border:1px solid ' + BRAND + ';border-radius:6px;background:rgba(0,79,255,.06);' +
-      'color:' + BRAND + ';font-weight:600;font-size:13px;cursor:pointer;line-height:1.2;margin-bottom:12px}' +
-      '#sendly-seg-btn:hover{background:rgba(0,79,255,.12)}' +
       '#sendly-seg-panel{position:fixed;right:14px;width:355px;max-width:92vw;background:#fff;' +
       'border:1px solid #e5e7eb;border-radius:12px;z-index:1040;display:flex;flex-direction:column;' +
       'box-shadow:0 16px 40px rgba(22,35,59,.16);overflow:hidden}' +
@@ -586,35 +582,31 @@
     }
   }
 
-  // ── Injection du bouton ────────────────────────────────────────────────
-
-  function injectButton() {
-    var c = cfg();
-    if (!c || !c.enabled || !c.segmentEndpoint) {
-      return;
-    }
+  // ── Lanceur unique (contrat Webmecanik) ────────────────────────────────
+  //
+  // PAS de bouton propre : l'unique lanceur flottant (ai-assistant.js) ouvre
+  // l'assistant, et le panneau SUIT L'ONGLET — sur l'écran d'édition d'un
+  // segment, c'est « Assistant de segment » qui s'ouvre à la place de l'aide
+  // générale. Le registre est consulté AU CLIC : la disponibilité se
+  // recalcule à chaque navigation ajax sans ré-enregistrement.
+  window.SendlyAssistantContexts = window.SendlyAssistantContexts || [];
+  window.SendlyAssistantContexts.push({
     // Garde de page : le sélecteur de critères ET le conteneur de lignes.
     // Sans les deux, on n'est pas sur l'écran d'édition d'un segment.
-    var $available = mQuery('#available_segment_filters');
-    if (!$available.length || !mQuery('#leadlist_filters').length) {
-      return;
-    }
-    if (document.getElementById('sendly-seg-btn')) {
-      return;
-    }
-
-    ensureStyles();
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.id = 'sendly-seg-btn';
-    btn.innerHTML = '<i class="ri-sparkling-2-line"></i> ' +
-      t('mautic.lead_list.ai.button', 'Créer les critères avec l’IA');
-    btn.onclick = openPanel;
-    $available.closest('.available-filters').before(btn);
-  }
-
-  mQuery(function () {
-    injectButton();
+    available: function () {
+      var c = cfg();
+      return !!(c && c.enabled && c.segmentEndpoint
+        && mQuery('#available_segment_filters').length
+        && mQuery('#leadlist_filters').length);
+    },
+    label: function () {
+      return t('mautic.lead_list.ai.panel_title', 'Assistant de segment');
+    },
+    isOpen: function () {
+      return !!panel();
+    },
+    open: openPanel,
+    close: closePanel
   });
 
   // L'écran de segment se charge aussi en ajax (navigation interne Mautic).
@@ -628,6 +620,5 @@
     closePanel();
     conv = [];
     busy = false;
-    injectButton();
   };
 })();
