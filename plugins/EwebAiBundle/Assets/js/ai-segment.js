@@ -1,27 +1,33 @@
 /**
- * Assistant de segmentation — « Décris ta cible, je propose les critères ».
+ * Assistant de segment — panneau CONVERSATIONNEL (2e génération, 06/08).
  *
- * Bouton sous le sélecteur de critères de l'écran de segment. L'utilisateur
- * écrit son audience en français ; le serveur propose des critères VALIDÉS,
- * accompagnés du nombre de contacts correspondant, et de ce qui n'a pas pu
- * être traduit. Rien n'est appliqué sans un clic explicite.
+ * Le tiroir « une demande → une proposition → Ajouter » devient une
+ * conversation, à l'identique du motif de référence choisi sur capture par le
+ * proprio : panneau ancré à droite, l'utilisateur décrit sa cible, l'assistant
+ * APPLIQUE directement les critères validés au formulaire natif et résume ce
+ * qu'il a fait, avec « Annuler les modifications » par tour. Les demandes
+ * précédentes partent au serveur comme contexte (« et qui n'ont pas cliqué »
+ * n'a de sens qu'avec la demande d'avant). La pilule de décompte, elle,
+ * réagit toute seule : l'application déclenche les événements du formulaire.
  *
- * ⚠️ DEUX PIÈGES À NE PAS « SIMPLIFIER ».
+ * ⚠️ DEUX PIÈGES À NE PAS « SIMPLIFIER » (hérités de la 1re génération).
  *
  * 1. mQuery.ajax, JAMAIS fetch(). Mautic intercepte tout POST XHR vers /s/ qui
  *    n'a pas de jeton CSRF valide (RequestSubscriber) et répond 200 avec un
  *    corps de flashes — le contrôleur n'est jamais atteint, et le symptôme
  *    ressemble à un bug serveur. mQuery.ajax en POST reçoit le jeton
- *    automatiquement ; fetch() ne le reçoit pas. C'est exactement le défaut qui
- *    avait cassé le bouton de l'éditeur d'e-mail.
+ *    automatiquement ; fetch() ne le reçoit pas.
  *
  * 2. On n'écrit PAS les lignes de filtre à la main. On appelle le point
  *    d'entrée natif Mautic.addLeadListFilter(), puis on ajuste opérateur et
  *    valeur. Le DOM produit est donc identique, au caractère près, à celui
- *    d'une saisie manuelle : mêmes identifiants, mêmes noms de champs, mêmes
- *    événements attachés, mêmes sélecteurs « chosen » et sélecteurs de date.
- *    Reconstruire ce balisage à la main marcherait aujourd'hui et casserait à
- *    la première montée de version.
+ *    d'une saisie manuelle. L'ANNULATION passe par le même chemin : le clic
+ *    sur le « supprimer » natif de chaque ligne du tour — marquée par un
+ *    attribut data qui SUIT la ligne quand Mautic renumérote.
+ *
+ * On n'affiche JAMAIS la phrase d'explication du modèle : le validateur a pu
+ * corriger le critère derrière lui. Le résumé d'un tour liste les critères
+ * RÉELLEMENT appliqués, avec les libellés natifs de l'écran.
  *
  * Comme le reste de la surface IA, ce fichier est auto-agrégé dans app.js mais
  * reste INERTE tant que window.SendlyAiConfig n'est pas injecté (clé absente).
@@ -34,6 +40,9 @@
   /** Filet de sécurité : si le formulaire de propriétés ne revient jamais
    *  (erreur réseau, session expirée), l'application ne doit pas rester figée. */
   var LOAD_TIMEOUT_MS = 15000;
+
+  /** Contexte envoyé au serveur : les N dernières demandes (il borne aussi). */
+  var HISTORY_SENT = 5;
 
   function t(key, fallback) {
     var s = Mautic.translate(key);
@@ -61,63 +70,46 @@
       'border:1px solid ' + BRAND + ';border-radius:6px;background:rgba(0,79,255,.06);' +
       'color:' + BRAND + ';font-weight:600;font-size:13px;cursor:pointer;line-height:1.2;margin-bottom:12px}' +
       '#sendly-seg-btn:hover{background:rgba(0,79,255,.12)}' +
-      '.sendly-seg-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:20000;' +
-      'display:flex;align-items:center;justify-content:center;padding:16px}' +
-      '.sendly-seg-panel{background:#fff;border-radius:12px;width:620px;max-width:100%;' +
-      'max-height:88vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.25);color:#1f2937}' +
-      '.sendly-seg-head{display:flex;align-items:center;gap:8px;padding:18px 20px 6px}' +
-      '.sendly-seg-head i{color:' + BRAND + '}' +
-      '.sendly-seg-title{font-size:16px;font-weight:700;margin:0}' +
-      '.sendly-seg-body{padding:8px 20px 20px}' +
-      '.sendly-seg-lbl{display:block;font-size:12px;color:#6b7280;margin:12px 0 4px}' +
-      '.sendly-seg-panel textarea{width:100%;border:1px solid #d1d5db;border-radius:6px;' +
-      'padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box;min-height:78px}' +
-      '.sendly-seg-ex{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}' +
-      '.sendly-seg-ex button{font-size:12px;background:#f3f4f6;color:#4b5563;border:1px solid #e5e7eb;' +
-      'padding:4px 10px;border-radius:6px;cursor:pointer}' +
-      '.sendly-seg-ex button:hover{border-color:' + BRAND + ';color:' + BRAND + '}' +
-      '.sendly-seg-count{display:flex;align-items:baseline;gap:8px;background:rgba(0,79,255,.05);' +
-      'border:1px solid rgba(0,79,255,.18);border-radius:8px;padding:12px 14px;margin:4px 0 14px}' +
-      '.sendly-seg-count b{font-size:22px;color:' + BRAND + ';font-variant-numeric:tabular-nums}' +
-      '.sendly-seg-count span{font-size:13px;color:#4b5563}' +
-      '.sendly-seg-row{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;' +
-      'border:1px solid #e5e7eb;border-radius:8px;margin-bottom:6px;font-size:13px;line-height:1.45}' +
-      '.sendly-seg-row .glue{flex:0 0 auto;font-size:11px;text-transform:uppercase;letter-spacing:.04em;' +
-      'color:#9ca3af;padding-top:2px;min-width:26px}' +
-      '.sendly-seg-row .crit{flex:1}' +
-      '.sendly-seg-row .crit b{font-weight:600}' +
-      '.sendly-seg-todo{display:inline-block;margin-top:3px;font-size:11px;color:#92400e;' +
-      'background:#fef3c7;border-radius:4px;padding:2px 7px}' +
-      '.sendly-seg-note{margin:0 0 10px;font-size:12px;color:#6b7280}' +
-      '.sendly-seg-row.dup{opacity:.6}' +
-      '.sendly-seg-dup{display:inline-block;margin-top:3px;font-size:11px;color:#4b5563;' +
-      'background:#f3f4f6;border-radius:4px;padding:2px 7px}' +
-      '.sendly-seg-drop{margin:12px 0 0;padding:12px 14px;background:#fffbeb;' +
-      'border:1px solid #fde68a;border-radius:8px;font-size:12px;color:#78350f}' +
-      '.sendly-seg-drop p{margin:0 0 6px;font-weight:600}' +
-      '.sendly-seg-drop ul{margin:0;padding-left:18px}' +
-      '.sendly-seg-err{color:#c0392b;font-size:13px;margin:10px 0 0;display:none}' +
-      '.sendly-seg-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;' +
-      'padding-top:14px;border-top:1px solid #e5e7eb}' +
-      '.sendly-seg-btn{padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;' +
-      'cursor:pointer;border:1px solid #d1d5db;background:#fff;color:#374151}' +
-      '.sendly-seg-btn.primary{background:' + BRAND + ';border-color:' + BRAND + ';color:#fff}' +
-      '.sendly-seg-btn[disabled]{opacity:.6;cursor:default}';
+      '#sendly-seg-panel{position:fixed;right:14px;width:355px;max-width:92vw;background:#fff;' +
+      'border:1px solid #e5e7eb;border-radius:12px;z-index:1040;display:flex;flex-direction:column;' +
+      'box-shadow:0 16px 40px rgba(22,35,59,.16);overflow:hidden}' +
+      '.sendly-seg-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #eef1f5}' +
+      '.sendly-seg-title{margin:0;font-size:15px;font-weight:700;color:' + BRAND + ';flex:1}' +
+      '.sendly-seg-iconbtn{background:none;border:0;cursor:pointer;color:#97a1b3;font-size:15px;padding:2px 5px}' +
+      '.sendly-seg-iconbtn:hover{color:#24303f}' +
+      '.sendly-seg-conv{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}' +
+      '.sendly-seg-turn{display:flex;gap:9px;align-items:flex-start;font-size:13px;line-height:1.5;color:#303a4c}' +
+      '.sendly-seg-turn .ri-sparkling-2-line{color:' + BRAND + ';flex:none;margin-top:2px}' +
+      '.sendly-seg-turn ul{margin:6px 0 0;padding-left:16px}' +
+      '.sendly-seg-turn li{margin-bottom:3px}' +
+      '.sendly-seg-me{align-self:flex-end;background:#f2f3f6;color:#303a4c;border-radius:10px;' +
+      'padding:8px 11px;max-width:86%;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}' +
+      '.sendly-seg-note{font-size:12px;color:#92400e;background:#fef3c7;border-radius:4px;padding:1px 6px}' +
+      '.sendly-seg-mut{color:#6a7486;font-size:12px}' +
+      '.sendly-seg-undo{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:5px 12px;' +
+      'border:1px solid #d5dced;border-radius:999px;background:#fff;color:#303a4c;font-size:12px;cursor:pointer}' +
+      '.sendly-seg-undo:hover{border-color:' + BRAND + ';color:' + BRAND + '}' +
+      '.sendly-seg-undo[disabled]{opacity:.55;cursor:default;pointer-events:none}' +
+      '.sendly-seg-ex{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 8px}' +
+      '.sendly-seg-ex button{font-size:12px;background:#fff;color:' + BRAND + ';border:1px solid #d9e2f2;' +
+      'padding:3px 10px;border-radius:999px;cursor:pointer}' +
+      '.sendly-seg-ex button:hover{background:#f0f5ff}' +
+      '.sendly-seg-foot{display:flex;gap:8px;padding:0 14px 8px}' +
+      '#sendly-seg-input{flex:1;border:1px solid #d5dced;border-radius:999px;padding:8px 14px;font-size:13px;background:#f7f8fa}' +
+      '#sendly-seg-input:focus{outline:none;border-color:' + BRAND + ';background:#fff}' +
+      '#sendly-seg-send{border:0;border-radius:50%;width:34px;height:34px;flex:none;background:' + BRAND + ';' +
+      'color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}' +
+      '#sendly-seg-send[disabled]{opacity:.5;cursor:default}' +
+      '.sendly-seg-meta{display:flex;justify-content:space-between;padding:0 14px 12px;color:#97a1b3;font-size:11.5px}' +
+      '.sendly-seg-meta a{color:#97a1b3;cursor:pointer}' +
+      '.sendly-seg-meta a:hover{color:' + BRAND + '}';
     var style = document.createElement('style');
     style.id = 'sendly-ai-seg-style';
     style.textContent = css;
     document.head.appendChild(style);
   }
 
-  var state = { filters: [], dropped: [], count: null, ignored: 0, failed: false };
-
   // ── Libellés VRAIS, lus dans le DOM de Mautic ──────────────────────────
-  //
-  // On n'affiche jamais la phrase d'explication du modèle : le validateur a pu
-  // corriger le critère derrière lui, et une jolie phrase qui décrit autre
-  // chose que le filtre réel est le pire scénario. Les libellés ci-dessous
-  // viennent des options natives du sélecteur — ce sont ceux que l'utilisateur
-  // verra dans la ligne de filtre une fois appliquée.
 
   function option(f) {
     return mQuery('#available_' + f.object + '_' + f.field);
@@ -127,11 +119,7 @@
    * ⚠️ LE LIBELLÉ DE CHAMP CONTIENT DU BALISAGE, PAR CONCEPTION.
    * `mautic.lead_list.filter.field.label` vaut « <em>%object%</em>: %field% »
    * (LeadBundle/Translations/en_US/messages.ini:1187), donc `data-field-label`
-   * porte de vraies balises. Les échapper telles quelles affichait
-   * « <em>Contact</em>: Ville » à l'écran ; les insérer telles quelles serait
-   * pire — le nom d'un champ personnalisé vient du client. On retire donc les
-   * balises AVANT l'échappement : le texte reste juste, et rien d'exécutable
-   * ne passe.
+   * porte de vraies balises. On retire les balises AVANT l'échappement.
    */
   function stripTags(s) {
     return String(s == null ? '' : s).replace(/<[^>]*>/g, '');
@@ -144,9 +132,8 @@
   }
 
   /**
-   * Le critère est-il DÉJÀ dans le formulaire ? Le tiroir ajoute aux critères
-   * existants ; sans ce contrôle, relancer l'assistant empile des doublons —
-   * ce que le client lit comme un bug alors que chaque ajout a « réussi ».
+   * Le critère est-il DÉJÀ dans le formulaire ? L'assistant ajoute aux
+   * critères existants ; sans ce contrôle, relancer empile des doublons.
    */
   function alreadyPresent(f) {
     var mine = Array.isArray(f.value) ? f.value.join('|') : String(f.value == null ? '' : f.value);
@@ -196,208 +183,12 @@
     return Array.isArray(f.value) ? f.value.join(', ') : String(f.value);
   }
 
-  // ── Panneau ────────────────────────────────────────────────────────────
-
-  function close() {
-    var o = document.getElementById('sendly-seg-overlay');
-    if (o) {
-      o.parentNode.removeChild(o);
-    }
-  }
-
-  function open() {
-    ensureStyles();
-    close();
-
-    var overlay = document.createElement('div');
-    overlay.className = 'sendly-seg-overlay';
-    overlay.id = 'sendly-seg-overlay';
-    overlay.innerHTML =
-      '<div class="sendly-seg-panel" role="dialog" aria-modal="true">' +
-      '<div class="sendly-seg-head"><i class="ri-sparkling-2-line"></i>' +
-      '<h4 class="sendly-seg-title">' + esc(t('mautic.lead_list.ai.title', 'Créer les critères avec l’IA')) + '</h4></div>' +
-      '<div class="sendly-seg-body" id="sendly-seg-body"></div></div>';
-
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) {
-        close();
-      }
-    });
-    document.body.appendChild(overlay);
-    renderAsk();
-  }
-
-  function body() {
-    return document.getElementById('sendly-seg-body');
-  }
-
-  function renderAsk(previous) {
-    var examples = [
-      t('mautic.lead_list.ai.example1', 'Les contacts ajoutés le mois dernier'),
-      t('mautic.lead_list.ai.example2', 'Ceux qui ont ouvert un e-mail mais jamais cliqué'),
-      t('mautic.lead_list.ai.example3', 'Les contacts sans ville renseignée')
-    ];
-
-    var html =
-      '<label class="sendly-seg-lbl" for="sendly-seg-desc">' +
-      esc(t('mautic.lead_list.ai.describe', 'Décrivez la cible que vous voulez atteindre')) + '</label>' +
-      '<textarea id="sendly-seg-desc" placeholder="' +
-      esc(t('mautic.lead_list.ai.placeholder', 'Ex. les contacts ajoutés depuis le mois dernier qui ont ouvert au moins un e-mail')) +
-      '">' + esc(previous || '') + '</textarea>' +
-      '<div class="sendly-seg-ex">';
-    for (var i = 0; i < examples.length; i++) {
-      html += '<button type="button" data-ex="' + esc(examples[i]) + '">' + esc(examples[i]) + '</button>';
-    }
-    html +=
-      '</div><p class="sendly-seg-err" id="sendly-seg-err"></p>' +
-      '<div class="sendly-seg-foot">' +
-      '<button type="button" class="sendly-seg-btn" id="sendly-seg-cancel">' +
-      esc(t('mautic.lead_list.ai.cancel', 'Annuler')) + '</button>' +
-      '<button type="button" class="sendly-seg-btn primary" id="sendly-seg-go">' +
-      esc(t('mautic.lead_list.ai.generate', 'Proposer des critères')) + '</button></div>';
-
-    body().innerHTML = html;
-
-    mQuery('#sendly-seg-body [data-ex]').on('click', function () {
-      document.getElementById('sendly-seg-desc').value = mQuery(this).data('ex');
-    });
-    mQuery('#sendly-seg-cancel').on('click', close);
-    mQuery('#sendly-seg-go').on('click', request);
-  }
-
-  function request() {
-    var desc = (document.getElementById('sendly-seg-desc').value || '').trim();
-    if (!desc) {
-      return;
-    }
-
-    var $go = mQuery('#sendly-seg-go');
-    $go.attr('disabled', 'disabled').html(
-      '<i class="ri-loader-4-line sendly-seg-spin"></i> ' + esc(t('mautic.lead_list.ai.generating', 'Analyse…'))
-    );
-    mQuery('#sendly-seg-err').hide();
-
-    // POST via mQuery : le jeton CSRF est ajouté automatiquement (voir en-tête).
-    mQuery.ajax({
-      url: cfg().segmentEndpoint,
-      type: 'POST',
-      dataType: 'json',
-      data: { description: desc },
-      success: function (res) {
-        state.filters = (res && res.filters) || [];
-        state.dropped = (res && res.dropped) || [];
-        state.count = res ? res.count : null;
-        state.ignored = (res && res.ignored) || 0;
-        state.failed = !!(res && res.failed);
-        if (!state.filters.length) {
-          renderAsk(desc);
-          fail(t('mautic.lead_list.ai.none', 'Aucun critère exploitable n’a pu être déduit. Reformulez en nommant les informations dont vous disposez sur vos contacts.'));
-          return;
-        }
-        renderResult(desc);
-      },
-      error: function () {
-        renderAsk(desc);
-        fail(t('mautic.lead_list.ai.error', 'La requête a échoué. Réessayez.'));
-      }
-    });
-  }
-
-  function fail(msg) {
-    var e = document.getElementById('sendly-seg-err');
-    if (e) {
-      e.textContent = msg;
-      e.style.display = 'block';
-    }
-  }
-
-  function renderResult(desc) {
-    var html = '';
-
-    // Le nombre d'abord : c'est ce qui permet de juger la proposition.
-    //
-    // Trois cas DISTINCTS, à ne pas confondre — c'est tout l'intérêt du chiffre :
-    //   un nombre        → la proposition est jugeable ;
-    //   rien à compter   → des critères attendent une valeur, ce n'est pas une panne ;
-    //   échec du calcul  → la requête n'a pas abouti.
-    // Afficher « n'a pas pu être calculé » dans le deuxième cas fait passer un
-    // fonctionnement normal pour une panne.
-    if (state.count !== null && !state.failed) {
-      var suffix = state.ignored > 0
-        ? t('mautic.lead_list.ai.count_partial', 'contacts, hors critères à compléter')
-        : t('mautic.lead_list.ai.count', 'contacts correspondent à ces critères');
-      html += '<div class="sendly-seg-count"><b>' + esc(String(state.count)) + '</b><span>' + esc(suffix) + '</span></div>';
-    } else if (state.failed) {
-      html += '<div class="sendly-seg-count"><span>' +
-        esc(t('mautic.lead_list.ai.count_unavailable', 'Le nombre de contacts n’a pas pu être calculé. Les critères restent applicables.')) +
-        '</span></div>';
-    } else {
-      html += '<div class="sendly-seg-count"><span>' +
-        esc(t('mautic.lead_list.ai.count_pending', 'Le nombre sera calculable une fois les valeurs ci-dessous choisies.')) +
-        '</span></div>';
-    }
-
-    // On dit AVANT le clic que l'ajout se cumule : c'est ce qui explique une
-    // liste qui s'allonge quand on relance l'assistant.
-    html += '<p class="sendly-seg-note">' +
-      esc(t('mautic.lead_list.ai.adds_to_existing', 'Ces critères s’ajoutent à ceux déjà présents dans le segment.')) +
-      '</p>';
-
-    for (var i = 0; i < state.filters.length; i++) {
-      var f = state.filters[i];
-      var glue = i === 0 ? '' : t('mautic.lead_list.ai.glue_' + f.glue, f.glue === 'or' ? 'ou' : 'et');
-      var val = valueLabel(f);
-      var dup = alreadyPresent(f);
-      html += '<div class="sendly-seg-row' + (dup ? ' dup' : '') + '"><span class="glue">' + esc(glue) +
-        '</span><span class="crit">' +
-        '<b>' + esc(fieldLabel(f)) + '</b> ' + esc(operatorLabel(f)) +
-        (val ? ' <b>' + esc(val) + '</b>' : '');
-      if (f.needsInput) {
-        html += '<br><span class="sendly-seg-todo">' +
-          esc(t('mautic.lead_list.ai.needs_input', 'valeur à choisir après application')) + '</span>';
-      }
-      // Signalé ici plutôt qu'annoncé après coup : sinon le client clique,
-      // rien ne bouge à l'écran, et il croit que le bouton est cassé.
-      if (dup) {
-        html += '<br><span class="sendly-seg-dup">' +
-          esc(t('mautic.lead_list.ai.already_present', 'déjà présent — ne sera pas ajouté en double')) + '</span>';
-      }
-      html += '</span></div>';
-    }
-
-    if (state.dropped.length) {
-      html += '<div class="sendly-seg-drop"><p>' +
-        esc(t('mautic.lead_list.ai.dropped.title', 'Non retenu dans votre demande')) + '</p><ul>';
-      for (var d = 0; d < state.dropped.length; d++) {
-        var item = state.dropped[d];
-        html += '<li>' + esc(item.label) + ' — ' + esc(item.message) + '</li>';
-      }
-      html += '</ul></div>';
-    }
-
-    html +=
-      '<p class="sendly-seg-err" id="sendly-seg-err"></p>' +
-      '<div class="sendly-seg-foot">' +
-      '<button type="button" class="sendly-seg-btn" id="sendly-seg-back">' +
-      esc(t('mautic.lead_list.ai.back', 'Reformuler')) + '</button>' +
-      '<button type="button" class="sendly-seg-btn primary" id="sendly-seg-apply">' +
-      esc(t('mautic.lead_list.ai.apply', 'Ajouter ces critères')) + '</button></div>';
-
-    body().innerHTML = html;
-
-    mQuery('#sendly-seg-back').on('click', function () {
-      renderAsk(desc);
-    });
-    mQuery('#sendly-seg-apply').on('click', apply);
-  }
-
   // ── Application via le chemin natif ────────────────────────────────────
 
   /**
    * S'accroche à l'événement que Mautic émet quand le formulaire de propriétés
    * d'une ligne a fini de se charger. C'est le seul signal fiable : la
-   * conversion de l'input de valeur est asynchrone. Un délai fixe marcherait
-   * sur une instance rapide et échouerait sur une instance chargée.
+   * conversion de l'input de valeur est asynchrone.
    */
   function onceLoaded(num, cb) {
     var selector = '#leadlist_filters_' + num;
@@ -434,17 +225,11 @@
     }
     if (Array.isArray(f.value)) {
       // ⚠️ LE SÉPARATEUR EST LA BARRE VERTICALE, PAS LA VIRGULE.
-      // Sur un select multiple, jQuery prend le tableau tel quel. Mais quand le
-      // champ est rendu en input texte, Mautic reconstitue la liste avec
-      // explode('|') (BaseDecorator::getParameterValue, cas « in »/« !in ») —
-      // c'est aussi ce que fait son propre gestionnaire de collage. Joindre
-      // avec ", " donnerait UNE valeur littérale « 12, 7 » qui ne correspond à
-      // rien : segment vide, sans aucune erreur.
-      //
-      // Le piège était doublement traître ici : l'aperçu reçoit un vrai tableau
-      // côté serveur, donc il aurait affiché le BON nombre de contacts, pendant
-      // que le formulaire appliqué en aurait produit un autre. Le décompte
-      // aurait servi de caution à un segment faux.
+      // Quand le champ est rendu en input texte, Mautic reconstitue la liste
+      // avec explode('|') (BaseDecorator::getParameterValue, cas « in »).
+      // Joindre avec ", " donnerait UNE valeur littérale : segment vide, sans
+      // erreur — pendant que l'aperçu, servi d'un vrai tableau côté serveur,
+      // afficherait le bon nombre et cautionnerait le segment faux.
       $input.val($input.is('select') ? f.value : f.value.join('|'));
     } else {
       $input.val(f.value);
@@ -468,16 +253,16 @@
   }
 
   /**
-   * Ajoute UNE ligne, puis appelle done(ok). Séquentiel volontairement : les
-   * lignes sont numérotées d'après le nombre de lignes présentes, et l'ordre
-   * affiché doit correspondre à l'ordre proposé.
+   * Ajoute UNE ligne, puis appelle done(ok, num). Séquentiel volontairement :
+   * les lignes sont numérotées d'après le nombre de lignes présentes, et
+   * l'ordre affiché doit correspondre à l'ordre proposé.
    */
   function applyOne(f, done) {
     var $opt = option(f);
     if (!$opt.length) {
       // Le critère a passé la validation serveur mais son option n'existe pas
       // dans cet écran. Plutôt que de produire une ligne fausse, on renonce.
-      done(false);
+      done(false, null);
       return;
     }
 
@@ -492,7 +277,7 @@
     if (!known) {
       // Poser un opérateur absent de la liste laisserait le premier opérateur
       // sélectionné : un filtre silencieusement FAUX. On préfère renoncer.
-      done(false);
+      done(false, null);
       return;
     }
 
@@ -500,14 +285,14 @@
 
     onceLoaded(num, function (ok) {
       if (!ok) {
-        done(false);
+        done(false, null);
         return;
       }
       var $op = mQuery('#leadlist_filters_' + num + '_operator');
       if ($op.val() === f.operator) {
         setValue(num, f);
         setGlue(num, f);
-        done(true);
+        done(true, num);
         return;
       }
       $op.val(f.operator);
@@ -516,7 +301,7 @@
           setValue(num, f);
           setGlue(num, f);
         }
-        done(ok2);
+        done(ok2, ok2 ? num : null);
       });
       // Recharge le formulaire de valeur pour l'opérateur retenu.
       Mautic.convertLeadFilterInput('#leadlist_filters_' + num + '_operator');
@@ -525,54 +310,280 @@
     Mautic.addLeadListFilter(f.field, f.object);
   }
 
-  function apply() {
-    var $btn = mQuery('#sendly-seg-apply');
-    var label = $btn.html();
-
-    $btn.attr('disabled', 'disabled').html(
-      '<i class="ri-loader-4-line sendly-seg-spin"></i> ' + esc(t('mautic.lead_list.ai.applying', 'Ajout…'))
-    );
-
-    var queue = state.filters.slice();
-    var missed = [];
+  /**
+   * Applique les critères d'UN tour de conversation, séquentiellement, en
+   * marquant chaque ligne posée (l'attribut suit la ligne quand Mautic
+   * renumérote — c'est lui que l'annulation retrouve).
+   */
+  function applyTurn(filters, turnId, cb) {
+    var queue = filters.slice();
+    var result = { applied: [], dups: [], missed: [] };
 
     function next() {
       if (!queue.length) {
-        if (!missed.length) {
-          close();
-          return;
-        }
-        // On NE FERME PAS quand un critère a échoué. Fermer laisserait croire
-        // que tout a été ajouté, et le client enregistrerait un segment
-        // incomplet en pensant qu'il correspond à sa demande. Le panneau reste
-        // ouvert, nomme ce qui manque, et le contexte est encore à l'écran.
-        $btn.removeAttr('disabled').html(label);
-        fail(
-          t('mautic.lead_list.ai.partial', 'Ces critères n’ont pas pu être ajoutés : ') +
-          missed.join(' · ')
-        );
+        cb(result);
         return;
       }
-
       var f = queue.shift();
-
-      // Déjà là : on ne le rajoute pas. Un doublon ne change rien au segment
-      // (il est chaîné en « et »), mais il donne au client une liste qu'il n'a
-      // pas demandée et qu'il devra nettoyer à la main.
       if (alreadyPresent(f)) {
+        result.dups.push(f);
         next();
         return;
       }
-
-      applyOne(f, function (ok) {
-        if (!ok) {
-          missed.push(fieldLabel(f));
+      applyOne(f, function (ok, num) {
+        if (ok) {
+          result.applied.push(f);
+          mQuery('#leadlist_filters_' + num + '_field')
+            .closest('.filter--row')
+            .attr('data-sendly-turn', String(turnId));
+        } else {
+          result.missed.push(f);
         }
         next();
       });
     }
 
     next();
+  }
+
+  // ── Le panneau conversationnel ─────────────────────────────────────────
+
+  /** Tours : {role:'user'|'ia', html, turnId?, undoable?} ; turnId → annulation. */
+  var conv = [];
+  var busy = false;
+  var turnSeq = 0;
+
+  function panel() {
+    return document.getElementById('sendly-seg-panel');
+  }
+
+  function closePanel() {
+    var p = panel();
+    if (p) {
+      p.parentNode.removeChild(p);
+    }
+  }
+
+  function welcomeHtml() {
+    return '<div class="sendly-seg-turn"><i class="ri-sparkling-2-line"></i><div>' +
+      esc(t('mautic.lead_list.ai.welcome',
+        'Bonjour, quel segment souhaitez-vous créer aujourd’hui ? Décrivez-moi précisément les contacts que vous souhaitez cibler, je m’occupe du reste !')) +
+      '</div></div>';
+  }
+
+  function renderConv() {
+    var el = document.getElementById('sendly-seg-conv');
+    if (!el) {
+      return;
+    }
+    var html = welcomeHtml();
+    conv.forEach(function (turn) {
+      if (turn.role === 'user') {
+        html += '<div class="sendly-seg-me">' + esc(turn.text) + '</div>';
+        return;
+      }
+      html += '<div class="sendly-seg-turn"><i class="ri-sparkling-2-line"></i><div>' + turn.html;
+      if (turn.turnId) {
+        html += '<br><button type="button" class="sendly-seg-undo" data-turn="' + turn.turnId + '"' +
+          (turn.undoable ? '' : ' disabled') + '><i class="ri-arrow-go-back-line"></i> ' +
+          esc(t('mautic.lead_list.ai.undo', 'Annuler les modifications')) + '</button>';
+      }
+      html += '</div></div>';
+    });
+    if (busy) {
+      html += '<div class="sendly-seg-turn"><i class="ri-sparkling-2-line"></i><div>' +
+        '<i class="ri-loader-4-line sendly-seg-spin"></i> ' +
+        esc(t('mautic.lead_list.ai.generating', 'Analyse…')) + '</div></div>';
+    }
+    el.innerHTML = html;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  /** Le résumé d'un tour : ce qui a été RÉELLEMENT appliqué, en libellés natifs. */
+  function turnSummary(result, dropped) {
+    var html = '';
+    if (result.applied.length) {
+      html += esc(t('mautic.lead_list.ai.added', 'Critères ajoutés au segment :')) + '<ul>';
+      result.applied.forEach(function (f) {
+        var val = valueLabel(f);
+        html += '<li><b>' + esc(fieldLabel(f)) + '</b> ' + esc(operatorLabel(f)) +
+          (val ? ' <b>' + esc(val) + '</b>' : '');
+        if (f.needsInput) {
+          html += ' <span class="sendly-seg-note">' +
+            esc(t('mautic.lead_list.ai.needs_input', 'valeur à choisir après application')) + '</span>';
+        }
+        html += '</li>';
+      });
+      html += '</ul>';
+    } else {
+      html += esc(t('mautic.lead_list.ai.added_none', 'Aucun nouveau critère à ajouter.'));
+    }
+    if (result.dups.length) {
+      html += '<div class="sendly-seg-mut">' + esc(t('mautic.lead_list.ai.already_present', 'déjà présent — ne sera pas ajouté en double')) +
+        ' : ' + esc(result.dups.map(fieldLabel).join(', ')) + '</div>';
+    }
+    if (result.missed.length) {
+      html += '<div class="sendly-seg-mut">' + esc(t('mautic.lead_list.ai.partial', 'Ces critères n’ont pas pu être ajoutés : ')) +
+        esc(result.missed.map(fieldLabel).join(' · ')) + '</div>';
+    }
+    if (dropped && dropped.length) {
+      html += '<div class="sendly-seg-mut">' + esc(t('mautic.lead_list.ai.dropped.title', 'Non retenu dans votre demande')) + ' : ';
+      html += esc(dropped.map(function (d) { return d.label + ' — ' + d.message; }).join(' · ')) + '</div>';
+    }
+    return html;
+  }
+
+  function send(text) {
+    var q = String(text || '').trim();
+    if (!q || busy || !cfg()) {
+      return;
+    }
+
+    // Le contexte : les demandes utilisateur précédentes, pas les résumés.
+    var history = conv
+      .filter(function (turn) { return turn.role === 'user'; })
+      .slice(-HISTORY_SENT)
+      .map(function (turn) { return turn.text; });
+
+    conv.push({ role: 'user', text: q });
+    busy = true;
+    renderConv();
+    var input = document.getElementById('sendly-seg-input');
+    if (input) {
+      input.value = '';
+    }
+
+    // POST via mQuery : le jeton CSRF est ajouté automatiquement (voir en-tête).
+    mQuery.ajax({
+      url: cfg().segmentEndpoint,
+      type: 'POST',
+      dataType: 'json',
+      data: { description: q, history: history },
+      success: function (res) {
+        var filters = (res && res.filters) || [];
+        var dropped = (res && res.dropped) || [];
+        if (!filters.length) {
+          busy = false;
+          conv.push({ role: 'ia', html: esc(dropped.length
+            ? dropped.map(function (d) { return d.label + ' — ' + d.message; }).join(' · ')
+            : t('mautic.lead_list.ai.none', 'Aucun critère exploitable n’a pu être déduit. Reformulez en nommant les informations dont vous disposez sur vos contacts.')) });
+          renderConv();
+          return;
+        }
+        var turnId = ++turnSeq;
+        applyTurn(filters, turnId, function (result) {
+          busy = false;
+          var turn = { role: 'ia', html: turnSummary(result, dropped) };
+          if (result.applied.length) {
+            turn.turnId = turnId;
+            turn.undoable = true;
+          }
+          conv.push(turn);
+          renderConv();
+        });
+      },
+      error: function () {
+        busy = false;
+        conv.push({ role: 'ia', html: esc(t('mautic.lead_list.ai.error', 'La requête a échoué. Réessayez.')) });
+        renderConv();
+      }
+    });
+  }
+
+  /** L'annulation d'un tour : le clic sur le « supprimer » NATIF de chaque
+   *  ligne marquée — jamais de retrait de DOM à la main. */
+  function undoTurn(turnId) {
+    mQuery('#leadlist_filters .filter--row[data-sendly-turn="' + turnId + '"] a.remove-selected').each(function () {
+      mQuery(this).trigger('click');
+    });
+    conv.forEach(function (turn) {
+      if (turn.turnId === turnId) {
+        turn.undoable = false;
+        turn.html += '<div class="sendly-seg-mut">' +
+          esc(t('mautic.lead_list.ai.undone', 'Modifications annulées')) + '</div>';
+      }
+    });
+    renderConv();
+  }
+
+  function openPanel() {
+    if (panel()) {
+      return;
+    }
+    ensureStyles();
+
+    var examples = [
+      t('mautic.lead_list.ai.example1', 'Les contacts ajoutés le mois dernier'),
+      t('mautic.lead_list.ai.example2', 'Ceux qui ont ouvert un e-mail mais jamais cliqué'),
+      t('mautic.lead_list.ai.example3', 'Les contacts sans ville renseignée')
+    ];
+
+    var el = document.createElement('div');
+    el.id = 'sendly-seg-panel';
+    el.setAttribute('role', 'dialog');
+    el.innerHTML =
+      '<div class="sendly-seg-head">' +
+      '<h4 class="sendly-seg-title">' + esc(t('mautic.lead_list.ai.panel_title', 'Assistant de segment')) + '</h4>' +
+      '<button type="button" class="sendly-seg-iconbtn" id="sendly-seg-clear" aria-label="' +
+      esc(t('mautic.lead_list.ai.clear', 'Vider la conversation')) + '"><i class="ri-delete-bin-line"></i></button>' +
+      '<button type="button" class="sendly-seg-iconbtn" id="sendly-seg-close" aria-label="' +
+      esc(t('mautic.lead_list.ai.cancel', 'Annuler')) + '">✕</button>' +
+      '</div>' +
+      '<div class="sendly-seg-conv" id="sendly-seg-conv"></div>' +
+      '<div class="sendly-seg-ex" id="sendly-seg-ex" style="display:none">' +
+      examples.map(function (ex) {
+        return '<button type="button">' + esc(ex) + '</button>';
+      }).join('') + '</div>' +
+      '<div class="sendly-seg-foot">' +
+      '<input id="sendly-seg-input" type="text" placeholder="' +
+      esc(t('mautic.lead_list.ai.input_placeholder', 'Décrivez vos filtres…')) + '">' +
+      '<button type="button" id="sendly-seg-send" aria-label="' +
+      esc(t('mautic.lead_list.ai.generate', 'Proposer des critères')) + '"><i class="ri-arrow-up-line"></i></button>' +
+      '</div>' +
+      '<div class="sendly-seg-meta">' +
+      '<span>' + esc(t('mautic.lead_list.ai.private', 'Vos données restent privées.')) + '</span>' +
+      '<a id="sendly-seg-shortcuts"><i class="ri-question-line"></i> ' +
+      esc(t('mautic.lead_list.ai.shortcuts', 'Raccourcis')) + '</a>' +
+      '</div>';
+
+    // Ancré sous la barre haute, quelle que soit sa hauteur réelle.
+    var header = document.getElementById('app-header');
+    var top = header ? header.getBoundingClientRect().bottom : 56;
+    el.style.top = (Math.max(0, top) + 12) + 'px';
+    el.style.bottom = '14px';
+    document.body.appendChild(el);
+
+    el.querySelector('#sendly-seg-close').addEventListener('click', closePanel);
+    el.querySelector('#sendly-seg-clear').addEventListener('click', function () {
+      conv = [];
+      renderConv();
+    });
+    el.querySelector('#sendly-seg-send').addEventListener('click', function () {
+      send(document.getElementById('sendly-seg-input').value);
+    });
+    el.querySelector('#sendly-seg-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        send(this.value);
+      }
+    });
+    el.querySelector('#sendly-seg-shortcuts').addEventListener('click', function () {
+      var ex = document.getElementById('sendly-seg-ex');
+      ex.style.display = ex.style.display === 'none' ? 'flex' : 'none';
+    });
+    mQuery(el).on('click', '.sendly-seg-ex button', function () {
+      send(this.textContent);
+      document.getElementById('sendly-seg-ex').style.display = 'none';
+    });
+    mQuery(el).on('click', '.sendly-seg-undo', function () {
+      undoTurn(mQuery(this).data('turn'));
+    });
+
+    renderConv();
+    var input = document.getElementById('sendly-seg-input');
+    if (input) {
+      input.focus();
+    }
   }
 
   // ── Injection du bouton ────────────────────────────────────────────────
@@ -598,7 +609,7 @@
     btn.id = 'sendly-seg-btn';
     btn.innerHTML = '<i class="ri-sparkling-2-line"></i> ' +
       t('mautic.lead_list.ai.button', 'Créer les critères avec l’IA');
-    btn.onclick = open;
+    btn.onclick = openPanel;
     $available.closest('.available-filters').before(btn);
   }
 
@@ -612,6 +623,11 @@
     if (typeof _origLeadListOnLoad === 'function') {
       _origLeadListOnLoad(container, response);
     }
+    // Le panneau appartient à l'ANCIEN écran : la conversation référence des
+    // lignes qui n'existent plus après navigation.
+    closePanel();
+    conv = [];
+    busy = false;
     injectButton();
   };
 })();
