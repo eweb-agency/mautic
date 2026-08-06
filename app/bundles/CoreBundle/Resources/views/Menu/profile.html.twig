@@ -1,7 +1,27 @@
 {% set inline = menuRender('profile') %}
-<li class="dropdown">
+<li class="dropdown sendly-profile">
+    {# Identité VISIBLE dans la barre haute — avatar rond + nom + chevron,
+       le motif du header de référence (capture proprio, 05/08) — au lieu de
+       l'icône anonyme. L'avatar montre la photo (gravatar) quand elle
+       existe, sinon les initiales sur pastille bleue. #}
+    <style>
+        .sendly-profile > a.dropdown-toggle { display: inline-flex; align-items: center; gap: 8px; }
+        .sendly-avatar {
+            position: relative; width: 30px; height: 30px; border-radius: 50%;
+            background: #004FFF; color: #fff; display: inline-flex; flex: none;
+            align-items: center; justify-content: center; font-size: 12px;
+            font-weight: 700; overflow: hidden; letter-spacing: .02em;
+        }
+        .sendly-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .sendly-profile-name { font-weight: 600; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    </style>
     <a class="dropdown-toggle" data-toggle="dropdown" href="#" aria-label={{ 'mautic.lead.lead.social.profile'|trans }}>
-        <i class="ri-account-circle-line ri-xl"></i>
+        <span class="sendly-avatar">
+            {{ app.getUser().getName()|split(' ')|map(w => w|slice(0, 1))|join|upper|slice(0, 2) }}
+            <img onerror="this.classList.add('hide')" src="{{ gravatarGetImage(app.getUser().getEmail()) }}" alt="">
+        </span>
+        <span class="sendly-profile-name hidden-xs">{{ app.getUser().getName() }}</span>
+        <i class="ri-arrow-down-s-line"></i>
     </a>
     <ul class="dropdown-menu dropdown-menu-right">
         <li>

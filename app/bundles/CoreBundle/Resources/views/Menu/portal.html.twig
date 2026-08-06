@@ -31,14 +31,15 @@
         .sendly-softwares .dropdown-menu li > a.sendly-soft-row:hover,
         .sendly-softwares .dropdown-menu li > a.sendly-soft-row:focus { background: #f2f5fa; text-decoration: none; }
         .sendly-softwares .sendly-soft-tile {
-            width: 42px; height: 42px; border-radius: 10px; flex: none;
+            width: 40px; height: 40px; border-radius: 12px; flex: none;
             display: inline-flex; align-items: center; justify-content: center;
         }
         .sendly-soft-tile--marketing { background: #004FFF; }
         .sendly-soft-tile--portal { background: #16233b; }
         /* Icônes au TRAIT (les glyphes du portail, inlinés) — jamais de
-           fill imposé : il transformerait le trait en pâté. */
-        .sendly-softwares .sendly-soft-tile svg { width: 22px; height: 22px; }
+           fill imposé : il transformerait le trait en pâté. 17px : la
+           taille 22px mangeait la tuile (retour proprio, 4e itération). */
+        .sendly-softwares .sendly-soft-tile svg { width: 17px; height: 17px; }
         /* Même précaution pour les SPANS INTERNES : le thème force
            `display:flex` sur tout span logé dans un lien de dropdown, ce qui
            faisait sortir nom/sous-titre/flèche du flux (validé en injectant

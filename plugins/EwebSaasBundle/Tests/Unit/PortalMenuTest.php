@@ -21,6 +21,7 @@ final class PortalMenuTest extends TestCase
     private const CONFIG  = __DIR__.'/../../Config/config.php';
     private const NAVBAR  = __DIR__.'/../../../../app/bundles/CoreBundle/Resources/views/Default/navbar.html.twig';
     private const PARTIAL = __DIR__.'/../../../../app/bundles/CoreBundle/Resources/views/Menu/portal.html.twig';
+    private const PROFILE = __DIR__.'/../../../../app/bundles/CoreBundle/Resources/views/Menu/profile.html.twig';
 
     public function testLeParametreExisteAvecUnDefautNonVide(): void
     {
@@ -86,5 +87,19 @@ final class PortalMenuTest extends TestCase
         $mobile = (string) substr($navbar, (int) strpos($navbar, 'brand-logo--mobile'));
         self::assertStringContainsString('logo--expanded.svg', $mobile, 'le header mobile porte le wordmark');
         self::assertStringNotContainsString('logo--minimized.svg', $mobile, 'le monogramme ne doit pas revenir en mobile');
+    }
+
+    public function testLeProfilAfficheAvatarNomEtChevron(): void
+    {
+        // L'identité visible du header de référence (capture proprio) :
+        // avatar rond (photo, repli initiales) + nom + chevron — pas une
+        // icône anonyme.
+        $profile = (string) file_get_contents(self::PROFILE);
+
+        self::assertStringContainsString('sendly-avatar', $profile);
+        self::assertStringContainsString('gravatarGetImage(app.getUser().getEmail())', $profile);
+        self::assertStringContainsString('sendly-profile-name', $profile);
+        self::assertStringContainsString('ri-arrow-down-s-line', $profile);
+        self::assertStringNotContainsString('ri-account-circle-line', $profile, 'l’icône anonyme ne doit pas revenir');
     }
 }
