@@ -19,23 +19,34 @@
             min-width: 320px; padding: 8px; border-radius: 10px;
             box-shadow: 0 12px 32px rgba(22, 35, 59, .16); border: 0;
         }
-        .sendly-soft-row {
+        /* Spécificité VOLONTAIREMENT supérieure aux règles génériques du menu
+           Bootstrap de Mautic (`.dropdown-menu li a` pose display:block +
+           white-space:nowrap et cassait la ligne-lien : tuile étirée pleine
+           largeur, texte éjecté — constaté à la vérification en prod). Le
+           span et le lien reçoivent LA MÊME géométrie. */
+        .sendly-softwares .dropdown-menu li > .sendly-soft-row {
             display: flex; align-items: center; gap: 12px; padding: 10px 12px;
-            border-radius: 8px;
+            border-radius: 8px; white-space: normal; clear: none;
         }
-        a.sendly-soft-row:hover, a.sendly-soft-row:focus { background: #f2f5fa; text-decoration: none; }
-        .sendly-soft-tile {
+        .sendly-softwares .dropdown-menu li > a.sendly-soft-row:hover,
+        .sendly-softwares .dropdown-menu li > a.sendly-soft-row:focus { background: #f2f5fa; text-decoration: none; }
+        .sendly-softwares .sendly-soft-tile {
             width: 42px; height: 42px; border-radius: 10px; flex: none;
             display: inline-flex; align-items: center; justify-content: center;
         }
         .sendly-soft-tile--marketing { background: #004FFF; }
         .sendly-soft-tile--portal { background: #16233b; }
-        .sendly-soft-tile svg { width: 22px; height: 22px; }
-        .sendly-soft-tile svg path { fill: #fff; }
-        .sendly-soft-text { min-width: 0; flex: 1; }
-        .sendly-soft-name { display: block; font-weight: 700; color: #24303f; line-height: 1.25; }
-        .sendly-soft-sub { display: block; color: #6a7486; font-size: 12px; line-height: 1.3; }
-        .sendly-soft-action { color: #4a5264; font-size: 16px; flex: none; }
+        /* Icônes au TRAIT (les glyphes du portail, inlinés) — jamais de
+           fill imposé : il transformerait le trait en pâté. */
+        .sendly-softwares .sendly-soft-tile svg { width: 22px; height: 22px; }
+        /* Même précaution pour les SPANS INTERNES : le thème force
+           `display:flex` sur tout span logé dans un lien de dropdown, ce qui
+           faisait sortir nom/sous-titre/flèche du flux (validé en injectant
+           ces règles en prod avant de committer). */
+        .sendly-softwares .dropdown-menu .sendly-soft-text { display: block; min-width: 0; flex: 1 1 auto; width: auto; }
+        .sendly-softwares .dropdown-menu .sendly-soft-name { display: block; font-weight: 700; color: #24303f; line-height: 1.25; width: auto; }
+        .sendly-softwares .dropdown-menu .sendly-soft-sub { display: block; color: #6a7486; font-size: 12px; line-height: 1.3; width: auto; height: auto; }
+        .sendly-softwares .dropdown-menu .sendly-soft-action { display: inline-flex; width: auto; flex: none; color: #4a5264; font-size: 16px; }
         .sendly-soft-current {
             flex: none; font-size: 11px; color: #6a7486; background: #eef1f5;
             border-radius: 999px; padding: 2px 8px;
@@ -49,8 +60,12 @@
             {# L'application courante : on la liste (le panneau dit ce que
                vous avez), on ne la lie pas (un lien vers soi-même se lit
                comme un bug). #}
+            {# Les tuiles portent les GLYPHES DU PORTAIL (demande proprio,
+               3e itération — le monogramme de marque y était illisible) :
+               l'avion en papier de « Espace marketing » et le tableau de
+               bord du portail, inlinés au trait blanc. #}
             <span class="sendly-soft-row">
-                <span class="sendly-soft-tile sendly-soft-tile--marketing">{{ source('@MauticCore/Assets/images/logo--minimized.svg') }}</span>
+                <span class="sendly-soft-tile sendly-soft-tile--marketing"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></span>
                 <span class="sendly-soft-text">
                     <span class="sendly-soft-name">{{ 'eweb.saas.portal.marketing_title'|trans }}</span>
                     <span class="sendly-soft-sub">{{ 'eweb.saas.portal.marketing_subtitle'|trans }}</span>
@@ -60,7 +75,7 @@
         </li>
         <li>
             <a class="sendly-soft-row" href="{{ portalUrl }}/dashboard/organization">
-                <span class="sendly-soft-tile sendly-soft-tile--portal">{{ source('@MauticCore/Assets/images/logo--minimized.svg') }}</span>
+                <span class="sendly-soft-tile sendly-soft-tile--portal"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span>
                 <span class="sendly-soft-text">
                     <span class="sendly-soft-name">{{ 'eweb.saas.portal.portal_title'|trans }}</span>
                     <span class="sendly-soft-sub">{{ 'eweb.saas.portal.portal_subtitle'|trans }}</span>
