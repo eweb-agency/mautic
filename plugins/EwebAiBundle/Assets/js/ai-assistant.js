@@ -46,7 +46,10 @@
     var css =
       '@keyframes sendly-assist-spin{to{transform:rotate(360deg)}}' +
       '#sendly-assist-fab{position:fixed;right:24px;bottom:24px;width:52px;height:52px;' +
-      'border-radius:50%;border:0;background:#001248;color:#fff;cursor:pointer;z-index:1035;' +
+      'border-radius:50%;border:0;color:#fff;cursor:pointer;z-index:1035;' +
+      /* Le fond DA fourni par le proprio : dégradé radial bleu Sendly — bleu
+         roi lumineux en haut fondant vers le bleu nuit des bords. */
+      'background:radial-gradient(circle at 50% 18%, #0a52d8 0%, #0640a8 42%, #05215c 74%, #021030 100%);' +
       'display:flex;align-items:center;justify-content:center;' +
       'box-shadow:0 10px 26px rgba(0,18,72,.38);transition:transform .12s ease}' +
       '#sendly-assist-fab:hover{transform:scale(1.06)}' +
