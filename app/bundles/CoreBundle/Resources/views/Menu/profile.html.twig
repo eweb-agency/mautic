@@ -5,7 +5,14 @@
        l'icône anonyme. L'avatar montre la photo (gravatar) quand elle
        existe, sinon les initiales sur pastille bleue. #}
     <style>
-        .sendly-profile > a.dropdown-toggle { display: inline-flex; align-items: center; gap: 8px; }
+        /* GEOMETRIE VERROUILLEE (défaut proprio 07/08, validé en direct) : le
+           thème impose flex-direction aux liens de menu → sans ces règles,
+           avatar/nom/chevron s'empilent en COLONNE, le lien fait 180px, la
+           rangée étire tout le bandeau (181px) et le titre + la barre de
+           boutons passent SOUS le verre dépoli. Hauteur = 48px, comme les
+           autres items — jamais plus. */
+        .sendly-profile > a.dropdown-toggle { display: inline-flex !important; flex-flow: row nowrap !important; align-items: center !important; height: 48px !important; gap: 6px; }
+        .sendly-profile > a.dropdown-toggle i.ri-arrow-down-s-line { height: auto !important; line-height: 1 !important; }
         .sendly-avatar {
             position: relative; width: 30px; height: 30px; border-radius: 50%;
             background: #004FFF; color: #fff; display: inline-flex; flex: none;
@@ -13,6 +20,11 @@
             font-weight: 700; overflow: hidden; letter-spacing: .02em;
         }
         .sendly-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        /* Image chargée = fond BLANC + initiales effacées : le logo gravatar
+           (disque sur fond transparent) laissait sinon transparaître le
+           cercle bleu du repli en anneau (« double pastille », défaut
+           proprio 07/08). */
+        .sendly-avatar.has-img { background: #fff; color: transparent; }
         .sendly-profile-name { font-weight: 600; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         /* Sous 1400px le nom disparait : la rangee d'icones du header ne doit
            JAMAIS deborder sur une 2e ligne — elle recouvrirait les boutons de
@@ -24,7 +36,7 @@
     <a class="dropdown-toggle" data-toggle="dropdown" href="#" aria-label={{ 'mautic.lead.lead.social.profile'|trans }}>
         <span class="sendly-avatar">
             {{ app.getUser().getName()|split(' ')|map(w => w|slice(0, 1))|join|upper|slice(0, 2) }}
-            <img loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.classList.add('hide')" src="{{ gravatarGetImage(app.getUser().getEmail()) }}" alt="">
+            <img loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="this.parentNode.classList.add('has-img')" onerror="this.classList.add('hide')" src="{{ gravatarGetImage(app.getUser().getEmail()) }}" alt="">
         </span>
         <span class="sendly-profile-name hidden-xs">{{ app.getUser().getName() }}</span>
         <i class="ri-arrow-down-s-line"></i>

@@ -131,4 +131,30 @@ final class PortalMenuTest extends TestCase
         self::assertStringContainsString('sendly-avatar', $twig);
         self::assertStringContainsString('sendly-profile-name', $twig);
     }
+
+    public function testLaGeometrieDuProfilEstVerrouilleeA48px(): void
+    {
+        // Défaut proprio 07/08 : le thème impose flex-direction aux liens de
+        // menu → sans verrou explicite, le lien profil s'empile en colonne
+        // (180px), étire le bandeau fixe (181px) et le titre + les boutons de
+        // page passent SOUS le verre dépoli (le même mécanisme que le
+        // « element click intercepted » des e2e). Hauteur 48px + nowrap,
+        // validés en direct avant commit.
+        $twig = (string) file_get_contents(self::PROFILE);
+
+        self::assertStringContainsString('flex-flow: row nowrap', $twig, 'sans nowrap le theme empile le lien profil en colonne');
+        self::assertStringContainsString('height: 48px', $twig, 'le lien profil doit rester a la hauteur des autres items du bandeau');
+    }
+
+    public function testLAvatarEffaceSesInitialesQuandLImageCharge(): void
+    {
+        // Le gravatar (disque sur fond transparent) laissait transparaître le
+        // cercle bleu du repli : « double pastille ». Image chargée → fond
+        // blanc + initiales transparentes, via onload -> .has-img.
+        $twig = (string) file_get_contents(self::PROFILE);
+
+        self::assertStringContainsString("onload=\"this.parentNode.classList.add('has-img')\"", $twig);
+        self::assertStringContainsString('.sendly-avatar.has-img', $twig);
+        self::assertStringContainsString('color: transparent', $twig);
+    }
 }
