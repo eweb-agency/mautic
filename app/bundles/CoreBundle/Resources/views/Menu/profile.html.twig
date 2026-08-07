@@ -18,7 +18,7 @@
     <a class="dropdown-toggle" data-toggle="dropdown" href="#" aria-label={{ 'mautic.lead.lead.social.profile'|trans }}>
         <span class="sendly-avatar">
             {{ app.getUser().getName()|split(' ')|map(w => w|slice(0, 1))|join|upper|slice(0, 2) }}
-            <img onerror="this.classList.add('hide')" src="{{ gravatarGetImage(app.getUser().getEmail()) }}" alt="">
+            <img loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.classList.add('hide')" src="{{ gravatarGetImage(app.getUser().getEmail()) }}" alt="">
         </span>
         <span class="sendly-profile-name hidden-xs">{{ app.getUser().getName() }}</span>
         <i class="ri-arrow-down-s-line"></i>
@@ -26,7 +26,7 @@
     <ul class="dropdown-menu dropdown-menu-right">
         <li>
             <div class="dropdown-menu-user row-no-gutters fw-nowrap ma-md">
-                <span class="img-wrapper"><img onerror="this.classList.add('hide')" src="{{ gravatarGetImage(app.getUser().getEmail()) }}"></span>
+                <span class="img-wrapper"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.classList.add('hide')" src="{{ gravatarGetImage(app.getUser().getEmail()) }}"></span>
                 <span class="d-flex fd-column jc-center ml-sm info">
                     <span class="text text-nowrap fw-sb">{{ app.getUser().getName() }}</span>
                     {% if app.getUser().getPosition() %}

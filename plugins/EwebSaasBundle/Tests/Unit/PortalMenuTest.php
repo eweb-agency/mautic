@@ -102,4 +102,21 @@ final class PortalMenuTest extends TestCase
         self::assertStringContainsString('ri-arrow-down-s-line', $profile);
         self::assertStringNotContainsString('ri-account-circle-line', $profile, 'l’icône anonyme ne doit pas revenir');
     }
+
+    public function testLesAvatarsGravatarSontParesseux(): void
+    {
+        // Le header est sur TOUTES les pages : une image externe qui participe
+        // a l'evenement load y retarde CHAQUE navigation quand gravatar.com est
+        // injoignable (e2e isole, reseau d'entreprise filtre). Preuve du
+        // 07/08 : 7 tests e2e en timeout sur 3 runs, gueris par loading="lazy"
+        // (exclu du load par specification). Les initiales restent le repli.
+        $twig = (string) file_get_contents(self::PROFILE);
+
+        $imgs = preg_match_all('/<img[^>]*gravatarGetImage[^>]*>/', $twig, $m);
+        self::assertGreaterThanOrEqual(1, $imgs, 'l avatar gravatar doit exister');
+        foreach ($m[0] as $img) {
+            self::assertStringContainsString('loading="lazy"', $img, 'une image gravatar sans loading="lazy" retarde le load de toutes les pages');
+            self::assertStringContainsString('onerror', $img, 'le repli initiales exige onerror');
+        }
+    }
 }
