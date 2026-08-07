@@ -1,31 +1,46 @@
 /**
- * Assistant IA — le panneau d'aide de la barre haute (choix « A + raccourci »
- * du proprio, 05/08, sur maquettes).
+ * Assistant IA — la COQUILLE UNIQUE (directive proprio 07/08).
  *
- * Un bouton ✦ « Assistant IA » dans la barre haute ouvre un panneau ancré à
- * droite : on pose une question sur l'outil, l'assistant répond, l'écran
- * reste visible et cliquable. ⌘J / Ctrl+J ouvre le panneau et met le champ
- * en saisie.
+ * UN seul assistant sur toute la plateforme : même design, même structure,
+ * même lanceur flottant partout. Seul le CONTENU s'adapte à l'onglet courant —
+ * titre, message d'accueil, raccourcis, et ce que l'assistant sait FAIRE.
+ * Chaque écran capable dépose un « contexte » dans le registre
+ * window.SendlyAssistantContexts ; l'aide générale (posée ici même) est le
+ * contexte par défaut, toujours disponible. Le registre est consulté au clic
+ * et à chaque navigation ajax : rien à ré-enregistrer.
  *
- * ⚠️ MÊMES PIÈGES QUE LES AUTRES SURFACES IA :
+ * Contrat d'un contexte :
+ *   {
+ *     id: 'segment',            // identifiant stable (conversation par id)
+ *     priority: 10,             // le plus haut disponible gagne (défaut = 0)
+ *     available(): bool,        // suis-je pertinent sur l'écran courant ?
+ *     title(): string,          // titre du panneau ET info-bulle du lanceur
+ *     welcome(): string,        // message d'accueil (texte brut)
+ *     placeholder(): string,    // placeholder du champ de saisie
+ *     thinking(): string,       // libellé d'attente (« Analyse… »)
+ *     shortcuts(): string[],    // exemples cliquables (panneau « Raccourcis »)
+ *     onSend(text, api),        // traite UN tour ; api : voir plus bas
+ *     onUndo(turnId, api)?      // annulation d'un tour (si le contexte en pose)
+ *   }
+ * L'api passée à onSend : { history(n), ia(html, extra), finish(), fail(msg) }
+ * — ia() pousse un tour assistant (html DÉJÀ échappé par le contexte ; extra
+ * = {turnId, undoable} pour poser un bouton « Annuler les modifications »).
+ * L'api passée à onUndo : { markUndone(noteHtml) }.
+ *
+ * ⚠️ MÊMES PIÈGES QUE TOUTES LES SURFACES IA :
  *  1. mQuery.ajax, JAMAIS fetch() — Mautic intercepte tout POST XHR vers /s/
  *     sans jeton CSRF ; mQuery.ajax porte le jeton automatiquement.
- *  2. Surface GATÉE par la clé : sans window.SendlyAiConfig.assistEndpoint,
- *     rien ne s'attache — le bouton n'existe même pas.
- *
- * L'historique envoyé est court (le service borne aussi côté serveur) ; la
- * conversation vit en mémoire de page — la navigation Mautic étant en ajax,
- * elle survit aux changements d'écran, et repart à zéro au rechargement.
+ *  2. Surface GATÉE par la clé : sans window.SendlyAiConfig, ni lanceur ni
+ *     panneau — le fichier est agrégé mais inerte.
  */
 (function () {
   'use strict';
 
   var BRAND = '#004FFF';
-  var HISTORY_SENT = 6;
 
   function cfg() {
     var c = window.SendlyAiConfig;
-    return c && c.enabled && c.assistEndpoint ? c : null;
+    return c && c.enabled ? c : null;
   }
 
   function t(key, fallback) {
@@ -43,8 +58,11 @@
     if (document.getElementById('sendly-assist-style')) {
       return;
     }
+    // Le design de référence (capture Webmecanik validée par le proprio sur
+    // l'assistant de segment) devient LE design de l'assistant, partout.
     var css =
       '@keyframes sendly-assist-spin{to{transform:rotate(360deg)}}' +
+      '.sendly-assist-spin{display:inline-block;animation:sendly-assist-spin .8s linear infinite}' +
       '#sendly-assist-fab{position:fixed;right:24px;bottom:24px;width:52px;height:52px;' +
       'border-radius:50%;border:0;color:#fff;cursor:pointer;z-index:1035;' +
       /* Le fond DA fourni par le proprio : dégradé radial bleu Sendly — bleu
@@ -53,250 +71,367 @@
       'display:flex;align-items:center;justify-content:center;' +
       'box-shadow:0 10px 26px rgba(0,18,72,.38);transition:transform .12s ease}' +
       '#sendly-assist-fab:hover{transform:scale(1.06)}' +
-      '#sendly-assist-panel{position:fixed;right:0;width:380px;max-width:92vw;background:#fff;' +
-      'border-left:1px solid #e3e7ee;box-shadow:-10px 0 24px rgba(22,35,59,.10);z-index:1040;' +
-      'display:flex;flex-direction:column}' +
-      '.sendly-assist-head{display:flex;align-items:center;gap:8px;padding:12px 14px;' +
-      'border-bottom:1px solid #eef1f5;font-weight:700;color:#24303f}' +
-      '.sendly-assist-head .ri-sparkling-2-line{color:' + BRAND + '}' +
-      '.sendly-assist-close{margin-left:auto;cursor:pointer;color:#97a1b3;background:none;border:0;font-size:16px;padding:2px 6px}' +
-      '.sendly-assist-close:hover{color:#24303f}' +
-      '.sendly-assist-conv{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}' +
-      '.sendly-assist-me{align-self:flex-end;background:' + BRAND + ';color:#fff;border-radius:12px 12px 3px 12px;' +
-      'padding:8px 11px;max-width:88%;white-space:pre-wrap;word-break:break-word}' +
-      '.sendly-assist-ia{align-self:flex-start;background:#f2f5fa;color:#303a4c;border-radius:12px 12px 12px 3px;' +
-      'padding:9px 11px;max-width:94%;white-space:pre-wrap;word-break:break-word}' +
-      '.sendly-assist-ia.err{background:#fdeeee;color:#8f2f39}' +
-      '.sendly-assist-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 8px}' +
-      '.sendly-assist-chip{border:1px solid #d9e2f2;color:' + BRAND + ';border-radius:999px;padding:3px 10px;' +
-      'background:#fff;cursor:pointer;font-size:12px}' +
-      '.sendly-assist-chip:hover{background:#f0f5ff}' +
-      '.sendly-assist-foot{display:flex;gap:8px;padding:0 14px 14px}' +
-      '#sendly-assist-input{flex:1;border:1px solid #d5dced;border-radius:8px;padding:8px 10px;font-size:13px}' +
-      '#sendly-assist-input:focus{outline:none;border-color:' + BRAND + '}' +
-      '#sendly-assist-send{border:0;border-radius:8px;background:' + BRAND + ';color:#fff;padding:8px 12px;cursor:pointer}' +
+      '#sendly-assist-panel{position:fixed;right:14px;width:355px;max-width:92vw;background:#fff;' +
+      'border:1px solid #e5e7eb;border-radius:12px;z-index:1040;display:flex;flex-direction:column;' +
+      'box-shadow:0 16px 40px rgba(22,35,59,.16);overflow:hidden}' +
+      '.sendly-assist-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #eef1f5}' +
+      '.sendly-assist-title{margin:0;font-size:15px;font-weight:700;color:' + BRAND + ';flex:1}' +
+      '.sendly-assist-iconbtn{background:none;border:0;cursor:pointer;color:#97a1b3;font-size:15px;padding:2px 5px}' +
+      '.sendly-assist-iconbtn:hover{color:#24303f}' +
+      '.sendly-assist-conv{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}' +
+      '.sendly-assist-turn{display:flex;gap:9px;align-items:flex-start;font-size:13px;line-height:1.5;color:#303a4c}' +
+      '.sendly-assist-turn .ri-sparkling-2-line{color:' + BRAND + ';flex:none;margin-top:2px}' +
+      '.sendly-assist-turn ul{margin:6px 0 0;padding-left:16px}' +
+      '.sendly-assist-turn li{margin-bottom:3px}' +
+      '.sendly-assist-me{align-self:flex-end;background:#f2f3f6;color:#303a4c;border-radius:10px;' +
+      'padding:8px 11px;max-width:86%;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}' +
+      '.sendly-assist-note{font-size:12px;color:#92400e;background:#fef3c7;border-radius:4px;padding:1px 6px}' +
+      '.sendly-assist-mut{color:#6a7486;font-size:12px}' +
+      '.sendly-assist-undo{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:5px 12px;' +
+      'border:1px solid #d5dced;border-radius:999px;background:#fff;color:#303a4c;font-size:12px;cursor:pointer}' +
+      '.sendly-assist-undo:hover{border-color:' + BRAND + ';color:' + BRAND + '}' +
+      '.sendly-assist-undo[disabled]{opacity:.55;cursor:default;pointer-events:none}' +
+      '.sendly-assist-ex{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 8px}' +
+      '.sendly-assist-ex button{font-size:12px;background:#fff;color:' + BRAND + ';border:1px solid #d9e2f2;' +
+      'padding:3px 10px;border-radius:999px;cursor:pointer}' +
+      '.sendly-assist-ex button:hover{background:#f0f5ff}' +
+      '.sendly-assist-foot{display:flex;gap:8px;padding:0 14px 8px}' +
+      '#sendly-assist-input{flex:1;border:1px solid #d5dced;border-radius:999px;padding:8px 14px;font-size:13px;background:#f7f8fa}' +
+      '#sendly-assist-input:focus{outline:none;border-color:' + BRAND + ';background:#fff}' +
+      '#sendly-assist-send{border:0;border-radius:50%;width:34px;height:34px;flex:none;background:' + BRAND + ';' +
+      'color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}' +
       '#sendly-assist-send[disabled]{opacity:.5;cursor:default}' +
-      '.sendly-assist-spin{display:inline-block;animation:sendly-assist-spin .8s linear infinite}';
+      '.sendly-assist-meta{display:flex;justify-content:space-between;padding:0 14px 12px;color:#97a1b3;font-size:11.5px}' +
+      '.sendly-assist-meta a{color:#97a1b3;cursor:pointer}' +
+      '.sendly-assist-meta a:hover{color:' + BRAND + '}';
     var style = document.createElement('style');
     style.id = 'sendly-assist-style';
     style.textContent = css;
     document.head.appendChild(style);
   }
 
-  /** Conversation en mémoire de page : [{role, content}] */
-  var history = [];
+  // ── Registre des contextes ─────────────────────────────────────────────
+
+  function contexts() {
+    return window.SendlyAssistantContexts || [];
+  }
+
+  function activeContext() {
+    var best = null;
+    contexts().forEach(function (ctx) {
+      try {
+        if (!ctx.available()) {
+          return;
+        }
+        if (!best || (ctx.priority || 0) > (best.priority || 0)) {
+          best = ctx;
+        }
+      } catch (e) {
+        // Un contexte cassé ne doit jamais tuer le lanceur.
+      }
+    });
+    return best;
+  }
+
+  // ── État : une conversation PAR contexte ───────────────────────────────
+
+  /** convStore[id] = [{role:'user', text} | {role:'ia', html, turnId?, undoable?}] */
+  var convStore = {};
   var busy = false;
+  var openCtx = null;
+
+  function conv() {
+    if (!openCtx) {
+      return [];
+    }
+    if (!convStore[openCtx.id]) {
+      convStore[openCtx.id] = [];
+    }
+    return convStore[openCtx.id];
+  }
 
   function panel() {
     return document.getElementById('sendly-assist-panel');
   }
 
-  function isOpen() {
-    var p = panel();
-    return !!p && p.style.display !== 'none';
-  }
-
-  function renderConversation() {
-    var conv = document.getElementById('sendly-assist-conv');
-    if (!conv) {
+  function renderConv() {
+    var el = document.getElementById('sendly-assist-conv');
+    if (!el || !openCtx) {
       return;
     }
-    var html = '';
-    if (!history.length) {
-      html += '<div class="sendly-assist-ia">' + esc(t('mautic.core.ai.assistant.welcome',
-        'Bonjour ! Posez-moi une question sur Sendly : segments, campagnes, e-mails, délivrabilité…')) + '</div>';
-    }
-    history.forEach(function (turn) {
-      html += '<div class="' + (turn.role === 'user' ? 'sendly-assist-me' : 'sendly-assist-ia' + (turn.err ? ' err' : '')) + '">' +
-        esc(turn.content) + '</div>';
+    var html = '<div class="sendly-assist-turn"><i class="ri-sparkling-2-line"></i><div>' +
+      esc(openCtx.welcome()) + '</div></div>';
+    conv().forEach(function (turn) {
+      if (turn.role === 'user') {
+        html += '<div class="sendly-assist-me">' + esc(turn.text) + '</div>';
+        return;
+      }
+      html += '<div class="sendly-assist-turn"><i class="ri-sparkling-2-line"></i><div>' + turn.html;
+      if (turn.turnId) {
+        html += '<br><button type="button" class="sendly-assist-undo" data-turn="' + turn.turnId + '"' +
+          (turn.undoable ? '' : ' disabled') + '><i class="ri-arrow-go-back-line"></i> ' +
+          esc(t('mautic.core.ai.assistant.undo', 'Annuler les modifications')) + '</button>';
+      }
+      html += '</div></div>';
     });
     if (busy) {
-      html += '<div class="sendly-assist-ia"><i class="ri-loader-4-line sendly-assist-spin"></i> ' +
-        esc(t('mautic.core.ai.assistant.thinking', 'Je réfléchis…')) + '</div>';
+      html += '<div class="sendly-assist-turn"><i class="ri-sparkling-2-line"></i><div>' +
+        '<i class="ri-loader-4-line sendly-assist-spin"></i> ' + esc(openCtx.thinking()) + '</div></div>';
     }
-    conv.innerHTML = html;
-    conv.scrollTop = conv.scrollHeight;
-
-    var chips = document.getElementById('sendly-assist-chips');
-    if (chips) {
-      chips.style.display = history.length ? 'none' : 'flex';
-    }
+    el.innerHTML = html;
+    el.scrollTop = el.scrollHeight;
   }
 
-  function ask(question) {
-    var c = cfg();
-    if (!c || busy) {
+  /** L'api donnée aux contextes pour un tour d'envoi. */
+  function sendApi() {
+    return {
+      history: function (n) {
+        return conv()
+          .filter(function (turn) { return turn.role === 'user'; })
+          .slice(-n)
+          .map(function (turn) { return turn.text; });
+      },
+      ia: function (html, extra) {
+        var turn = { role: 'ia', html: html };
+        if (extra && extra.turnId) {
+          turn.turnId = extra.turnId;
+          turn.undoable = !!extra.undoable;
+        }
+        conv().push(turn);
+      },
+      finish: function () {
+        busy = false;
+        renderConv();
+      },
+      fail: function (msg) {
+        busy = false;
+        conv().push({ role: 'ia', html: esc(msg) });
+        renderConv();
+      }
+    };
+  }
+
+  function send(text) {
+    var q = String(text || '').trim();
+    if (!q || busy || !openCtx) {
       return;
     }
-    var q = String(question || '').trim();
-    if (!q) {
-      return;
-    }
-
-    // L'historique part AVANT d'y ajouter la question : le serveur la reçoit
-    // séparément et la borne lui-même.
-    var sent = history
-      .filter(function (turn) { return !turn.err; })
-      .slice(-HISTORY_SENT)
-      .map(function (turn) { return { role: turn.role, content: turn.content }; });
-
-    history.push({ role: 'user', content: q });
+    // L'api capture le contexte du tour : si l'utilisateur navigue pendant la
+    // requête, la réponse rejoint la BONNE conversation, pas celle du nouvel
+    // écran.
+    var api = sendApi();
+    conv().push({ role: 'user', text: q });
     busy = true;
-    renderConversation();
+    renderConv();
     var input = document.getElementById('sendly-assist-input');
     if (input) {
       input.value = '';
     }
-
-    mQuery.ajax({
-      url: c.assistEndpoint,
-      type: 'POST',
-      dataType: 'json',
-      data: { question: q, history: sent, lang: document.documentElement.lang || 'fr' },
-      success: function (res) {
-        busy = false;
-        if (res && res.answer) {
-          history.push({ role: 'assistant', content: String(res.answer) });
-        } else {
-          history.push({ role: 'assistant', err: true, content: t('mautic.core.ai.assistant.error', 'La requête a échoué. Réessayez.') });
-        }
-        renderConversation();
-      },
-      error: function () {
-        busy = false;
-        history.push({ role: 'assistant', err: true, content: t('mautic.core.ai.assistant.error', 'La requête a échoué. Réessayez.') });
-        renderConversation();
-      }
-    });
+    openCtx.onSend(q, api);
   }
 
-  function buildPanel() {
+  function closePanel() {
+    var p = panel();
+    if (p) {
+      p.parentNode.removeChild(p);
+    }
+    openCtx = null;
+    busy = false;
+  }
+
+  function openPanel(ctx) {
     if (panel()) {
-      return;
+      closePanel();
     }
     ensureStyles();
-
-    var suggestions = [
-      t('mautic.core.ai.assistant.suggest1', 'Comment créer un segment ?'),
-      t('mautic.core.ai.assistant.suggest2', 'Comment améliorer ma délivrabilité ?'),
-      t('mautic.core.ai.assistant.suggest3', 'Comment lancer ma première campagne ?')
-    ];
+    openCtx = ctx;
 
     var el = document.createElement('div');
     el.id = 'sendly-assist-panel';
-    el.style.display = 'none';
+    el.setAttribute('role', 'dialog');
     el.innerHTML =
-      '<div class="sendly-assist-head"><i class="ri-sparkling-2-line"></i> ' +
-      esc(t('mautic.core.ai.assistant.title', 'Assistant Sendly')) +
-      '<button type="button" class="sendly-assist-close" aria-label="' + esc(t('mautic.core.form.close', 'Fermer')) + '">✕</button></div>' +
-      '<div class="sendly-assist-conv" id="sendly-assist-conv"></div>' +
-      '<div class="sendly-assist-chips" id="sendly-assist-chips">' +
-      suggestions.map(function (s) {
-        return '<button type="button" class="sendly-assist-chip">' + esc(s) + '</button>';
-      }).join('') +
+      '<div class="sendly-assist-head">' +
+      '<h4 class="sendly-assist-title" id="sendly-assist-title">' + esc(ctx.title()) + '</h4>' +
+      '<button type="button" class="sendly-assist-iconbtn" id="sendly-assist-clear" aria-label="' +
+      esc(t('mautic.core.ai.assistant.clear', 'Vider la conversation')) + '"><i class="ri-delete-bin-line"></i></button>' +
+      '<button type="button" class="sendly-assist-iconbtn" id="sendly-assist-close" aria-label="' +
+      esc(t('mautic.core.form.close', 'Fermer')) + '">✕</button>' +
       '</div>' +
+      '<div class="sendly-assist-conv" id="sendly-assist-conv"></div>' +
+      '<div class="sendly-assist-ex" id="sendly-assist-ex" style="display:none">' +
+      ctx.shortcuts().map(function (ex) {
+        return '<button type="button">' + esc(ex) + '</button>';
+      }).join('') + '</div>' +
       '<div class="sendly-assist-foot">' +
-      '<input id="sendly-assist-input" type="text" placeholder="' + esc(t('mautic.core.ai.assistant.placeholder', 'Posez votre question…')) + '">' +
-      '<button type="button" id="sendly-assist-send" aria-label="' + esc(t('mautic.core.ai.assistant.send', 'Envoyer')) + '"><i class="ri-send-plane-2-line"></i></button>' +
+      '<input id="sendly-assist-input" type="text" placeholder="' + esc(ctx.placeholder()) + '">' +
+      '<button type="button" id="sendly-assist-send" aria-label="' +
+      esc(t('mautic.core.ai.assistant.send', 'Envoyer')) + '"><i class="ri-arrow-up-line"></i></button>' +
+      '</div>' +
+      '<div class="sendly-assist-meta">' +
+      '<span>' + esc(t('mautic.core.ai.assistant.private', 'Vos données restent privées.')) + '</span>' +
+      '<a id="sendly-assist-shortcuts"><i class="ri-question-line"></i> ' +
+      esc(t('mautic.core.ai.assistant.shortcuts', 'Raccourcis')) + '</a>' +
       '</div>';
+
+    // Ancré sous la barre haute, quelle que soit sa hauteur réelle.
+    var header = document.getElementById('app-header');
+    var top = header ? header.getBoundingClientRect().bottom : 56;
+    el.style.top = (Math.max(0, top) + 12) + 'px';
+    el.style.bottom = '14px';
     document.body.appendChild(el);
 
-    el.querySelector('.sendly-assist-close').addEventListener('click', close);
+    el.querySelector('#sendly-assist-close').addEventListener('click', closePanel);
+    el.querySelector('#sendly-assist-clear').addEventListener('click', function () {
+      convStore[openCtx.id] = [];
+      renderConv();
+    });
     el.querySelector('#sendly-assist-send').addEventListener('click', function () {
-      ask(document.getElementById('sendly-assist-input').value);
+      send(document.getElementById('sendly-assist-input').value);
     });
     el.querySelector('#sendly-assist-input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') {
         e.preventDefault();
-        ask(this.value);
+        send(this.value);
       }
     });
-    mQuery(el).on('click', '.sendly-assist-chip', function () {
-      ask(this.textContent);
+    el.querySelector('#sendly-assist-shortcuts').addEventListener('click', function () {
+      var ex = document.getElementById('sendly-assist-ex');
+      ex.style.display = ex.style.display === 'none' ? 'flex' : 'none';
     });
-  }
+    mQuery(el).on('click', '.sendly-assist-ex button', function () {
+      send(this.textContent);
+      document.getElementById('sendly-assist-ex').style.display = 'none';
+    });
+    mQuery(el).on('click', '.sendly-assist-undo', function () {
+      var turnId = mQuery(this).data('turn');
+      if (!openCtx || typeof openCtx.onUndo !== 'function') {
+        return;
+      }
+      openCtx.onUndo(turnId, {
+        markUndone: function (noteHtml) {
+          conv().forEach(function (turn) {
+            if (turn.turnId === turnId) {
+              turn.undoable = false;
+              turn.html += '<div class="sendly-assist-mut">' + noteHtml + '</div>';
+            }
+          });
+          renderConv();
+        }
+      });
+    });
 
-  function open() {
-    buildPanel();
-    var p = panel();
-    // Ancré sous la barre haute, quelle que soit sa hauteur réelle.
-    var header = document.getElementById('app-header');
-    var top = header ? header.getBoundingClientRect().bottom : 56;
-    p.style.top = Math.max(0, top) + 'px';
-    p.style.bottom = '0';
-    p.style.display = 'flex';
-    renderConversation();
+    renderConv();
     var input = document.getElementById('sendly-assist-input');
     if (input) {
       input.focus();
     }
   }
 
-  function close() {
-    var p = panel();
-    if (p) {
-      p.style.display = 'none';
+  function toggle() {
+    if (panel()) {
+      closePanel();
+      return;
+    }
+    var ctx = activeContext();
+    if (ctx) {
+      openPanel(ctx);
     }
   }
 
-  // ── Contextes d'onglet (contrat Webmecanik : le panneau SUIT L'ONGLET) ──
-  //
-  // D'autres surfaces (ai-segment.js…) déposent ici { available, label,
-  // isOpen, open, close }. Le registre est consulté AU CLIC : la
-  // disponibilité se recalcule à chaque navigation ajax sans couplage.
-  function contexts() {
-    return window.SendlyAssistantContexts || [];
-  }
-
-  function activeContext() {
-    var list = contexts();
-    for (var i = 0; i < list.length; i++) {
-      try {
-        if (list[i].available()) {
-          return list[i];
-        }
-      } catch (e) {
-        // Un contexte cassé ne doit jamais tuer le lanceur.
-      }
-    }
-    return null;
-  }
-
-  // L'info-bulle du lanceur suit l'onglet elle aussi (« Assistant de
-  // segment » sur l'écran segment, « Assistant IA » ailleurs).
+  // L'info-bulle du lanceur suit l'onglet (« Assistant de segment » sur
+  // l'écran segment, « Assistant IA » ailleurs) — comme le titre du panneau.
   function refreshLabel() {
     var fab = document.getElementById('sendly-assist-fab');
     if (!fab) {
       return;
     }
     var ctx = activeContext();
-    var label = ctx ? ctx.label() : t('mautic.core.ai.assistant.button', 'Assistant IA');
+    var label = ctx ? ctx.title() : t('mautic.core.ai.assistant.button', 'Assistant IA');
     fab.setAttribute('aria-label', label);
     fab.setAttribute('title', label);
   }
 
-  function toggle() {
-    var ctx = activeContext();
-    if (ctx) {
-      // L'écran courant a son propre assistant : le lanceur ouvre CELUI-LÀ.
-      close();
-      if (ctx.isOpen()) {
-        ctx.close();
-      } else {
-        ctx.open();
+  /** Petite façade publique pour les contextes (reset après navigation…). */
+  window.SendlyAssistant = {
+    /** Vide la conversation d'un contexte ; ferme le panneau s'il l'affiche. */
+    reset: function (ctxId) {
+      delete convStore[ctxId];
+      if (openCtx && openCtx.id === ctxId) {
+        closePanel();
       }
-      return;
     }
-    if (isOpen()) {
-      close();
-    } else {
-      open();
-    }
-  }
+  };
 
-  /** Le lanceur : bouton chatbot FLOTTANT en bas à droite (2e itération —
-   *  le bouton de barre haute est retiré sur demande proprio), fond #001248,
-   *  étincelles fournies par la DA. Le panneau reste le tiroir latéral. */
+  // ── Contexte PAR DÉFAUT : l'aide générale (priorité 0) ─────────────────
+  window.SendlyAssistantContexts = window.SendlyAssistantContexts || [];
+  window.SendlyAssistantContexts.push({
+    id: 'help',
+    priority: 0,
+    available: function () {
+      var c = cfg();
+      return !!(c && c.assistEndpoint);
+    },
+    title: function () {
+      return t('mautic.core.ai.assistant.button', 'Assistant IA');
+    },
+    welcome: function () {
+      return t('mautic.core.ai.assistant.welcome',
+        'Bonjour ! Posez-moi une question sur Sendly : segments, campagnes, e-mails, délivrabilité…');
+    },
+    placeholder: function () {
+      return t('mautic.core.ai.assistant.placeholder', 'Posez votre question…');
+    },
+    thinking: function () {
+      return t('mautic.core.ai.assistant.thinking', 'Je réfléchis…');
+    },
+    shortcuts: function () {
+      return [
+        t('mautic.core.ai.assistant.suggest1', 'Comment créer un segment ?'),
+        t('mautic.core.ai.assistant.suggest2', 'Comment améliorer ma délivrabilité ?'),
+        t('mautic.core.ai.assistant.suggest3', 'Comment lancer ma première campagne ?')
+      ];
+    },
+    onSend: function (q, api) {
+      // L'historique du service d'aide alterne user/assistant : on reconstruit
+      // les tours assistant depuis leur texte (les réponses d'aide sont du
+      // texte brut échappé, jamais du balisage riche).
+      var history = [];
+      conv().slice(-6).forEach(function (turn) {
+        if (turn.role === 'user') {
+          history.push({ role: 'user', content: turn.text });
+        } else if (turn.plain) {
+          history.push({ role: 'assistant', content: turn.plain });
+        }
+      });
+      // Le tour utilisateur courant est déjà dans conv() : on le retire de
+      // l'historique envoyé, le serveur reçoit la question séparément.
+      history = history.filter(function (h, i, arr) {
+        return !(i === arr.length - 1 && h.role === 'user' && h.content === q);
+      });
+      mQuery.ajax({
+        url: cfg().assistEndpoint,
+        type: 'POST',
+        dataType: 'json',
+        data: { question: q, history: history, lang: document.documentElement.lang || 'fr' },
+        success: function (res) {
+          if (res && res.answer) {
+            var answer = String(res.answer);
+            conv().push({ role: 'ia', html: esc(answer), plain: answer });
+            busy = false;
+            renderConv();
+          } else {
+            api.fail(t('mautic.core.ai.assistant.error', 'La requête a échoué. Réessayez.'));
+          }
+        },
+        error: function () {
+          api.fail(t('mautic.core.ai.assistant.error', 'La requête a échoué. Réessayez.'));
+        }
+      });
+    }
+  });
+
+  /** Le lanceur : bouton chatbot FLOTTANT en bas à droite, fond dégradé
+   *  radial Sendly, étincelles fournies par la DA — le MÊME partout. */
   function injectLauncher() {
     if (!cfg()) {
       return;
@@ -315,18 +450,24 @@
     document.body.appendChild(fab);
     refreshLabel();
 
-    // Navigation interne = ajax : l'onglet change sans rechargement, le
-    // libellé du lanceur doit suivre. Deux poses d'attributs, coût nul.
+    // Navigation interne = ajax : l'onglet change sans rechargement — le
+    // libellé du lanceur suit, et un panneau ouvert sur un contexte qui n'est
+    // plus celui de l'écran se referme (sa conversation reste en mémoire).
     mQuery(document).ajaxComplete(function () {
       refreshLabel();
+      if (openCtx) {
+        var ctx = activeContext();
+        if (!ctx || ctx.id !== openCtx.id) {
+          closePanel();
+        }
+      }
     });
   }
 
   mQuery(function () {
     injectLauncher();
 
-    // ⌘J / Ctrl+J : ouvre le panneau, champ en saisie (le raccourci de la
-    // proposition C, greffé sur le panneau A).
+    // ⌘J / Ctrl+J : ouvre le panneau du contexte courant, champ en saisie.
     document.addEventListener('keydown', function (e) {
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && (e.key === 'j' || e.key === 'J')) {
         if (!cfg()) {
