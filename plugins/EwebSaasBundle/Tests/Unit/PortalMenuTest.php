@@ -144,10 +144,11 @@ final class PortalMenuTest extends TestCase
 
         self::assertStringContainsString('flex-flow: row nowrap', $twig, 'sans nowrap le theme empile le lien profil en colonne');
         self::assertStringContainsString('height: 48px', $twig, 'le lien profil doit rester a la hauteur des autres items du bandeau');
-        // L'etat ouvert/focus du theme (outline rectangulaire) est remplace
-        // par la pilule arrondie : les deux proprietes qui la font exister.
-        self::assertStringContainsString('border-radius: 24px', $twig);
-        self::assertStringContainsString('outline-color: transparent', $twig);
+        // Choix proprio : l'etat ouvert/focus garde le style NATIF du theme
+        // (pas de pilule) — mais le padding est FIGE, identique dans les deux
+        // etats, sinon la pastille change de taille au clic.
+        self::assertStringNotContainsString('border-radius: 24px', $twig);
+        self::assertStringContainsString('padding: 0 12px', $twig);
         // Anti-retraction : les clearfix ::before/::after du theme sont des
         // items flex a largeur nulle qui emportent chacun un gap de 8px et
         // disparaissent a l'etat ouvert -> la pastille perdait 16px au clic.

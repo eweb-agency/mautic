@@ -11,20 +11,15 @@
            rangée étire tout le bandeau (181px) et le titre + la barre de
            boutons passent SOUS le verre dépoli. Hauteur = 48px, comme les
            autres items — jamais plus. */
-        .sendly-profile > a.dropdown-toggle { display: inline-flex !important; flex-flow: row nowrap !important; align-items: center !important; height: 48px !important; gap: 6px; border-radius: 24px !important; padding: 0 10px 0 8px !important; }
-        /* Etat ouvert/focus : le style du theme (outline 2px + fond gris,
-           angles droits) va aux icones carrees, pas a une pastille large —
-           il dessinait un grand rectangle brut (defaut proprio 07/08).
-           Remplace par la pilule arrondie au voile bleu. */
-        .sendly-profile.open > a.dropdown-toggle,
-        .sendly-profile > a.dropdown-toggle:focus,
-        .sendly-profile > a.dropdown-toggle:focus-visible { outline-color: transparent !important; background: rgba(0,79,255,.07) !important; }
+        .sendly-profile > a.dropdown-toggle { display: inline-flex !important; flex-flow: row nowrap !important; align-items: center !important; height: 48px !important; gap: 6px; padding: 0 12px !important; }
         /* LA RETRACTION AU CLIC (défaut proprio 07/08, mesuré au pixel) : le
            thème pose des clearfix ::before/::after dans le lien — largeur
            nulle mais COMPTES comme items flex, chacun emportant un gap de
            8px... et ils disparaissent à l'état ouvert : la pastille perdait
            16px au clic (174 -> 158). Sans eux : 158px dans les deux états,
-           delta zéro — vérifié en direct avant commit. */
+           delta zéro — vérifié en direct avant commit. Le padding est figé
+           à 12px (valeur du thème) dans LES DEUX états pour la même raison.
+           L'état ouvert/focus garde le style NATIF du thème (choix proprio). */
         .sendly-profile > a.dropdown-toggle::before,
         .sendly-profile > a.dropdown-toggle::after { content: none !important; }
         .sendly-profile > a.dropdown-toggle i.ri-arrow-down-s-line { height: auto !important; line-height: 1 !important; }
