@@ -165,6 +165,9 @@ final class PortalMenuTest extends TestCase
 
         self::assertStringContainsString("onload=\"this.parentNode.classList.add('has-img')\"", $twig);
         self::assertStringContainsString('.sendly-avatar.has-img', $twig);
+        // L'image doit remplir le cercle EXACTEMENT (une regle du theme la
+        // ramenait a 28px sur 30 : croissant du fond visible sur un bord).
+        self::assertStringContainsString('width: 100% !important', $twig);
         self::assertStringContainsString('color: transparent', $twig);
     }
 }

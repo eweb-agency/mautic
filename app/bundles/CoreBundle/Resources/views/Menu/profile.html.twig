@@ -29,12 +29,16 @@
             align-items: center; justify-content: center; font-size: 12px;
             font-weight: 700; overflow: hidden; letter-spacing: .02em;
         }
-        .sendly-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-        /* Image chargée = fond BLANC + initiales effacées : le logo gravatar
-           (disque sur fond transparent) laissait sinon transparaître le
-           cercle bleu du repli en anneau (« double pastille », défaut
-           proprio 07/08). */
-        .sendly-avatar.has-img { background: #fff; color: transparent; }
+        /* width/height VERROUILLES : une regle du theme ramenait l'image a
+           28px dans le cercle de 30px — le fond du repli depassait en
+           croissant sur un bord (« deux pastilles de tailles differentes »,
+           defaut proprio 07/08, mesure 28 vs 30 puis 30/30 apres verrou). */
+        .sendly-avatar img { position: absolute; inset: 0 !important; width: 100% !important; height: 100% !important; max-width: none !important; object-fit: cover; }
+        /* Image chargée = fond TRANSPARENT + initiales effacées : le logo
+           gravatar (disque sur fond transparent) laissait sinon
+           transparaître le cercle bleu du repli (« double pastille ») ;
+           en transparent, le disque flotte seul comme dans le menu natif. */
+        .sendly-avatar.has-img { background: transparent; color: transparent; }
         .sendly-profile-name { font-weight: 600; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         /* Sous 1400px le nom disparait : la rangee d'icones du header ne doit
            JAMAIS deborder sur une 2e ligne — elle recouvrirait les boutons de
