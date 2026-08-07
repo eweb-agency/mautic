@@ -21,6 +21,7 @@ final class PortalMenuTest extends TestCase
     private const CONFIG  = __DIR__.'/../../Config/config.php';
     private const NAVBAR  = __DIR__.'/../../../../app/bundles/CoreBundle/Resources/views/Default/navbar.html.twig';
     private const PARTIAL = __DIR__.'/../../../../app/bundles/CoreBundle/Resources/views/Menu/portal.html.twig';
+    private const PROFILE = __DIR__.'/../../../../app/bundles/CoreBundle/Resources/views/Menu/profile.html.twig';
 
     public function testLeParametreExisteAvecUnDefautNonVide(): void
     {
@@ -86,5 +87,48 @@ final class PortalMenuTest extends TestCase
         $mobile = (string) substr($navbar, (int) strpos($navbar, 'brand-logo--mobile'));
         self::assertStringContainsString('logo--expanded.svg', $mobile, 'le header mobile porte le wordmark');
         self::assertStringNotContainsString('logo--minimized.svg', $mobile, 'le monogramme ne doit pas revenir en mobile');
+    }
+
+    public function testLeProfilAfficheAvatarNomEtChevron(): void
+    {
+        // L'identité visible du header de référence (capture proprio) :
+        // avatar rond (photo, repli initiales) + nom + chevron — pas une
+        // icône anonyme.
+        $profile = (string) file_get_contents(self::PROFILE);
+
+        self::assertStringContainsString('sendly-avatar', $profile);
+        self::assertStringContainsString('gravatarGetImage(app.getUser().getEmail())', $profile);
+        self::assertStringContainsString('sendly-profile-name', $profile);
+        self::assertStringContainsString('ri-arrow-down-s-line', $profile);
+        self::assertStringNotContainsString('ri-account-circle-line', $profile, 'l’icône anonyme ne doit pas revenir');
+    }
+
+    public function testLesAvatarsGravatarSontParesseux(): void
+    {
+        // Le header est sur TOUTES les pages : une image externe qui participe
+        // a l'evenement load y retarde CHAQUE navigation quand gravatar.com est
+        // injoignable (e2e isole, reseau d'entreprise filtre). Preuve du
+        // 07/08 : 7 tests e2e en timeout sur 3 runs, gueris par loading="lazy"
+        // (exclu du load par specification). Les initiales restent le repli.
+        $twig = (string) file_get_contents(self::PROFILE);
+
+        $imgs = preg_match_all('/<img[^>]*gravatarGetImage[^>]*>/', $twig, $m);
+        self::assertGreaterThanOrEqual(1, $imgs, 'l avatar gravatar doit exister');
+        foreach ($m[0] as $img) {
+            self::assertStringContainsString('loading="lazy"', $img, 'une image gravatar sans loading="lazy" retarde le load de toutes les pages');
+            self::assertStringContainsString('onerror', $img, 'le repli initiales exige onerror');
+        }
+    }
+
+    public function testLIdentiteEstSurLeBoutonPasEnDoublonDansLeMenu(): void
+    {
+        // Directive proprio 07/08 : le bloc photo+nom natif du sous-menu est
+        // DEPLACE sur le bouton — il ne doit plus exister dans le menu, sinon
+        // l'identite apparait deux fois l'une au-dessus de l'autre.
+        $twig = (string) file_get_contents(self::PROFILE);
+
+        self::assertStringNotContainsString('dropdown-menu-user', $twig, 'le bloc identite du sous-menu doit disparaitre : il vit sur le bouton');
+        self::assertStringContainsString('sendly-avatar', $twig);
+        self::assertStringContainsString('sendly-profile-name', $twig);
     }
 }
