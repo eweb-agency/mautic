@@ -14,28 +14,25 @@
         }
         .sendly-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
         .sendly-profile-name { font-weight: 600; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        /* Sous 1400px le nom disparait : la rangee d'icones du header ne doit
+           JAMAIS deborder sur une 2e ligne — elle recouvrirait les boutons de
+           la page sous le verre depoli du theme (preuve e2e du 07/08 :
+           « element click intercepted » sur Save, l'UL navbar-right recevait
+           le clic). Avatar seul = meme encombrement qu'une icone. */
+        @media (max-width: 1399px) { .sendly-profile-name { display: none; } }
     </style>
     <a class="dropdown-toggle" data-toggle="dropdown" href="#" aria-label={{ 'mautic.lead.lead.social.profile'|trans }}>
         <span class="sendly-avatar">
             {{ app.getUser().getName()|split(' ')|map(w => w|slice(0, 1))|join|upper|slice(0, 2) }}
-            <img onerror="this.classList.add('hide')" src="{{ gravatarGetImage(app.getUser().getEmail()) }}" alt="">
+            <img loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.classList.add('hide')" src="{{ gravatarGetImage(app.getUser().getEmail()) }}" alt="">
         </span>
         <span class="sendly-profile-name hidden-xs">{{ app.getUser().getName() }}</span>
         <i class="ri-arrow-down-s-line"></i>
     </a>
     <ul class="dropdown-menu dropdown-menu-right">
-        <li>
-            <div class="dropdown-menu-user row-no-gutters fw-nowrap ma-md">
-                <span class="img-wrapper"><img onerror="this.classList.add('hide')" src="{{ gravatarGetImage(app.getUser().getEmail()) }}"></span>
-                <span class="d-flex fd-column jc-center ml-sm info">
-                    <span class="text text-nowrap fw-sb">{{ app.getUser().getName() }}</span>
-                    {% if app.getUser().getPosition() %}
-                        <span class="text-nowrap small">{{ app.getUser().getPosition() }}</span>
-                    {% endif %}
-                </span>
-            </div>
-        </li>
-        
+        {# Le bloc identité (photo + nom) qui vivait ici a été DÉPLACÉ sur le
+           bouton lui-même (directive proprio 07/08, motif Webmecanik) : il ne
+           doit pas apparaître aux deux endroits. #}
         <li>
             <a href="{{ path('mautic_user_account') }}" data-toggle="ajax">
                 <i class="ri-user-smile-line ri-lg"></i><span>{% trans %}mautic.user.account.settings{% endtrans %}</span>
