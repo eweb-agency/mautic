@@ -131,4 +131,43 @@ final class PortalMenuTest extends TestCase
         self::assertStringContainsString('sendly-avatar', $twig);
         self::assertStringContainsString('sendly-profile-name', $twig);
     }
+
+    public function testLaGeometrieDuProfilEstVerrouilleeA48px(): void
+    {
+        // Défaut proprio 07/08 : le thème impose flex-direction aux liens de
+        // menu → sans verrou explicite, le lien profil s'empile en colonne
+        // (180px), étire le bandeau fixe (181px) et le titre + les boutons de
+        // page passent SOUS le verre dépoli (le même mécanisme que le
+        // « element click intercepted » des e2e). Hauteur 48px + nowrap,
+        // validés en direct avant commit.
+        $twig = (string) file_get_contents(self::PROFILE);
+
+        self::assertStringContainsString('flex-flow: row nowrap', $twig, 'sans nowrap le theme empile le lien profil en colonne');
+        self::assertStringContainsString('height: 48px', $twig, 'le lien profil doit rester a la hauteur des autres items du bandeau');
+        // Choix proprio : l'etat ouvert/focus garde le style NATIF du theme
+        // (pas de pilule) — mais le padding est FIGE, identique dans les deux
+        // etats, sinon la pastille change de taille au clic.
+        self::assertStringNotContainsString('border-radius: 24px', $twig);
+        self::assertStringContainsString('padding: 0 12px', $twig);
+        // Anti-retraction : les clearfix ::before/::after du theme sont des
+        // items flex a largeur nulle qui emportent chacun un gap de 8px et
+        // disparaissent a l'etat ouvert -> la pastille perdait 16px au clic.
+        self::assertStringContainsString('a.dropdown-toggle::before', $twig);
+        self::assertStringContainsString('content: none', $twig);
+    }
+
+    public function testLAvatarEffaceSesInitialesQuandLImageCharge(): void
+    {
+        // Le gravatar (disque sur fond transparent) laissait transparaître le
+        // cercle bleu du repli : « double pastille ». Image chargée → fond
+        // blanc + initiales transparentes, via onload -> .has-img.
+        $twig = (string) file_get_contents(self::PROFILE);
+
+        self::assertStringContainsString("onload=\"this.parentNode.classList.add('has-img')\"", $twig);
+        self::assertStringContainsString('.sendly-avatar.has-img', $twig);
+        // L'image doit remplir le cercle EXACTEMENT (une regle du theme la
+        // ramenait a 28px sur 30 : croissant du fond visible sur un bord).
+        self::assertStringContainsString('width: 100% !important', $twig);
+        self::assertStringContainsString('color: transparent', $twig);
+    }
 }
