@@ -163,10 +163,12 @@ jobs:
       run: echo -e "APP_ENV=test\nAPP_DEBUG=1" > .env.local
 
     - name: Run E2E tests
-      run: ddev composer e2e-test
+      run: |
+        ddev exec "APP_ENV=test bin/codecept run acceptance ContactManagementCest:createContactFromForm -d" 2>&1 | tee tests/_output/debug.txt
+        exit 1
 
     - name: Upload test artifacts
-      if: failure()
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: e2e-test-screenshots
