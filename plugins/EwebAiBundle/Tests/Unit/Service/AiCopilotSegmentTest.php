@@ -224,4 +224,36 @@ final class AiCopilotSegmentTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $service->suggestSegmentFilters($this->params());
     }
+
+    public function testLesDemandesPrecedentesBorneesEntrentDansLePrompt(): void
+    {
+        // L'assistant est devenu CONVERSATIONNEL : « et qui n'ont pas cliqué »
+        // n'a de sens qu'avec la demande d'avant. Les demandes précédentes
+        // partent donc dans le message utilisateur — bornées (5 dernières),
+        // avec la consigne de ne renvoyer QUE les filtres du nouveau tour.
+        $params            = $this->params();
+        $params['history'] = ['tour-0', 'tour-1', 'tour-2', 'tour-3', 'tour-4', 'tour-5', 'tour-6'];
+
+        $this->service($this->toolResponse([]))->suggestSegmentFilters($params);
+
+        $user = (string) $this->sent['messages'][0]['content'];
+        self::assertStringContainsString('already applied', $user);
+        self::assertStringContainsString('- tour-2', $user, 'les 5 dernieres demandes doivent etre presentes');
+        self::assertStringContainsString('- tour-6', $user);
+        self::assertStringNotContainsString('- tour-0', $user, 'les demandes au-dela de la borne doivent sortir');
+        self::assertStringNotContainsString('- tour-1', $user);
+        self::assertStringContainsString('New audience request: les clients VIP inactifs', $user);
+
+        $system = (string) $this->sent['system'];
+        self::assertStringContainsString('never repeat an earlier one', $system);
+    }
+
+    public function testSansHistoriqueLePromptResteAuTourUnique(): void
+    {
+        $this->service($this->toolResponse([]))->suggestSegmentFilters($this->params());
+
+        $user = (string) $this->sent['messages'][0]['content'];
+        self::assertStringNotContainsString('already applied', $user);
+        self::assertStringContainsString('New audience request:', $user);
+    }
 }

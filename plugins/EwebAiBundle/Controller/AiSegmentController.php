@@ -103,6 +103,9 @@ final class AiSegmentController
             // ÉTAPE 3 — proposition brute, encore non vérifiée.
             $raw = $this->copilot->suggestSegmentFilters([
                 'description' => mb_substr($description, 0, self::MAX_DESCRIPTION),
+                // Contexte conversationnel : les demandes précédentes du même
+                // panneau (le service borne nombre et longueur lui-même).
+                'history'     => is_array($payload['history'] ?? null) ? $payload['history'] : [],
                 'catalog'     => $this->schema->toPromptDigest(),
                 'date_tokens' => array_keys($this->schema->relativeDateMap()),
                 'lang'        => $this->clientLanguage($request),
