@@ -144,6 +144,10 @@ final class PortalMenuTest extends TestCase
 
         self::assertStringContainsString('flex-flow: row nowrap', $twig, 'sans nowrap le theme empile le lien profil en colonne');
         self::assertStringContainsString('height: 48px', $twig, 'le lien profil doit rester a la hauteur des autres items du bandeau');
+        // L'etat ouvert/focus du theme (outline rectangulaire) est remplace
+        // par la pilule arrondie : les deux proprietes qui la font exister.
+        self::assertStringContainsString('border-radius: 24px', $twig);
+        self::assertStringContainsString('outline-color: transparent', $twig);
     }
 
     public function testLAvatarEffaceSesInitialesQuandLImageCharge(): void

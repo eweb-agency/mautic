@@ -11,7 +11,14 @@
            rangée étire tout le bandeau (181px) et le titre + la barre de
            boutons passent SOUS le verre dépoli. Hauteur = 48px, comme les
            autres items — jamais plus. */
-        .sendly-profile > a.dropdown-toggle { display: inline-flex !important; flex-flow: row nowrap !important; align-items: center !important; height: 48px !important; gap: 6px; }
+        .sendly-profile > a.dropdown-toggle { display: inline-flex !important; flex-flow: row nowrap !important; align-items: center !important; height: 48px !important; gap: 6px; border-radius: 24px !important; padding: 0 10px 0 8px !important; }
+        /* Etat ouvert/focus : le style du theme (outline 2px + fond gris,
+           angles droits) va aux icones carrees, pas a une pastille large —
+           il dessinait un grand rectangle brut (defaut proprio 07/08).
+           Remplace par la pilule arrondie au voile bleu. */
+        .sendly-profile.open > a.dropdown-toggle,
+        .sendly-profile > a.dropdown-toggle:focus,
+        .sendly-profile > a.dropdown-toggle:focus-visible { outline-color: transparent !important; background: rgba(0,79,255,.07) !important; }
         .sendly-profile > a.dropdown-toggle i.ri-arrow-down-s-line { height: auto !important; line-height: 1 !important; }
         .sendly-avatar {
             position: relative; width: 30px; height: 30px; border-radius: 50%;
