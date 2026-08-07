@@ -119,4 +119,16 @@ final class PortalMenuTest extends TestCase
             self::assertStringContainsString('onerror', $img, 'le repli initiales exige onerror');
         }
     }
+
+    public function testLIdentiteEstSurLeBoutonPasEnDoublonDansLeMenu(): void
+    {
+        // Directive proprio 07/08 : le bloc photo+nom natif du sous-menu est
+        // DEPLACE sur le bouton — il ne doit plus exister dans le menu, sinon
+        // l'identite apparait deux fois l'une au-dessus de l'autre.
+        $twig = (string) file_get_contents(self::PROFILE);
+
+        self::assertStringNotContainsString('dropdown-menu-user', $twig, 'le bloc identite du sous-menu doit disparaitre : il vit sur le bouton');
+        self::assertStringContainsString('sendly-avatar', $twig);
+        self::assertStringContainsString('sendly-profile-name', $twig);
+    }
 }
