@@ -19,6 +19,14 @@
         .sendly-profile.open > a.dropdown-toggle,
         .sendly-profile > a.dropdown-toggle:focus,
         .sendly-profile > a.dropdown-toggle:focus-visible { outline-color: transparent !important; background: rgba(0,79,255,.07) !important; }
+        /* LA RETRACTION AU CLIC (défaut proprio 07/08, mesuré au pixel) : le
+           thème pose des clearfix ::before/::after dans le lien — largeur
+           nulle mais COMPTES comme items flex, chacun emportant un gap de
+           8px... et ils disparaissent à l'état ouvert : la pastille perdait
+           16px au clic (174 -> 158). Sans eux : 158px dans les deux états,
+           delta zéro — vérifié en direct avant commit. */
+        .sendly-profile > a.dropdown-toggle::before,
+        .sendly-profile > a.dropdown-toggle::after { content: none !important; }
         .sendly-profile > a.dropdown-toggle i.ri-arrow-down-s-line { height: auto !important; line-height: 1 !important; }
         .sendly-avatar {
             position: relative; width: 30px; height: 30px; border-radius: 50%;
