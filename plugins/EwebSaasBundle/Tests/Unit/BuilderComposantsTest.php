@@ -97,7 +97,10 @@ final class BuilderComposantsTest extends TestCase
         self::assertStringContainsString('sendly-tab', $theme);
         self::assertStringContainsString('sendly-btn-ghost', $theme);
         self::assertStringContainsString('sendly-btn-primary', $theme);
-        self::assertStringContainsString("--sendly-builder-theme: 'p2'", $theme);
+        // La VALEUR du marqueur avance a chaque phase (p2 -> p3 -> ...) :
+        // ce test verifie des acquis P2 qui survivent aux phases suivantes,
+        // il ne l'epingle donc pas — BuilderStylesTest porte la valeur courante.
+        self::assertStringContainsString('--sendly-builder-theme:', $theme);
     }
 
     public function testLIconeIaSurvitAuFillNoneGenerique(): void

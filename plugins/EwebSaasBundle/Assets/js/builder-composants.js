@@ -105,8 +105,10 @@
       content: '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0"/>' });
     bm.add('sendly-social', { label: 'Réseaux sociaux', media: ICONS['RÉSEAUX SOCIAUX'], category: BASIQUE, order: 15,
       content: '<div style="display:flex;gap:16px;justify-content:center;padding:12px"><a href="#">Facebook</a><a href="#">Instagram</a><a href="#">LinkedIn</a></div>' });
+    // data-sendly="form" = le marqueur que builder-styles.js (P3a) détecte
+    // pour proposer le sélecteur de formulaires dans le panneau Styles.
     bm.add('sendly-form', { label: 'Formulaire', media: ICONS['FORMULAIRE'], category: BASIQUE, order: 16,
-      content: '<div style="padding:16px;text-align:center;color:#6a7486">Formulaire — choisissez-le depuis l\'onglet Styles (sélecteur en P3)</div>' });
+      content: '<div data-sendly="form" style="padding:16px;text-align:center;color:#6a7486">Formulaire — choisissez le formulaire dans l\'onglet Styles</div>' });
     bm.add('sendly-ia', { label: 'Assistant IA', media: ICONS['ASSISTANT IA'], category: BASIQUE, order: 17, content: '' });
 
     // Tri = ordre visuel (la vue rend dans l'ordre de collection)…
