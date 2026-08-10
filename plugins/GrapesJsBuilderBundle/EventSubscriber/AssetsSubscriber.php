@@ -36,6 +36,11 @@ class AssetsSubscriber implements EventSubscriberInterface
         if ($this->config->isPublished()) {
             $assetsEvent->addScript('plugins/GrapesJsBuilderBundle/Assets/library/js/dist/builder.js');
             $assetsEvent->addStylesheet('plugins/GrapesJsBuilderBundle/Assets/library/js/dist/builder.css');
+            // Thème Sendly de la refonte (chantier D) : servi HORS du bundle
+            // Parcel — l'itération design ne demande aucun npm run build.
+            // Scopé .gjs-mode-page (classe posée par builder-shell.js) :
+            // l'éditeur d'e-mails reste intact.
+            $assetsEvent->addStylesheet('plugins/GrapesJsBuilderBundle/Assets/css/builder-sendly.css');
         }
     }
 

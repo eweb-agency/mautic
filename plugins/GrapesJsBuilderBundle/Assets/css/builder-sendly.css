@@ -1,0 +1,22 @@
+/**
+ * Thème Sendly de l'éditeur de landing pages — chantier D (refonte).
+ *
+ * CE FICHIER EST SERVI EN DIRECT (AssetsSubscriber), HORS du bundle Parcel :
+ * itérer sur le thème ne demande AUCUN `npm run build` — c'est le canal
+ * d'itération rapide de la refonte.
+ *
+ * ⚠️ RÈGLE DE CLOISONNEMENT ABSOLUE : chaque règle est scopée
+ * `.gjs-mode-page` (classe posée par builder-shell.js d'EwebSaasBundle).
+ * Le namespace .gjs-* est global aux trois éditeurs — une règle non scopée
+ * fuirait sur l'éditeur d'E-MAILS, qui doit rester intact jusqu'à sa propre
+ * refonte. Aucune exception.
+ *
+ * P0 : squelette + marqueur. Le thème complet (variables --gjs-*, palette
+ * claire, géométrie du panneau) arrive en P1, validé par injection live
+ * avant chaque commit.
+ */
+
+/* Marqueur de présence (vérifiable en prod : la feuille est bien servie). */
+.gjs-mode-page {
+    --sendly-builder-theme: 'p0';
+}
