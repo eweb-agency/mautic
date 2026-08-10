@@ -204,7 +204,10 @@ final class PortalMenuTest extends TestCase
         self::assertStringContainsString('height: 20px', $twig, 'le wordmark mobile doit etre a hauteur d icone');
         // Et CENTRE dans la rangee : en display:block il se calait en haut de
         // la case et se faisait couper par le bord du bandeau (proprio 10/08).
-        self::assertStringContainsString('.brand-logo--mobile { display: flex; align-items: center; height: 48px; }', $twig);
+        // Le flex sans !important PERD contre `.visible-xs { display: block
+        // !important }` de Bootstrap (classe portee par le conteneur) : le
+        // centrage restait lettre morte (re-signale proprio 10/08).
+        self::assertStringContainsString('.brand-logo--mobile { display: flex !important; align-items: center; height: 48px; }', $twig);
         self::assertStringContainsString('.navbar-right li.quick-help { display: none; }', $twig);
     }
 }
