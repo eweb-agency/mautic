@@ -11,12 +11,177 @@
  * fuirait sur l'éditeur d'E-MAILS, qui doit rester intact jusqu'à sa propre
  * refonte. Aucune exception.
  *
- * P0 : squelette + marqueur. Le thème complet (variables --gjs-*, palette
- * claire, géométrie du panneau) arrive en P1, validé par injection live
- * avant chaque commit.
+ * P1 : thème clair Sendly, sculpté par injection live sur le vrai éditeur
+ * (10/08) puis recopié ici à l'identique. Jetons = maquette validée
+ * (scratchpad/maquette-editeur-lp.html) : marque #004FFF, navy #16233b,
+ * encre #24303f, gris #6a7486, filets #e5e7eb/#eef1f5, fonds #f7f8fa
+ * (socles segmentés) et #eceff4 (canvas).
+ *
+ * Pièges appris en sculptant (ne pas « simplifier » sans re-tester) :
+ * - Le skin Mautic CODE LES COULEURS EN DUR (gjs-one-bg/gjs-two-color,
+ *   .gjs-clm-tags, .gjs-sm-sectors, .gjs-traits-cs) : surcharger les
+ *   variables --gjs-* ne suffit pas, il faut reprendre ces classes.
+ * - Les réaffirmations en FIN de fichier (tuiles navy, onglets actifs)
+ *   doivent RESTER après les génériques : même spécificité, l'ordre tranche.
+ * - Les SVG de boutons de panneau n'ont qu'un viewBox (pas de width/height)
+ *   → sans dimension explicite ils se replient à 0×0 (bouton invisible).
+ * - Le wrapper de frame a `left:0; top:0` EN INLINE : le décalage carte se
+ *   fait par MARGES (un translateX désynchronise la barre d'outils de
+ *   sélection, qui vit hors du wrapper — centrage device = P2, côté JS).
+ * - Le bouton Calques est déjà en display:none chez Mautic (pré-existant) ;
+ *   il sera re-branché en P2 (décision 10/08).
  */
 
 /* Marqueur de présence (vérifiable en prod : la feuille est bien servie). */
 .gjs-mode-page {
-    --sendly-builder-theme: 'p0';
+    --sendly-builder-theme: 'p1';
 }
+
+/* ── Variables GrapesJS ─────────────────────────────────────────── */
+.gjs-mode-page,
+.gjs-mode-page .gjs-editor {
+    --gjs-left-width: 340px;
+    --gjs-canvas-top: 56px;
+    --gjs-main-color: #ffffff;
+    --gjs-primary-color: #ffffff;
+    --gjs-secondary-color: #4a5264;
+    --gjs-tertiary-color: #004FFF;
+    --gjs-quaternary-color: #004FFF;
+    --gjs-font-color: #24303f;
+    --gjs-main-dark-color: rgba(22, 35, 59, .06);
+    --gjs-main-light-color: rgba(22, 35, 59, .04);
+    --gjs-color-warn: #b45309;
+}
+
+/* ── Fond général ───────────────────────────────────────────────── */
+.gjs-mode-page .gjs-editor { background: #eceff4; color: #24303f; }
+.builder-panel.gjs-mode-page { background: #eceff4; }
+
+/* ── Barre haute : blanche, 56px, séparée par un filet ──────────── */
+.gjs-mode-page .gjs-pn-panel { background: #fff; }
+.gjs-mode-page .gjs-pn-commands,
+.gjs-mode-page .gjs-pn-options,
+.gjs-mode-page .gjs-pn-devices-c {
+    height: 56px; padding: 10px 14px;
+    background: #fff; box-shadow: none; border-bottom: 1px solid #eef1f5;
+    display: flex; align-items: center;
+}
+
+/* ── Le panneau passe À GAUCHE (motif Webmecanik/maquette) ──────── */
+.gjs-mode-page .gjs-pn-views,
+.gjs-mode-page .gjs-pn-views-container {
+    left: 0; right: auto;
+    background: #fff;
+    border-right: 1px solid #eef1f5; border-left: 0;
+    box-shadow: none;
+}
+.gjs-mode-page .gjs-pn-views { height: 56px; padding: 10px 10px; border-bottom: 1px solid #eef1f5; display: flex; align-items: center; gap: 4px; width: var(--gjs-left-width); }
+.gjs-mode-page .gjs-pn-views-container { top: 56px; height: calc(100% - 56px); padding-top: 0; width: var(--gjs-left-width); color: #24303f; }
+
+/* Le canvas glisse à droite du panneau */
+.gjs-mode-page .gjs-cv-canvas {
+    left: var(--gjs-left-width); right: 0;
+    width: calc(100% - var(--gjs-left-width));
+    top: 56px; height: calc(100% - 56px);
+    background: #eceff4;
+}
+.gjs-mode-page .gjs-pn-commands { left: var(--gjs-left-width); width: calc(100% - var(--gjs-left-width)); }
+/* Pilule devices : centrée sur la ZONE CANVAS, pas sur la fenêtre */
+.gjs-mode-page .gjs-pn-devices-c {
+    left: calc(var(--gjs-left-width) + (100% - var(--gjs-left-width)) / 2);
+    transform: translateX(-50%);
+    background: #f7f8fa; border-bottom: 0; z-index: 4;
+    border-radius: 10px; height: 38px; padding: 3px; top: 9px;
+}
+.gjs-mode-page .gjs-pn-options { right: 0; left: auto; background: transparent; border-bottom: 0; z-index: 4; }
+
+/* ── Boutons de panneaux : pastilles claires arrondies ──────────── */
+.gjs-mode-page .gjs-pn-btn {
+    width: 34px; height: 34px; line-height: 34px;
+    border-radius: 8px; color: #4a5264;
+    margin: 0 1px; border: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+/* Les SVG sans width/height (viewBox seul) se replient à 0×0 sinon */
+.gjs-mode-page .gjs-pn-btn svg { width: 18px; height: 18px; flex: none; }
+.gjs-mode-page .gjs-pn-btn:hover { background: #f7f8fa; color: #24303f; }
+.gjs-mode-page .gjs-pn-devices-c .gjs-pn-btn { width: 38px; height: 30px; border-radius: 7px; }
+.gjs-mode-page .gjs-pn-views .gjs-pn-btn { flex: none; width: 44px; height: 36px; line-height: 36px; }
+/* Appliquer = action primaire ; Fermer = neutre, poussés à droite */
+.gjs-mode-page .gjs-pn-views .gjs-pn-btn.fa-check { flex: none; margin-left: auto; width: 40px; height: 34px; border-radius: 9px; box-shadow: 0 4px 12px rgba(0, 79, 255, .32); }
+.gjs-mode-page .gjs-pn-views .gjs-pn-btn.fa-check:hover { background: #0640a8; color: #fff; }
+.gjs-mode-page .gjs-pn-views .gjs-pn-btn.fa-times-circle { flex: none; color: #6a7486; }
+/* Plein écran retiré : l'éditeur est déjà plein écran (décision 10/08) */
+.gjs-mode-page .gjs-pn-options .gjs-pn-btn[title="Fullscreen"] { display: none; }
+
+/* ── Onglet Composants : tuiles navy en grille de 3 ─────────────── */
+.gjs-mode-page .gjs-blocks-c { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 12px; }
+.gjs-mode-page .gjs-block {
+    width: auto; min-width: 0; margin: 0; aspect-ratio: 1;
+    border: 0; border-radius: 12px;
+    box-shadow: none; transition: transform .1s, box-shadow .1s;
+    font-size: 10px; font-weight: 600; letter-spacing: .05em;
+    min-height: 84px; align-items: center; justify-content: center;
+    padding: 10px 6px; gap: 8px;
+}
+.gjs-mode-page .gjs-block:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(22, 35, 59, .35); }
+.gjs-mode-page .gjs-block__media { display: flex; justify-content: center; }
+.gjs-mode-page .gjs-block__media svg, .gjs-mode-page .gjs-block img { width: 24px; height: 24px; }
+.gjs-mode-page .gjs-block-label { line-height: 1.3; text-align: center; }
+.gjs-mode-page .gjs-block-category { border: 0; }
+.gjs-mode-page .gjs-block-category .gjs-title,
+.gjs-mode-page .gjs-block-category .gjs-caret-icon {
+    background: #fff; color: #6a7486;
+    font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    border: 0;
+}
+
+/* ── Gestionnaire de classes (haut de l'onglet Styles) ──────────── */
+.gjs-mode-page .gjs-clm-tags { background: #fff; color: #24303f; border-bottom: 1px solid #eef1f5; padding: 10px 12px; }
+.gjs-mode-page .gjs-clm-header, .gjs-mode-page .gjs-clm-sels-info { color: #6a7486; }
+.gjs-mode-page .gjs-clm-sel { color: #24303f; }
+.gjs-mode-page .gjs-clm-tag { background: #f0f5ff; color: #004FFF; border: 0; border-radius: 6px; }
+.gjs-mode-page .gjs-clm-tag .gjs-clm-tag-status, .gjs-mode-page .gjs-clm-tag .gjs-clm-tag-close { color: #004FFF; }
+
+/* ── Style manager : secteurs à socle gris, champs blancs bordés ── */
+.gjs-mode-page .gjs-sm-sectors { background: #fff; color: #24303f; }
+.gjs-mode-page .gjs-sm-sector { border: 0; }
+.gjs-mode-page .gjs-sm-sector .gjs-sm-sector-title,
+.gjs-mode-page .gjs-sm-title {
+    background: #f7f8fa; color: #24303f; border: 0; border-radius: 9px;
+    margin: 8px 10px 2px; font-weight: 700; padding: 9px 12px;
+}
+.gjs-mode-page .gjs-sm-properties { padding: 8px 12px; }
+.gjs-mode-page .gjs-field {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; color: #24303f;
+    box-shadow: none;
+}
+.gjs-mode-page .gjs-field input, .gjs-mode-page .gjs-field select { color: #24303f; }
+.gjs-mode-page .gjs-sm-label, .gjs-mode-page .gjs-label { color: #6a7486; }
+.gjs-mode-page .gjs-sm-clear { color: #6a7486; }
+.gjs-mode-page .gjs-radio-item-label { color: #4a5264; }
+.gjs-mode-page .gjs-radio-item input:checked + .gjs-radio-item-label { background: #fff; color: #004FFF; box-shadow: 0 1px 3px rgba(22, 35, 59, .12); border-radius: 6px; }
+
+/* ── Réglages (traits) et calques ───────────────────────────────── */
+.gjs-mode-page .gjs-trt-traits { background: #fff; padding: 8px 12px; }
+.gjs-mode-page .gjs-trt-trait { color: #24303f; }
+.gjs-mode-page .gjs-trt-header { background: #f7f8fa; color: #24303f; border: 0; border-radius: 9px; margin: 8px 10px 2px; font-weight: 700; }
+.gjs-mode-page .gjs-traits-cs { background: #fff; color: #24303f; }
+.gjs-mode-page .gjs-layer { background: #fff; color: #24303f; border-bottom: 1px solid #eef1f5; }
+.gjs-mode-page .gjs-layer.gjs-selected { background: #f0f5ff; }
+.gjs-mode-page .gjs-layer-title { background: transparent; }
+
+/* ── Canvas : la page en carte flottante ────────────────────────── */
+.gjs-mode-page .gjs-cv-canvas__frames { padding: 0 !important; }
+.gjs-mode-page .gjs-frame-wrapper { margin: 22px; }
+.gjs-mode-page .gjs-frame { border-radius: 10px; box-shadow: 0 10px 30px rgba(22, 35, 59, .18); background: #fff; }
+
+/* ── Utilitaires du skin aux couleurs EN DUR (pas en variables) ─── */
+.gjs-mode-page .gjs-one-bg { background-color: #fff; }
+.gjs-mode-page .gjs-two-color { color: #24303f; }
+
+/* ── RÉAFFIRMATIONS — après les génériques, l'ordre tranche ─────── */
+.gjs-mode-page .gjs-block { background: #16233b; color: #fff; }
+.gjs-mode-page .gjs-pn-btn.gjs-pn-active { background: #fff; color: #004FFF; box-shadow: 0 1px 4px rgba(22, 35, 59, .12); }
+.gjs-mode-page .gjs-pn-views .gjs-pn-btn.gjs-pn-active { background: #f0f5ff; color: #004FFF; box-shadow: none; }
+.gjs-mode-page .gjs-pn-views .gjs-pn-btn.fa-check { background: #004FFF; color: #fff; }

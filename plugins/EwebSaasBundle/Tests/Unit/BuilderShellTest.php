@@ -51,6 +51,34 @@ final class BuilderShellTest extends TestCase
 
         $theme = (string) file_get_contents(self::THEME);
         self::assertStringContainsString('.gjs-mode-page', $theme);
+
+        // CLOISONNEMENT MÉCANIQUE : tout sélecteur qui touche au namespace
+        // global .gjs-* doit porter le scope de mode — une seule règle nue
+        // fuirait sur l'éditeur d'e-mails.
+        foreach (explode("\n", $theme) as $i => $line) {
+            if (str_contains($line, '{') && str_contains($line, '.gjs-')) {
+                self::assertStringContainsString('.gjs-mode-page', $line, sprintf('ligne %d non scopée : %s', $i + 1, trim($line)));
+            }
+        }
+    }
+
+    public function testLeThemeP1PorteLaGeometrieEtLaPaletteDeLaMaquette(): void
+    {
+        // Jetons de la maquette validée (10/08) : panneau GAUCHE 340px,
+        // barre haute 56px, marque #004FFF, tuiles navy #16233b, canvas
+        // #eceff4 — et le plein écran retiré (décision proprio).
+        $theme = (string) file_get_contents(self::THEME);
+
+        self::assertStringContainsString('--gjs-left-width: 340px', $theme);
+        self::assertStringContainsString('--gjs-canvas-top: 56px', $theme);
+        self::assertStringContainsString('#004FFF', $theme);
+        self::assertStringContainsString('#16233b', $theme);
+        self::assertStringContainsString('#eceff4', $theme);
+        self::assertStringContainsString('[title="Fullscreen"] { display: none; }', $theme);
+        // Le wrapper de frame a left/top EN INLINE : la carte se décale par
+        // MARGES — un translateX désynchroniserait la barre d'outils de
+        // sélection (constaté en direct le 10/08, centrage device = P2 JS).
+        self::assertStringNotContainsString('.gjs-frame-wrapper { left', $theme);
     }
 
     public function testLesTraductionsDeLEditeurSontCompletes(): void
