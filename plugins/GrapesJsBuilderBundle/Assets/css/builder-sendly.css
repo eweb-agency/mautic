@@ -34,7 +34,7 @@
 
 /* Marqueur de présence (vérifiable en prod : la feuille est bien servie). */
 .gjs-mode-page {
-    --sendly-builder-theme: 'p1';
+    --sendly-builder-theme: 'p2';
 }
 
 /* ── Variables GrapesJS ─────────────────────────────────────────── */
@@ -185,3 +185,28 @@
 .gjs-mode-page .gjs-pn-btn.gjs-pn-active { background: #fff; color: #004FFF; box-shadow: 0 1px 4px rgba(22, 35, 59, .12); }
 .gjs-mode-page .gjs-pn-views .gjs-pn-btn.gjs-pn-active { background: #f0f5ff; color: #004FFF; box-shadow: none; }
 .gjs-mode-page .gjs-pn-views .gjs-pn-btn.fa-check { background: #004FFF; color: #fff; }
+
+/* ═══ P2 — onglet Composants + barre haute (builder-composants.js) ═══ */
+
+/* Une catégorie sans tuile ne s'affiche pas : les conteneurs DOM des
+   anciennes catégories (SECTIONS/BLOCS/BASIC/EXTRA) survivent au remap
+   côté modèle — la vue ne les retire pas. */
+.gjs-mode-page .gjs-block-category:not(:has(.gjs-block)) { display: none; }
+
+/* GrapesJS pose fill:currentColor sur les svg de tuiles : les <rect> des
+   icônes Lucide (fill="none" en ATTRIBUT, battu par le CSS) se remplissaient
+   en blanc plein. L'icône Assistant IA, pleine par dessein, porte un
+   style inline fill:#fff qui gagne sur cette règle. */
+.gjs-mode-page .gjs-block svg { fill: none; }
+
+/* Onglets TEXTE « Composants | Styles » (segmented control maquette).
+   L'ordre visuel est géré par builder-composants.js (prepend DOM). */
+.gjs-mode-page .gjs-pn-views .gjs-pn-btn.sendly-tab { width: auto; padding: 0 16px; font-size: 13px; font-weight: 600; color: #6a7486; }
+.gjs-mode-page .gjs-pn-views .gjs-pn-btn.sendly-tab.gjs-pn-active { background: #f0f5ff; color: #004FFF; box-shadow: none; }
+
+/* Boutons texte de droite : Effacer / Annuler (ghost) — Terminer (primaire) */
+.gjs-mode-page .gjs-pn-options { gap: 8px; }
+.gjs-mode-page .gjs-pn-options .gjs-pn-btn.sendly-btn-ghost { width: auto; padding: 0 14px; height: 34px; border: 1px solid #e5e7eb; border-radius: 9px; font-size: 13px; font-weight: 600; color: #24303f; }
+.gjs-mode-page .gjs-pn-options .gjs-pn-btn.sendly-btn-ghost:hover { background: #f7f8fa; color: #24303f; }
+.gjs-mode-page .gjs-pn-options .gjs-pn-btn.sendly-btn-primary { width: auto; padding: 0 18px; height: 34px; background: #004FFF; color: #fff; border-radius: 9px; font-size: 13px; font-weight: 700; box-shadow: 0 4px 12px rgba(0, 79, 255, .32); }
+.gjs-mode-page .gjs-pn-options .gjs-pn-btn.sendly-btn-primary:hover { background: #0640a8; color: #fff; }
