@@ -7,6 +7,16 @@ return [
     'author'      => 'Eweb Agency',
 
     'routes' => [
+        // Main routes — préfixées /s/ et derrière l'authentification de
+        // l'application : consommées par le builder de landing pages.
+        'main' => [
+            'eweb_saas_builder_forms' => [
+                'path'       => '/sendly/builder-forms',
+                'controller' => 'MauticPlugin\EwebSaasBundle\Controller\BuilderFormsController::listAction',
+                'method'     => 'GET',
+            ],
+        ],
+
         // Public routes — NO prefix, no authentication: served to the visitors
         // of the customer's own website.
         'public' => [

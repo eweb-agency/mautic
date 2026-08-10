@@ -34,7 +34,7 @@
 
 /* Marqueur de présence (vérifiable en prod : la feuille est bien servie). */
 .gjs-mode-page {
-    --sendly-builder-theme: 'p2';
+    --sendly-builder-theme: 'p3';
 }
 
 /* ── Variables GrapesJS ─────────────────────────────────────────── */
@@ -210,3 +210,39 @@
 .gjs-mode-page .gjs-pn-options .gjs-pn-btn.sendly-btn-ghost:hover { background: #f7f8fa; color: #24303f; }
 .gjs-mode-page .gjs-pn-options .gjs-pn-btn.sendly-btn-primary { width: auto; padding: 0 18px; height: 34px; background: #004FFF; color: #fff; border-radius: 9px; font-size: 13px; font-weight: 700; box-shadow: 0 4px 12px rgba(0, 79, 255, .32); }
 .gjs-mode-page .gjs-pn-options .gjs-pn-btn.sendly-btn-primary:hover { background: #0640a8; color: #fff; }
+
+/* ═══ P3a — panneaux Styles contextuels (builder-styles.js) ═══ */
+
+/* BASCULE EN PUR CSS, FAIL-OPEN : la règle qui masque exige l'attribut
+   data-sendly-kind (posé par builder-styles.js). Script absent → attribut
+   absent → le Style Manager reste entièrement visible, comme avant. */
+.gjs-mode-page .gjs-sm-sectors[data-sendly-kind] .gjs-sm-sector { display: none; }
+.gjs-mode-page .gjs-sm-sectors[data-sendly-kind="texte"] .gjs-sm-sector__s-texte { display: block; }
+.gjs-mode-page .gjs-sm-sectors[data-sendly-kind="bouton"] .gjs-sm-sector__s-bouton { display: block; }
+.gjs-mode-page .gjs-sm-sectors[data-sendly-kind="image"] .gjs-sm-sector__s-image { display: block; }
+.gjs-mode-page .gjs-sm-sectors[data-sendly-kind="section"] .gjs-sm-sector__s-section { display: block; }
+.gjs-mode-page .gjs-sm-sectors[data-sendly-kind="page"] .gjs-sm-sector__s-page { display: block; }
+.gjs-mode-page .gjs-sm-sectors[data-sendly-kind="video"] .gjs-sm-sector__s-video { display: block; }
+.gjs-mode-page .gjs-sm-sectors[data-sendly-kind="carte"] .gjs-sm-sector__s-carte { display: block; }
+.gjs-mode-page .gjs-sm-sectors[data-sendly-kind="rebours"] .gjs-sm-sector__s-rebours { display: block; }
+.gjs-mode-page .gjs-sm-sectors[data-sendly-kind="separateur"] .gjs-sm-sector__s-separateur { display: block; }
+.gjs-mode-page .gjs-sm-sectors[data-sendly-kind="navbar"] .gjs-sm-sector__s-navbar { display: block; }
+.gjs-mode-page .gjs-sm-sectors[data-sendly-kind="formulaire"] .gjs-sm-sector__s-formulaire { display: block; }
+
+/* Le contrôle signature de la maquette : champ numérique + slider liés. */
+.gjs-mode-page .sendly-sldin { display: flex; align-items: center; gap: 8px; }
+.gjs-mode-page .sendly-sldin .sldin-num { width: 64px; flex: none; border: 1px solid #e5e7eb; border-radius: 8px; padding: 6px 8px; font-size: 12.5px; color: #24303f; background: #fff; }
+.gjs-mode-page .sendly-sldin .sldin-range { flex: 1; appearance: none; height: 3px; background: #e5e7eb; border-radius: 2px; }
+.gjs-mode-page .sendly-sldin .sldin-range::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 4px solid #004FFF; cursor: pointer; }
+
+/* Rangées de propriétés : aération maquette (labels gris, rangées espacées) */
+.gjs-mode-page .gjs-sm-property { margin-bottom: 14px; }
+.gjs-mode-page .gjs-sm-property .gjs-sm-label { margin-bottom: 6px; }
+/* Alignement (radio) : segmenté gras, état actif bleu clair */
+.gjs-mode-page .gjs-radio-items { background: #f7f8fa; border-radius: 8px; padding: 2px; }
+.gjs-mode-page .gjs-radio-item { border: 0; }
+.gjs-mode-page .gjs-radio-item-label { font-weight: 700; }
+/* Lignes composites (marges, bordure, rayon) : champs internes visibles
+   sur fond blanc bordé plutôt que le filet nu du thème sombre. */
+.gjs-mode-page .gjs-sm-composite { background: transparent; border: 0; }
+.gjs-mode-page .gjs-sm-composite .gjs-field { background: #fff; }
