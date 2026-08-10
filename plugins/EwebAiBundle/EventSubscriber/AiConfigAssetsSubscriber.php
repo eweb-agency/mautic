@@ -72,6 +72,7 @@ class AiConfigAssetsSubscriber implements EventSubscriberInterface
             'endpoint'        => $this->router->generate('eweb_ai_generate', [], UrlGeneratorInterface::ABSOLUTE_PATH),
             'segmentEndpoint' => $this->router->generate('eweb_ai_segment_suggest', [], UrlGeneratorInterface::ABSOLUTE_PATH),
             'assistEndpoint'  => $this->router->generate('eweb_ai_assist', [], UrlGeneratorInterface::ABSOLUTE_PATH),
+            'abtestEndpoint'  => $this->router->generate('eweb_ai_email_abtest', [], UrlGeneratorInterface::ABSOLUTE_PATH),
         ];
 
         $assetsEvent->addScriptDeclaration(
