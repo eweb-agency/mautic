@@ -22,6 +22,13 @@
            L'état ouvert/focus garde le style NATIF du thème (choix proprio). */
         .sendly-profile > a.dropdown-toggle::before,
         .sendly-profile > a.dropdown-toggle::after { content: none !important; }
+        /* ...MAIS à l'état OUVERT, le thème transforme ces mêmes pseudo-
+           éléments en FLÈCHE blanche du menu (bordures 8/9px, position
+           absolue — donc hors flux flex : aucune rétraction possible).
+           Retrait proprio 10/08 : la flèche doit rester, comme sur les
+           autres boutons. */
+        .sendly-profile.open > a.dropdown-toggle::before,
+        .sendly-profile.open > a.dropdown-toggle::after { content: "" !important; }
         .sendly-profile > a.dropdown-toggle i.ri-arrow-down-s-line { height: auto !important; line-height: 1 !important; }
         .sendly-avatar {
             position: relative; width: 30px; height: 30px; border-radius: 50%;

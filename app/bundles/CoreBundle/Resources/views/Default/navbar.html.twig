@@ -26,6 +26,22 @@
                        wordmark (mêmes règles que le desktop). #}
                     <style>
                         .brand-logo--mobile svg.mautic-logo-text { display: block; }
+                        /* HEADER MOBILE EN UNE SEULE RANGÉE (défaut proprio
+                           10/08 : le wordmark aux dimensions desktop poussait
+                           la rangée d'icônes sur une 2e ligne — mesuré 98px
+                           de header à 390px de large, 50px après ces règles,
+                           303px utilisés : tient dès 360px).
+                           - wordmark à hauteur d'icône ;
+                           - l'aide « ? » se replie (ses raccourcis clavier
+                             n'ont pas de sens au doigt) ;
+                           - paddings serrés, avatar 28px sans chevron. */
+                        @media (max-width: 767px) {
+                            .brand-logo--mobile svg.mautic-logo-text { height: 20px; width: auto; }
+                            .navbar-right li.quick-help { display: none; }
+                            .navbar-nav.navbar-right > li > a { padding-left: 6px; padding-right: 6px; }
+                            .sendly-avatar { width: 28px; height: 28px; }
+                            .sendly-profile > a.dropdown-toggle i.ri-arrow-down-s-line { display: none; }
+                        }
                     </style>
                     {{ source('@MauticCore/Assets/images/logo--expanded.svg') }}
                 </div>
