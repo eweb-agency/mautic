@@ -36,6 +36,13 @@
                              n'ont pas de sens au doigt) ;
                            - paddings serrés, avatar 28px sans chevron. */
                         @media (max-width: 767px) {
+                            /* CENTRAGE VERTICAL EXPLICITE (défaut proprio
+                               10/08 : le svg en display:block se calait en
+                               HAUT de la case de 48px — top 1px au lieu de
+                               14 — et selon l'écran débordait au-dessus du
+                               bandeau, logo coupé). Mesuré après : centre
+                               du logo = centre de la rangée. */
+                            .brand-logo--mobile { display: flex; align-items: center; height: 48px; }
                             .brand-logo--mobile svg.mautic-logo-text { height: 20px; width: auto; }
                             .navbar-right li.quick-help { display: none; }
                             .navbar-nav.navbar-right > li > a { padding-left: 6px; padding-right: 6px; }
