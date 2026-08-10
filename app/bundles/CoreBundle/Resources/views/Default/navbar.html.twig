@@ -41,8 +41,15 @@
                                HAUT de la case de 48px — top 1px au lieu de
                                14 — et selon l'écran débordait au-dessus du
                                bandeau, logo coupé). Mesuré après : centre
-                               du logo = centre de la rangée. */
-                            .brand-logo--mobile { display: flex; align-items: center; height: 48px; }
+                               du logo = centre de la rangée.
+                               ⚠️ flex DOIT être !important : le conteneur
+                               porte `visible-xs`, et Bootstrap l'affiche via
+                               `display: block !important` sous 768px — sans
+                               priorité équivalente le flex perd, align-items
+                               reste lettre morte et le logo colle en haut
+                               (défaut re-signalé proprio 10/08, mesuré :
+                               centre logo 11 vs 25 avant, 25 = 25 après). */
+                            .brand-logo--mobile { display: flex !important; align-items: center; height: 48px; }
                             .brand-logo--mobile svg.mautic-logo-text { height: 20px; width: auto; }
                             .navbar-right li.quick-help { display: none; }
                             .navbar-nav.navbar-right > li > a { padding-left: 6px; padding-right: 6px; }
