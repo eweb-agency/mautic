@@ -34,7 +34,7 @@
 
 /* Marqueur de présence (vérifiable en prod : la feuille est bien servie). */
 .gjs-mode-page {
-    --sendly-builder-theme: 'p3';
+    --sendly-builder-theme: 'p3b';
 }
 
 /* ── Variables GrapesJS ─────────────────────────────────────────── */
@@ -79,10 +79,15 @@
 .gjs-mode-page .gjs-pn-views-container { top: 56px; height: calc(100% - 56px); padding-top: 0; width: var(--gjs-left-width); color: #24303f; }
 
 /* Le canvas glisse à droite du panneau */
+/* Le canvas est INSETTÉ de 22px sur les 4 côtés : la gouttière vient du
+   canvas lui-même, PAS d'une marge sur le frame-wrapper — une marge y
+   débordait à droite sur les écrans larges (défaut proprio 11/08, flèche
+   rouge) et désynchronisait le calque d'outils, qui vit dans le même
+   repère que le canvas. */
 .gjs-mode-page .gjs-cv-canvas {
-    left: var(--gjs-left-width); right: 0;
-    width: calc(100% - var(--gjs-left-width));
-    top: 56px; height: calc(100% - 56px);
+    left: calc(var(--gjs-left-width) + 22px); right: 22px;
+    width: calc(100% - var(--gjs-left-width) - 44px);
+    top: 78px; height: calc(100% - 100px);
     background: #eceff4;
 }
 .gjs-mode-page .gjs-pn-commands { left: var(--gjs-left-width); width: calc(100% - var(--gjs-left-width)); }
@@ -173,7 +178,9 @@
 
 /* ── Canvas : la page en carte flottante ────────────────────────── */
 .gjs-mode-page .gjs-cv-canvas__frames { padding: 0 !important; }
-.gjs-mode-page .gjs-frame-wrapper { margin: 22px; }
+/* AUCUNE marge ici : la gouttière est portée par l'inset du canvas (cf.
+   plus haut) — et un translateX désynchroniserait les outils (constaté). */
+.gjs-mode-page .gjs-frame-wrapper { margin: 0; }
 .gjs-mode-page .gjs-frame { border-radius: 10px; box-shadow: 0 10px 30px rgba(22, 35, 59, .18); background: #fff; }
 
 /* ── Utilitaires du skin aux couleurs EN DUR (pas en variables) ─── */
@@ -246,3 +253,20 @@
    sur fond blanc bordé plutôt que le filet nu du thème sombre. */
 .gjs-mode-page .gjs-sm-composite { background: transparent; border: 0; }
 .gjs-mode-page .gjs-sm-composite .gjs-field { background: #fff; }
+
+/* ═══ P3b — onglet Options (builder-options.js) ═══ */
+.gjs-mode-page #sendly-options-view { padding: 14px; color: #24303f; overflow-y: auto; }
+.gjs-mode-page .sendly-opt-titre { background: #f7f8fa; color: #24303f; border-radius: 9px; margin: 10px 0; font-weight: 700; padding: 9px 12px; font-size: 13px; }
+.gjs-mode-page .sendly-opt-row { display: block; margin: 0 2px 12px; }
+.gjs-mode-page .sendly-opt-row span { display: block; font-size: 12px; color: #6a7486; margin-bottom: 5px; }
+.gjs-mode-page .sendly-opt-row input, .gjs-mode-page .sendly-opt-row select, .gjs-mode-page .sendly-opt-row textarea {
+    width: 100%; border: 1px solid #e5e7eb; border-radius: 8px; padding: 7px 10px; font-size: 12.5px; color: #24303f; background: #fff;
+}
+.gjs-mode-page .sendly-opt-row input:focus, .gjs-mode-page .sendly-opt-row select:focus, .gjs-mode-page .sendly-opt-row textarea:focus { outline: none; border-color: #004FFF; }
+.gjs-mode-page .sendly-opt-check { display: flex; align-items: center; gap: 8px; margin: 0 2px 12px; font-size: 12.5px; color: #24303f; cursor: pointer; }
+.gjs-mode-page .sendly-opt-check input { accent-color: #004FFF; width: 16px; height: 16px; flex: none; }
+.gjs-mode-page .sendly-opt-bouton { width: 100%; border: 1px solid #e5e7eb; background: #fff; border-radius: 9px; padding: 9px 12px; font-size: 13px; font-weight: 600; color: #24303f; cursor: pointer; }
+.gjs-mode-page .sendly-opt-bouton:hover { background: #f7f8fa; }
+/* Le bouton proxy du mode Code ne doit jamais se voir (ceinture + bretelles
+   avec son style inline). */
+.gjs-mode-page .gjs-pn-btn.sendly-cache { display: none; }

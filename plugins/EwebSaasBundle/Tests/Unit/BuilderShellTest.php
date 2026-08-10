@@ -75,10 +75,18 @@ final class BuilderShellTest extends TestCase
         self::assertStringContainsString('#16233b', $theme);
         self::assertStringContainsString('#eceff4', $theme);
         self::assertStringContainsString('[title="Fullscreen"] { display: none; }', $theme);
-        // Le wrapper de frame a left/top EN INLINE : la carte se décale par
-        // MARGES — un translateX désynchroniserait la barre d'outils de
-        // sélection (constaté en direct le 10/08, centrage device = P2 JS).
+        // Le wrapper de frame a left/top EN INLINE et le calque d'outils vit
+        // dans le repère du CANVAS : ni left/translateX NI marge sur le
+        // wrapper (la marge débordait à droite sur écran large et
+        // désalignait les outils — défauts proprio 11/08). La gouttière est
+        // portée par l'INSET du canvas, relatif donc valable à toute largeur.
         self::assertStringNotContainsString('.gjs-frame-wrapper { left', $theme);
+        self::assertStringNotContainsString('.gjs-frame-wrapper { margin: 22px', $theme);
+        self::assertStringContainsString('left: calc(var(--gjs-left-width) + 22px)', $theme);
+        self::assertStringContainsString('width: calc(100% - var(--gjs-left-width) - 44px)', $theme);
+        // Et l'overlay de sélection ne survit pas à un changement d'appareil.
+        $styles = (string) file_get_contents(__DIR__.'/../../Assets/js/builder-styles.js');
+        self::assertStringContainsString("editor.on('change:device'", $styles);
     }
 
     public function testLesTraductionsDeLEditeurSontCompletes(): void

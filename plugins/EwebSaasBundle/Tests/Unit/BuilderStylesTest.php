@@ -47,7 +47,9 @@ final class BuilderStylesTest extends TestCase
 
         self::assertStringContainsString('[data-sendly-kind] .gjs-sm-sector { display: none; }', $theme);
         self::assertStringNotContainsString('.gjs-mode-page .gjs-sm-sector { display: none; }', $theme, 'masquage sans garde-attribut = panneau Styles VIDE si le script ne tourne pas');
-        self::assertStringContainsString("--sendly-builder-theme: 'p3'", $theme);
+        // La VALEUR du marqueur avance a chaque phase : seule la phase la
+        // plus recente l'epingle (ici BuilderOptionsTest).
+        self::assertStringContainsString('--sendly-builder-theme:', $theme);
 
         foreach (['texte', 'bouton', 'image', 'section', 'page', 'video', 'carte', 'rebours', 'separateur', 'navbar', 'formulaire'] as $kind) {
             self::assertStringContainsString('[data-sendly-kind="'.$kind.'"] .gjs-sm-sector__s-'.$kind, $theme, "règle de bascule manquante : $kind");
