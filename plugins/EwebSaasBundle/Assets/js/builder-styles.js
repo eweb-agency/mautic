@@ -295,6 +295,11 @@
       editor.on('component:deselected', function () {
         if (!editor.getSelected()) { applyKind('page'); }
       });
+      // Changer d'appareil laissait l'overlay de sélection à la géométrie
+      // de l'appareil PRÉCÉDENT (badge + contour orphelins — défaut proprio
+      // 11/08) : on désélectionne, l'utilisateur resélectionne dans la
+      // nouvelle vue.
+      editor.on('change:device', function () { editor.select(); });
       editor.on('component:update:attributes', function (c) {
         if ('formulaire' === kindOf(c)) { poserJetonFormulaire(c); }
       });

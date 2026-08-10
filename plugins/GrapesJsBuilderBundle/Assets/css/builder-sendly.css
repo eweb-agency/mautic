@@ -79,10 +79,15 @@
 .gjs-mode-page .gjs-pn-views-container { top: 56px; height: calc(100% - 56px); padding-top: 0; width: var(--gjs-left-width); color: #24303f; }
 
 /* Le canvas glisse à droite du panneau */
+/* Le canvas est INSETTÉ de 22px sur les 4 côtés : la gouttière vient du
+   canvas lui-même, PAS d'une marge sur le frame-wrapper — une marge y
+   débordait à droite sur les écrans larges (défaut proprio 11/08, flèche
+   rouge) et désynchronisait le calque d'outils, qui vit dans le même
+   repère que le canvas. */
 .gjs-mode-page .gjs-cv-canvas {
-    left: var(--gjs-left-width); right: 0;
-    width: calc(100% - var(--gjs-left-width));
-    top: 56px; height: calc(100% - 56px);
+    left: calc(var(--gjs-left-width) + 22px); right: 22px;
+    width: calc(100% - var(--gjs-left-width) - 44px);
+    top: 78px; height: calc(100% - 100px);
     background: #eceff4;
 }
 .gjs-mode-page .gjs-pn-commands { left: var(--gjs-left-width); width: calc(100% - var(--gjs-left-width)); }
@@ -173,7 +178,9 @@
 
 /* ── Canvas : la page en carte flottante ────────────────────────── */
 .gjs-mode-page .gjs-cv-canvas__frames { padding: 0 !important; }
-.gjs-mode-page .gjs-frame-wrapper { margin: 22px; }
+/* AUCUNE marge ici : la gouttière est portée par l'inset du canvas (cf.
+   plus haut) — et un translateX désynchroniserait les outils (constaté). */
+.gjs-mode-page .gjs-frame-wrapper { margin: 0; }
 .gjs-mode-page .gjs-frame { border-radius: 10px; box-shadow: 0 10px 30px rgba(22, 35, 59, .18); background: #fff; }
 
 /* ── Utilitaires du skin aux couleurs EN DUR (pas en variables) ─── */
