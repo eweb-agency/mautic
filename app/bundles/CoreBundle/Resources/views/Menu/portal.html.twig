@@ -16,26 +16,30 @@
         /* Styles portés par le partial : la surface vit et meurt d'un bloc. */
         .sendly-softwares > a { display: inline-flex; align-items: center; }
         .sendly-softwares .dropdown-menu {
-            min-width: 320px; padding: 8px; border-radius: 10px;
-            box-shadow: 0 12px 32px rgba(22, 35, 59, .16); border: 0;
+            min-width: 340px; padding: 10px; border-radius: 14px;
+            box-shadow: 0 18px 44px rgba(22, 35, 59, .14);
+            border: 1px solid #eef1f5;
         }
+        .sendly-softwares .dropdown-menu li + li { margin-top: 2px; }
         /* Spécificité VOLONTAIREMENT supérieure aux règles génériques du menu
            Bootstrap de Mautic (`.dropdown-menu li a` pose display:block +
            white-space:nowrap et cassait la ligne-lien : tuile étirée pleine
            largeur, texte éjecté — constaté à la vérification en prod). Le
            span et le lien reçoivent LA MÊME géométrie. */
         .sendly-softwares .dropdown-menu li > .sendly-soft-row {
-            display: flex; align-items: center; gap: 12px; padding: 10px 12px;
-            border-radius: 8px; white-space: normal; clear: none;
+            display: flex; align-items: center; gap: 14px; padding: 12px;
+            border-radius: 10px; white-space: normal; clear: none;
         }
         .sendly-softwares .dropdown-menu li > a.sendly-soft-row:hover,
-        .sendly-softwares .dropdown-menu li > a.sendly-soft-row:focus { background: #f2f5fa; text-decoration: none; }
+        .sendly-softwares .dropdown-menu li > a.sendly-soft-row:focus { background: #f0f5ff; text-decoration: none; }
+        .sendly-softwares .dropdown-menu li > a.sendly-soft-row:hover .sendly-soft-action { color: #004FFF; }
         .sendly-softwares .sendly-soft-tile {
             width: 40px; height: 40px; border-radius: 12px; flex: none;
             display: inline-flex; align-items: center; justify-content: center;
         }
-        .sendly-soft-tile--marketing { background: #004FFF; }
-        .sendly-soft-tile--portal { background: #16233b; }
+        /* Un peu de profondeur : chaque tuile projette son ombre colorée. */
+        .sendly-soft-tile--marketing { background: #004FFF; box-shadow: 0 4px 12px rgba(0, 79, 255, .32); }
+        .sendly-soft-tile--portal { background: #16233b; box-shadow: 0 4px 10px rgba(22, 35, 59, .18); }
         /* Icônes au TRAIT (les glyphes du portail, inlinés) — jamais de
            fill imposé : il transformerait le trait en pâté. 17px : la
            taille 22px mangeait la tuile (retour proprio, 4e itération). */
@@ -45,11 +49,12 @@
            faisait sortir nom/sous-titre/flèche du flux (validé en injectant
            ces règles en prod avant de committer). */
         .sendly-softwares .dropdown-menu .sendly-soft-text { display: block; min-width: 0; flex: 1 1 auto; width: auto; }
-        .sendly-softwares .dropdown-menu .sendly-soft-name { display: block; font-weight: 700; color: #24303f; line-height: 1.25; width: auto; }
+        .sendly-softwares .dropdown-menu .sendly-soft-name { display: block; font-weight: 700; font-size: 14px; color: #24303f; line-height: 1.25; width: auto; }
         .sendly-softwares .dropdown-menu .sendly-soft-sub { display: block; color: #6a7486; font-size: 12px; line-height: 1.3; width: auto; height: auto; }
         .sendly-softwares .dropdown-menu .sendly-soft-action { display: inline-flex; width: auto; flex: none; color: #4a5264; font-size: 16px; }
         .sendly-soft-current {
-            flex: none; font-size: 11px; color: #6a7486; background: #eef1f5;
+            flex: none; font-size: 11px; font-weight: 600; color: #004FFF;
+            background: rgba(0, 79, 255, .09);
             border-radius: 999px; padding: 2px 8px;
         }
     </style>

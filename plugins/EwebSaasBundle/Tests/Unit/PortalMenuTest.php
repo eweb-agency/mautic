@@ -170,4 +170,38 @@ final class PortalMenuTest extends TestCase
         self::assertStringContainsString('width: 100% !important', $twig);
         self::assertStringContainsString('color: transparent', $twig);
     }
+
+    public function testLaFlecheDuMenuProfilRevitALEtatOuvert(): void
+    {
+        // Les pseudo-elements du lien profil sont des clearfix a l'etat FERME
+        // (supprimes : ils provoquaient la retraction au clic) mais deviennent
+        // la FLECHE du menu a l'etat OUVERT (absolue, hors flux flex) : elle
+        // doit revivre — retrait proprio 10/08, comme sur les autres boutons.
+        $twig = (string) file_get_contents(self::PROFILE);
+
+        self::assertStringContainsString('.sendly-profile.open > a.dropdown-toggle::after { content: "" !important; }', $twig);
+        self::assertStringContainsString('content: none !important', $twig, 'la suppression a l etat ferme (anti-retraction) doit rester');
+    }
+
+    public function testLePanneauLogicielsEstEmbelli(): void
+    {
+        // Passe visuelle validee en direct le 10/08 : carte 14px, rangees
+        // arrondies genereuses, pilule « Vous y etes » bleue, tuiles ombrees.
+        $twig = (string) file_get_contents(self::PARTIAL);
+
+        self::assertStringContainsString('border-radius: 14px', $twig);
+        self::assertStringContainsString('rgba(0, 79, 255, .09)', $twig, 'le badge courant doit etre la pilule bleue');
+        self::assertStringContainsString('box-shadow: 0 4px 12px rgba(0, 79, 255, .32)', $twig, 'la tuile marketing porte son ombre coloree');
+    }
+
+    public function testLeHeaderMobileTientSurUneRangee(): void
+    {
+        // Mesure du 10/08 : wordmark desktop => header 98px sur 2 rangees a
+        // 390px ; ces regles le ramenent a 50px sur UNE rangee (303px utilises).
+        $twig = (string) file_get_contents(self::NAVBAR);
+
+        self::assertStringContainsString('@media (max-width: 767px)', $twig);
+        self::assertStringContainsString('height: 20px', $twig, 'le wordmark mobile doit etre a hauteur d icone');
+        self::assertStringContainsString('.navbar-right li.quick-help { display: none; }', $twig);
+    }
 }
