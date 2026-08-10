@@ -65,6 +65,7 @@
       '.sendly-ai-row .txt{flex:1;font-size:14px;line-height:1.4}' +
       '.sendly-ai-regen{border:none;background:transparent;color:#6b7280;cursor:pointer;padding:6px;line-height:0}' +
       '.sendly-ai-regen:hover{color:' + BRAND + '}' +
+      '.sendly-ai-hint{color:#6a7486;font-size:12px;margin:6px 2px 0}' +
       '.sendly-ai-err{color:#c0392b;font-size:13px;margin:10px 0 0;display:none}' +
       '.sendly-ai-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid #e5e7eb}' +
       '.sendly-ai-btn{padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid #d1d5db;background:#fff;color:#374151}' +
@@ -145,7 +146,7 @@
   }
 
   // ── Modale ──────────────────────────────────────────────────────────────
-  var state = { suggestions: [], selected: 0, params: null };
+  var state = { suggestions: [], checked: [0], params: null };
 
   function buildModal() {
     if (document.getElementById('sendly-ai-overlay')) {
@@ -229,7 +230,7 @@
         emojis: mQuery('#sendly-ai-emojis').is(':checked'),
         instructions: mQuery('#sendly-ai-instructions').val() || ''
       };
-      requestSubjects(3, function (list) {
+      requestSubjects(5, function (list) {
         if (!list) {
           btn.disabled = false;
           btn.textContent = t('mautic.email.ai.generate', 'Générer');
@@ -237,7 +238,10 @@
           return;
         }
         state.suggestions = list;
-        state.selected = 0;
+        // Sélection MULTIPLE (chantier C) : dans l'ordre des clics, le
+        // premier coché est l'objet principal, les suivants deviendront des
+        // variantes A/B natives.
+        state.checked = [0];
         renderResults();
       });
     };
@@ -255,31 +259,40 @@
 
     var rows = '';
     for (var i = 0; i < state.suggestions.length; i++) {
+      var pos = state.checked.indexOf(i);
       rows +=
-        '<div class="sendly-ai-row' + (i === state.selected ? ' sel' : '') + '" data-i="' + i + '">' +
-        '<input type="radio" name="sendly-ai-sub"' + (i === state.selected ? ' checked' : '') + '>' +
+        '<div class="sendly-ai-row' + (0 === pos ? ' sel' : '') + '" data-i="' + i + '">' +
+        '<input type="checkbox"' + (pos > -1 ? ' checked' : '') + '>' +
         '<span class="txt">' + esc(state.suggestions[i]) + '</span>' +
         '<button class="sendly-ai-regen" data-i="' + i + '" aria-label="' +
         esc(t('mautic.email.ai.regenerate', 'Régénérer')) + '"><i class="ri-refresh-line"></i></button>' +
         '</div>';
     }
 
+    // Le test A/B exige un e-mail ENREGISTRÉ (les variantes sont des clones
+    // persistés du parent) : sur un e-mail neuf, on reste en sélection simple.
+    var abHint = (state.checked.length > 1 && !currentEmailId())
+      ? '<p class="sendly-ai-hint">' + esc(t('mautic.email.ai.ab_save_first',
+          "Enregistrez d'abord l'e-mail pour créer un test A/B.")) + '</p>'
+      : '<p class="sendly-ai-hint">' + esc(t('mautic.email.ai.ab_hint',
+          'Cochez plusieurs objets : le premier devient l’objet de l’e-mail, les autres des variantes A/B.')) + '</p>';
+
     document.getElementById('sendly-ai-content').innerHTML =
       '<div class="sendly-ai-chips">' + params +
       '<button class="sendly-ai-btn" id="sendly-ai-back" style="margin-left:auto;padding:5px 10px">' +
       t('mautic.email.ai.modify', 'Modifier') + '</button></div>' +
       rows +
+      abHint +
       '<p class="sendly-ai-err" id="sendly-ai-err"></p>' +
       '<div class="sendly-ai-foot">' +
       '<button class="sendly-ai-btn" id="sendly-ai-back2">' + t('mautic.email.ai.back', 'Retour') + '</button>' +
-      '<button class="sendly-ai-btn primary" id="sendly-ai-use">' +
-      t('mautic.email.ai.use', "Utiliser l'objet sélectionné") + '</button></div>';
+      '<button class="sendly-ai-btn primary" id="sendly-ai-use">' + esc(useLabel()) + '</button></div>';
 
     mQuery('.sendly-ai-row').on('click', function (e) {
       if (mQuery(e.target).closest('.sendly-ai-regen').length) {
         return;
       }
-      selectRow(parseInt(this.getAttribute('data-i'), 10));
+      toggleRow(parseInt(this.getAttribute('data-i'), 10));
     });
     mQuery('.sendly-ai-regen').on('click', function (e) {
       e.stopPropagation();
@@ -288,6 +301,22 @@
     document.getElementById('sendly-ai-back').onclick = renderParams;
     document.getElementById('sendly-ai-back2').onclick = renderParams;
     document.getElementById('sendly-ai-use').onclick = applySelected;
+  }
+
+  /** L'id de l'e-mail en édition — 0 sur un e-mail pas encore enregistré. */
+  function currentEmailId() {
+    var action = mQuery('form[name="emailform"]').attr('action') || '';
+    var m = action.match(/\/emails\/edit\/(\d+)/);
+    return m ? parseInt(m[1], 10) : 0;
+  }
+
+  function useLabel() {
+    var extras = state.checked.length - 1;
+    if (extras > 0 && currentEmailId()) {
+      return t('mautic.email.ai.use_ab', 'Appliquer + créer le test A/B')
+        + ' (' + extras + ')';
+    }
+    return t('mautic.email.ai.use', "Utiliser l'objet sélectionné");
   }
 
   function toneKey(v) {
@@ -299,13 +328,20 @@
     return '';
   }
 
-  function selectRow(i) {
-    state.selected = i;
-    mQuery('.sendly-ai-row').each(function () {
-      var idx = parseInt(this.getAttribute('data-i'), 10);
-      mQuery(this).toggleClass('sel', idx === i);
-      mQuery(this).find('input[type=radio]').prop('checked', idx === i);
-    });
+  function toggleRow(i) {
+    var pos = state.checked.indexOf(i);
+    if (pos > -1) {
+      if (1 === state.checked.length) {
+        return; // toujours au moins un objet retenu
+      }
+      state.checked.splice(pos, 1);
+    } else {
+      if (state.checked.length >= 5) {
+        return; // le plafond : 1 principal + 4 variantes
+      }
+      state.checked.push(i);
+    }
+    renderResults();
   }
 
   function regenerateRow(i, btn) {
@@ -316,9 +352,7 @@
       icon.className = prev;
       if (list && list[0]) {
         state.suggestions[i] = list[0];
-        var row = mQuery('.sendly-ai-row[data-i=' + i + ']');
-        row.find('.txt').text(list[0]);
-        selectRow(i);
+        renderResults();
       } else {
         showErr();
       }
@@ -326,11 +360,49 @@
   }
 
   function applySelected() {
-    var chosen = state.suggestions[state.selected];
-    if (chosen) {
-      mQuery('#emailform_subject').val(chosen).trigger('blur');
+    var picked = state.checked.map(function (i) { return state.suggestions[i]; })
+      .filter(function (sub) { return !!sub; });
+    if (!picked.length) {
+      return;
     }
-    closeModal();
+
+    // Le principal va au champ objet — le geste historique, inchangé.
+    mQuery('#emailform_subject').val(picked[0]).trigger('blur');
+
+    var emailId = currentEmailId();
+    var variants = picked.slice(1);
+    if (!variants.length || !emailId || !window.SendlyAiConfig.abtestEndpoint) {
+      closeModal();
+      return;
+    }
+
+    var btn = document.getElementById('sendly-ai-use');
+    btn.disabled = true;
+    btn.textContent = t('mautic.email.ai.ab_creating', 'Création du test A/B…');
+
+    // POST via mQuery : le jeton CSRF global est ajouté automatiquement.
+    mQuery.ajax({
+      url: window.SendlyAiConfig.abtestEndpoint,
+      type: 'POST',
+      dataType: 'json',
+      data: { emailId: emailId, subjects: variants },
+      success: function (res) {
+        closeModal();
+        var n = res && res.created ? res.created.length : 0;
+        if (typeof Mautic.flashMessage === 'function') {
+          Mautic.flashMessage(t('mautic.email.ai.ab_created', 'Test A/B créé : ')
+            + n + ' ' + t('mautic.email.ai.ab_variants', 'variante(s) d’objet.')
+            + (res && false === res.published
+              ? ' ' + t('mautic.email.ai.ab_unpublished', 'Variantes créées dépubliées (droit de publication requis).')
+              : ''));
+        }
+      },
+      error: function () {
+        btn.disabled = false;
+        btn.textContent = useLabel();
+        showErr();
+      }
+    });
   }
 
   function hideErr() {

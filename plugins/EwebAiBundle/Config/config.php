@@ -36,6 +36,14 @@ return [
             // Assistant d'aide (panneau « Assistant IA » de la barre haute) :
             // questions-réponses sur l'outil. Ne mute rien, ne lit aucune
             // donnée du compte.
+            // Chantier C : des suggestions d'objets aux VARIANTES A/B
+            // natives. CRÉE des entités — garde celle de l'écran natif
+            // abtest (email:emails:create + accès au parent).
+            'eweb_ai_email_abtest' => [
+                'path'       => '/ai/email/abtest',
+                'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiAbTestController::createAction',
+                'method'     => 'POST',
+            ],
             'eweb_ai_assist' => [
                 'path'       => '/ai/assist',
                 'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiController::assistAction',
