@@ -73,7 +73,11 @@
       { id: 'left', label: 'G' }, { id: 'center', label: 'C' }, { id: 'right', label: 'D' }] };
   }
   function slider(property, name, units, min, max, step) {
-    return { type: 'sendly-slider', property: property, name: name, units: units, min: min, max: max, step: step };
+    // `sendlyUnit` et non `units` : le champ `units` déclenche le découpage
+    // valeur/unité du modèle de propriété de base, qui ne sait pas recoller
+    // -> « 63px » stocké « 63 », CSS invalide, curseurs SANS EFFET (défaut
+    // proprio 11/08 : taille et espacement muets). Champ opaque = intact.
+    return { type: 'sendly-slider', property: property, name: name, sendlyUnit: units && units.length ? units[0] : '', min: min, max: max, step: step };
   }
 
   // La matrice validée : un secteur par famille, id = s-<kind>.
@@ -153,22 +157,38 @@
     ] },
   };
 
-  /** Le contrôle signature de la maquette : champ numérique + slider liés. */
+  /** Le contrôle signature de la maquette : champ numérique + slider liés.
+   *  L'écriture passe par `upValue` du MODÈLE de propriété — la SEULE voie
+   *  qui préserve l'unité : le `change()` de l'API des types custom finit
+   *  dans `updateStyle`, qui AVALE le suffixe (« 63px » stocké « 63 »,
+   *  CSS invalide -> curseurs sans le moindre effet, défaut proprio 11/08,
+   *  prouvé en pilotant les deux voies dans la même session). */
   function registerSliderType(editor) {
+    function modeleDe(propriete) {
+      var trouve = null;
+      editor.StyleManager.getSectors().forEach(function (s) {
+        (s.get('properties') || []).forEach(function (p) {
+          if (!trouve && propriete === p.get('property') && 'sendly-slider' === p.get('type')) { trouve = p; }
+        });
+      });
+      return trouve;
+    }
     editor.StyleManager.addType('sendly-slider', {
       create: function (arg) {
         var props = arg.props;
-        var change = arg.change;
         var el = document.createElement('div');
         el.className = 'sendly-sldin';
         el.innerHTML = '<input type="number" class="sldin-num"><input type="range" class="sldin-range">';
         var range = el.querySelector('.sldin-range');
         var num = el.querySelector('.sldin-num');
-        var unit = (props.units && props.units[0]) || '';
+        var unit = props.sendlyUnit || '';
         range.min = num.min = props.min != null ? props.min : 0;
         range.max = num.max = props.max != null ? props.max : 100;
         range.step = num.step = props.step != null ? props.step : 1;
-        var pousse = function (v, partial) { change({ value: String(v) + unit, partial: partial }); };
+        var pousse = function (v, partial) {
+          var m = modeleDe(props.property);
+          if (m) { m.upValue(String(v) + unit, { partial: partial }); }
+        };
         range.addEventListener('input', function () { num.value = range.value; pousse(range.value, true); });
         range.addEventListener('change', function () { pousse(range.value, false); });
         num.addEventListener('change', function () { range.value = num.value; pousse(num.value, false); });

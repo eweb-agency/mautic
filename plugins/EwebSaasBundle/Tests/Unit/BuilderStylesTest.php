@@ -97,4 +97,23 @@ final class BuilderStylesTest extends TestCase
         self::assertStringContainsString("isGranted('form:forms:viewother')", $controller, 'la visibilité des formulaires des autres doit suivre la permission native');
         self::assertStringContainsString("'XMLHttpRequest' !== \$request->headers->get('X-Requested-With')", $controller);
     }
+
+    public function testLesCurseursEcriventParUpValueEtGardentLUnite(): void
+    {
+        // Défaut proprio 11/08 : taille et espacement SANS EFFET. Deux
+        // voleurs d'unité prouvés en pilotant les deux voies en session :
+        // le champ `units` de la définition déclenche le découpage
+        // valeur/unité du modèle de base (qui ne recolle jamais), et la
+        // voie change()->updateStyle stocke « 63px » comme « 63 » ->
+        // CSS invalide. Écriture par upValue du MODÈLE, unité portée par
+        // un champ opaque pour GrapesJS.
+        $js = (string) file_get_contents(self::STYLES);
+
+        self::assertStringContainsString('sendlyUnit:', $js);
+        self::assertStringContainsString('m.upValue(String(v) + unit', $js);
+        self::assertStringContainsString("'sendly-slider' === p.get('type')", $js);
+        // Plus AUCUNE trace des deux voies fautives dans le code.
+        self::assertStringNotContainsString('arg.change', $js);
+        self::assertStringNotContainsString('units: units', $js);
+    }
 }
