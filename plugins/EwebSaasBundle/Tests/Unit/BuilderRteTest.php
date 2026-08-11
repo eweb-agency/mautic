@@ -150,6 +150,22 @@ final class BuilderRteTest extends TestCase
         self::assertStringNotContainsString('cke.destroy().catch(function () {});', $js);
     }
 
+    public function testUnClicDansLeChromeFermeDAbordLaSession(): void
+    {
+        // Recette proprio 11/08 : pendant l'édition, un clic sur la barre
+        // haute laissait l'éditeur flottant, et « Terminer » pouvait
+        // appliquer la page SANS la saisie en cours. Tout mousedown du
+        // document principal (le canvas est dans l'iframe, jamais concerné)
+        // ferme d'abord la session — seul l'éditeur COURANT agit, le
+        // document survivant aux recyclages du builder.
+        $js = (string) file_get_contents(self::RTE);
+
+        self::assertStringContainsString('window.__sendlyEditeurCourant = editor', $js);
+        self::assertStringContainsString("document.addEventListener('mousedown'", $js);
+        self::assertStringContainsString('editor !== window.__sendlyEditeurCourant', $js);
+        self::assertStringContainsString('fermerSession(el)', $js);
+    }
+
     public function testLeDeballageEviteLImbricationDeParagraphes(): void
     {
         // CKE rend `<p>…</p>` même quand le composant EST un <p> : sans

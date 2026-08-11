@@ -349,6 +349,28 @@
             return deballer(el, contenuDe(el));
           },
         });
+
+        // Tout clic dans le CHROME du générateur (barre haute, panneaux —
+        // le canvas vit dans l'iframe, il n'est jamais concerné) ferme
+        // D'ABORD la session d'édition : la saisie en cours est rendue au
+        // modèle AVANT l'action du bouton (sinon « Terminer » appliquait la
+        // page sans elle, et l'éditeur restait flottant par-dessus les
+        // panneaux — recette proprio 11/08). GrapesJS ferme déjà la session
+        // sur la plupart des mousedown ; cette ceinture couvre les chemins
+        // où son ordre d'écouteurs ne le garantit pas (validé en direct).
+        // Le document survit aux recyclages du builder : chaque ouverture
+        // enregistre SON écouteur, seul celui de l'éditeur COURANT agit.
+        window.__sendlyEditeurCourant = editor;
+        document.addEventListener('mousedown', function () {
+          if (editor !== window.__sendlyEditeurCourant) { return; }
+          var rteObj = editor.RichTextEditor.customRte;
+          if (rteObj && rteObj.__actif) {
+            var el = rteObj.__actif;
+            rteObj.__actif = null;
+            rteObj.__cke = null;
+            fermerSession(el);
+          }
+        }, true);
       });
     },
   });
