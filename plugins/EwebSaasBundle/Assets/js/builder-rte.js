@@ -216,36 +216,114 @@
         var idoc = frameDoc();
         if (idoc) { idoc.addEventListener('keydown', surTouche, true); }
 
+        /** Le composant GrapesJS propriétaire d'un élément du canvas. */
+        function compDe(el) {
+          try { return el.id ? editor.getWrapper().find('#' + el.id)[0] : null; } catch (e) { return null; }
+        }
+
+        /** La donnée de l'élément, par fraîcheur : instance vivante, capture
+         *  de fermeture, origine du montage, DOM. TOUT est porté par
+         *  l'ÉLÉMENT — jamais par l'objet RTE partagé : répondre à GrapesJS
+         *  avec l'état d'un autre composant était LE croisement qui écrasait
+         *  ou vidait les textes (défaut proprio 11/08, 2e vague, reproduit
+         *  et journalisé en direct). */
+        function contenuDe(el) {
+          try {
+            if (el.__sendlyCke) {
+              var d = el.__sendlyCke.getData();
+              if ('string' === typeof d) { return d; }
+            }
+          } catch (e) { /* instance déjà détruite */ }
+          if (null !== el.__sendlyDonnee && undefined !== el.__sendlyDonnee) { return el.__sendlyDonnee; }
+          return 'string' === typeof el.__sendlyOrigine ? el.__sendlyOrigine : el.innerHTML;
+        }
+
+        /** CKE rend `<p>…</p>` même quand le composant EST un <p> : sans
+         *  déballage, chaque cycle d'édition imbriquait un <p> de plus. */
+        function deballer(el, html) {
+          if (el.tagName && 'P' === el.tagName) {
+            var m = /^<p>([\s\S]*)<\/p>$/.exec((html || '').trim());
+            if (m && -1 === m[1].indexOf('<p>')) { return m[1]; }
+          }
+          return html;
+        }
+
+        /** CKE laisse l'élément VIDE après destroy — et si le contenu n'a
+         *  pas changé, GrapesJS ne re-rend PAS le composant (modèle
+         *  identique) : texte intact dans le modèle mais INVISIBLE à
+         *  l'écran. C'était LE « composant qui disparaît » du proprio.
+         *  Le DOM est donc TOUJOURS restauré par nos soins après
+         *  destruction. */
+        function detruireEtRestaurer(cke, el) {
+          var contenu = null;
+          try { contenu = cke.getData(); } catch (e) { /* déjà détruite */ }
+          return cke.destroy().catch(function () { /* déjà démonté */ }).then(function () {
+            var c = 'string' === typeof contenu && '' !== contenu ? contenu : contenuDe(el);
+            if ('string' === typeof c && '' !== c && '' === el.innerHTML) {
+              el.innerHTML = deballer(el, c);
+            }
+          });
+        }
+
+        /** Fermeture d'office d'une session encore ouverte : GrapesJS ACTIVE
+         *  le texte suivant AVANT de désactiver le précédent, et son disable
+         *  tardif n'est PAS suivi d'un getContent (constaté au journal) — on
+         *  rend donc ses données au modèle du propriétaire NOUS-MÊMES. */
+        function fermerSession(el) {
+          el.__sendlyGen = (el.__sendlyGen || 0) + 1;
+          var contenu = contenuDe(el);
+          if (el.__sendlyCke) {
+            var cke = el.__sendlyCke;
+            el.__sendlyCke = null;
+            el.__sendlyDonnee = contenu;
+            detruireEtRestaurer(cke, el);
+          }
+          var comp = el.__sendlyComp || compDe(el);
+          if (comp && 'string' === typeof contenu && '' !== contenu) {
+            comp.components(deballer(el, contenu));
+          }
+        }
+
         // L'INTÉGRATION OFFICIELLE : GrapesJS ne connaît que ce RTE.
         editor.setCustomRte({
           // Le contenu synchronisé redevient un ARBRE de composants — jamais
           // du contenu plat (piège historique de la modale).
           parseContent: true,
 
+          // L'élément dont la session est ouverte (pointeur de session ;
+          // l'ÉTAT, lui, vit sur chaque élément).
+          __actif: null,
+
           enable: function (el, rte) {
-            editor.RichTextEditor.hideToolbar();
-            var iwin = frameWin();
             var self = this;
+            editor.RichTextEditor.hideToolbar();
+            // Chevauchement GrapesJS : B s'active AVANT la désactivation
+            // de A — sans cette fermeture, les données de A partaient en B.
+            if (self.__actif && self.__actif !== el) { fermerSession(self.__actif); }
+            self.__actif = el;
+            var iwin = frameWin();
             // L'ORIGINE est capturée SYNCHRONEMENT, avant tout chargement :
-            // pendant le vol du montage, l'élément est remplacé par CKE — un
-            // getContent qui lirait el.innerHTML rendrait du VIDE et le
-            // composant « disparaissait » (défaut proprio 11/08, perte de
-            // contenu au clic impatient pendant le premier chargement).
-            self.__origine = el.innerHTML;
-            self.__donnee = null;
-            // Jeton de génération : une fermeture pendant le vol invalide le
-            // montage — l'instance qui arrive trop tard est détruite au lieu
-            // de s'installer en zombie.
-            var gen = self.__gen = (self.__gen || 0) + 1;
+            // pendant le vol du montage, l'élément est remplacé par CKE.
+            el.__sendlyOrigine = el.innerHTML;
+            el.__sendlyDonnee = null;
+            el.__sendlyCke = null;
+            el.__sendlyComp = compDe(el);
+            // Jeton de génération PAR ÉLÉMENT : une fermeture pendant le vol
+            // invalide le montage, l'instance tardive est détruite.
+            var gen = el.__sendlyGen = (el.__sendlyGen || 0) + 1;
+            // Miroirs de la session ACTIVE pour la touche Échap (surTouche).
+            self.__origine = el.__sendlyOrigine;
+            self.__cke = null;
             return chargerBundle().then(function () {
               return iwin.ClassicEditor.create(el, construireConfig(iwin));
             }).then(function (cke) {
-              if (gen !== self.__gen) {
-                cke.destroy().catch(function () {});
-                return self;
+              if (gen !== el.__sendlyGen || self.__actif !== el) {
+                return detruireEtRestaurer(cke, el).then(function () { return self; });
               }
+              el.__sendlyCke = cke;
+              el.__sendlyOrigine = cke.getData();
               self.__cke = cke;
-              self.__origine = cke.getData();
+              self.__origine = el.__sendlyOrigine;
               // Un bloc plus large que la frame a pu la faire scroller :
               // on recale pour que la barre soit visible au montage.
               iwin.scrollTo({ left: 0 });
@@ -256,24 +334,19 @@
 
           disable: function (el, rte) {
             var self = this;
-            // Invalide tout montage encore en vol (cf. jeton de génération).
-            self.__gen = (self.__gen || 0) + 1;
-            if (!self.__cke) { return; }
+            if (self.__actif === el) { self.__actif = null; self.__cke = null; }
+            el.__sendlyGen = (el.__sendlyGen || 0) + 1;
+            if (!el.__sendlyCke) { return; }
             // La donnée est capturée AVANT destruction : getContent est
             // appelé par GrapesJS après coup, l'instance n'existera plus.
-            self.__donnee = self.__cke.getData();
-            var cke = self.__cke;
-            self.__cke = null;
-            return cke.destroy().catch(function () { /* déjà démonté */ });
+            el.__sendlyDonnee = el.__sendlyCke.getData();
+            var cke = el.__sendlyCke;
+            el.__sendlyCke = null;
+            return detruireEtRestaurer(cke, el);
           },
 
           getContent: function (el, rte) {
-            var self = this;
-            if (self.__cke) { return self.__cke.getData(); }
-            if (null !== self.__donnee) { return self.__donnee; }
-            // Pendant le vol du montage, el est remplacé (innerHTML vide) :
-            // l'origine capturée en synchrone fait foi.
-            return 'string' === typeof self.__origine ? self.__origine : el.innerHTML;
+            return deballer(el, contenuDe(el));
           },
         });
       });

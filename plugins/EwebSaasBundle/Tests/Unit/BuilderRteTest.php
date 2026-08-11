@@ -110,12 +110,54 @@ final class BuilderRteTest extends TestCase
         $js = (string) file_get_contents(self::RTE);
 
         // L'origine est capturée en SYNCHRONE, avant tout await.
-        self::assertStringContainsString('self.__origine = el.innerHTML', $js);
-        // Jeton de génération : la fermeture invalide le montage en vol.
-        self::assertStringContainsString('self.__gen = (self.__gen || 0) + 1', $js);
-        self::assertStringContainsString('if (gen !== self.__gen)', $js);
+        self::assertStringContainsString('el.__sendlyOrigine = el.innerHTML', $js);
+        // Jeton de génération PAR ÉLÉMENT : la fermeture invalide le vol.
+        self::assertStringContainsString('el.__sendlyGen = (el.__sendlyGen || 0) + 1', $js);
+        self::assertStringContainsString('gen !== el.__sendlyGen', $js);
         // Et le bundle se précharge au load : plus de fenêtre de 1-2 s.
         self::assertStringContainsString('chargerBundle().catch', $js);
+    }
+
+    public function testLEtatEstPorteParLElementJamaisPartage(): void
+    {
+        // 2e vague du défaut (reproduite + journalisée en direct 11/08) :
+        // l'état vivait sur l'objet RTE PARTAGÉ, et GrapesJS active le texte
+        // suivant AVANT de désactiver le précédent -> les données de A
+        // partaient dans B (textes écrasés ou vidés). L'état est désormais
+        // porté par CHAQUE ÉLÉMENT, et le chevauchement ferme la session
+        // précédente d'office, modèle synchronisé par NOS soins (le disable
+        // tardif de GrapesJS n'est pas suivi d'un getContent, constaté).
+        $js = (string) file_get_contents(self::RTE);
+
+        foreach (['__sendlyOrigine', '__sendlyDonnee', '__sendlyCke', '__sendlyGen', '__sendlyComp'] as $champ) {
+            self::assertStringContainsString('el.'.$champ, $js);
+        }
+        self::assertStringContainsString('fermerSession(self.__actif)', $js);
+        self::assertStringContainsString('comp.components(deballer(el, contenu))', $js);
+    }
+
+    public function testLeDomEstRestaureApresChaqueDemontage(): void
+    {
+        // LE « composant qui disparaît » élucidé : CKE laisse l'élément VIDE
+        // après destroy, et si le contenu n'a pas changé GrapesJS ne re-rend
+        // pas (modèle identique) -> texte intact au modèle, INVISIBLE à
+        // l'écran. Toute destruction passe donc par la restauration du DOM.
+        $js = (string) file_get_contents(self::RTE);
+
+        self::assertStringContainsString('function detruireEtRestaurer(cke, el)', $js);
+        self::assertStringContainsString('el.innerHTML = deballer(el, c)', $js);
+        // Plus AUCUN destroy nu : tout démontage restaure.
+        self::assertStringNotContainsString('cke.destroy().catch(function () {});', $js);
+    }
+
+    public function testLeDeballageEviteLImbricationDeParagraphes(): void
+    {
+        // CKE rend `<p>…</p>` même quand le composant EST un <p> : sans
+        // déballage, chaque cycle d'édition imbriquait un <p> de plus.
+        $js = (string) file_get_contents(self::RTE);
+
+        self::assertStringContainsString('function deballer(el, html)', $js);
+        self::assertStringContainsString("'P' === el.tagName", $js);
     }
 
     public function testLeMarqueurDeThemeEstEnP4(): void
