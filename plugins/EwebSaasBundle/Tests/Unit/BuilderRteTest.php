@@ -55,7 +55,11 @@ final class BuilderRteTest extends TestCase
         $js = (string) file_get_contents(self::RTE);
 
         self::assertStringContainsString('shouldNotGroupWhenFull = false', $js);
-        self::assertStringContainsString('max-width: 460px', $js);
+        // Borné AUSSI à la largeur visible de la frame : en mobile, un bloc
+        // plus large faisait scroller l'iframe et emportait la barre
+        // hors-champ (constaté proprio).
+        self::assertStringContainsString('max-width: min(460px, calc(100vw - 16px))', $js);
+        self::assertStringContainsString('iwin.scrollTo({ left: 0 })', $js);
         // Tout y est toujours : rien ne quitte la toolbar, elle se replie.
         foreach (['insertTable', 'fontColor', 'TokenPlugin', 'alignment'] as $item) {
             self::assertStringContainsString($item, $js, "capacité perdue : $item");

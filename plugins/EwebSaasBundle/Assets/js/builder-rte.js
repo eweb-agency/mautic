@@ -61,8 +61,12 @@
 
   var STYLE_CKE = '.ck.ck-toolbar { border-radius: 10px; border-color: #e5e7eb; box-shadow: 0 8px 22px rgba(22, 35, 59, .14); }'
     + ' .ck.ck-editor__editable:not(.ck-editor__nested-editable).ck-focused { border-color: #004FFF; box-shadow: none; }'
-    /* le max-width déclenche le repli « ⋯ » natif des items excédentaires */
-    + ' .ck.ck-editor__top .ck-toolbar { max-width: 460px; }';
+    /* le max-width déclenche le repli « ⋯ » natif des items excédentaires ;
+       borné aussi à la LARGEUR VISIBLE de la frame : en vue mobile, un bloc
+       plus large que la frame fait scroller l'iframe et emportait la barre
+       hors-champ (défaut proprio 11/08 — barre coupée, contour débordant) */
+    + ' .ck.ck-editor__top .ck-toolbar { max-width: min(460px, calc(100vw - 16px)); }'
+    + ' .ck.ck-editor__top { position: sticky; left: 0; z-index: 5; }';
 
   window.MauticGrapesJsPlugins.push({
     name: 'sendly-rte',
@@ -224,6 +228,9 @@
               self.__cke = cke;
               self.__origine = cke.getData();
               self.__donnee = null;
+              // Un bloc plus large que la frame a pu la faire scroller :
+              // on recale pour que la barre soit visible au montage.
+              iwin.scrollTo({ left: 0 });
               cke.editing.view.focus();
               return self;
             });
