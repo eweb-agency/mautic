@@ -61,8 +61,12 @@
 
   var STYLE_CKE = '.ck.ck-toolbar { border-radius: 10px; border-color: #e5e7eb; box-shadow: 0 8px 22px rgba(22, 35, 59, .14); }'
     + ' .ck.ck-editor__editable:not(.ck-editor__nested-editable).ck-focused { border-color: #004FFF; box-shadow: none; }'
-    /* le max-width déclenche le repli « ⋯ » natif des items excédentaires */
-    + ' .ck.ck-editor__top .ck-toolbar { max-width: 460px; }';
+    /* le max-width déclenche le repli « ⋯ » natif des items excédentaires ;
+       borné aussi à la LARGEUR VISIBLE de la frame : en vue mobile, un bloc
+       plus large que la frame fait scroller l'iframe et emportait la barre
+       hors-champ (défaut proprio 11/08 — barre coupée, contour débordant) */
+    + ' .ck.ck-editor__top .ck-toolbar { max-width: min(460px, calc(100vw - 16px)); }'
+    + ' .ck.ck-editor__top { position: sticky; left: 0; z-index: 5; }';
 
   window.MauticGrapesJsPlugins.push({
     name: 'sendly-rte',
@@ -193,6 +197,10 @@
 
       editor.on('load', function () {
         prechargerJetons();
+        // PRÉCHAUFFAGE du bundle CKE dans l'iframe : sans lui, le premier
+        // double-clic subissait 1-2 s de chargement — la fenêtre où le clic
+        // impatient perdait du contenu.
+        chargerBundle().catch(function () { /* retentera au premier montage */ });
 
         // Retire le handler modale du preset (enregistré avant nous)...
         editor.off('rte:enable');
@@ -218,12 +226,29 @@
             editor.RichTextEditor.hideToolbar();
             var iwin = frameWin();
             var self = this;
+            // L'ORIGINE est capturée SYNCHRONEMENT, avant tout chargement :
+            // pendant le vol du montage, l'élément est remplacé par CKE — un
+            // getContent qui lirait el.innerHTML rendrait du VIDE et le
+            // composant « disparaissait » (défaut proprio 11/08, perte de
+            // contenu au clic impatient pendant le premier chargement).
+            self.__origine = el.innerHTML;
+            self.__donnee = null;
+            // Jeton de génération : une fermeture pendant le vol invalide le
+            // montage — l'instance qui arrive trop tard est détruite au lieu
+            // de s'installer en zombie.
+            var gen = self.__gen = (self.__gen || 0) + 1;
             return chargerBundle().then(function () {
               return iwin.ClassicEditor.create(el, construireConfig(iwin));
             }).then(function (cke) {
+              if (gen !== self.__gen) {
+                cke.destroy().catch(function () {});
+                return self;
+              }
               self.__cke = cke;
               self.__origine = cke.getData();
-              self.__donnee = null;
+              // Un bloc plus large que la frame a pu la faire scroller :
+              // on recale pour que la barre soit visible au montage.
+              iwin.scrollTo({ left: 0 });
               cke.editing.view.focus();
               return self;
             });
@@ -231,6 +256,8 @@
 
           disable: function (el, rte) {
             var self = this;
+            // Invalide tout montage encore en vol (cf. jeton de génération).
+            self.__gen = (self.__gen || 0) + 1;
             if (!self.__cke) { return; }
             // La donnée est capturée AVANT destruction : getContent est
             // appelé par GrapesJS après coup, l'instance n'existera plus.
@@ -243,7 +270,10 @@
           getContent: function (el, rte) {
             var self = this;
             if (self.__cke) { return self.__cke.getData(); }
-            return null !== self.__donnee ? self.__donnee : el.innerHTML;
+            if (null !== self.__donnee) { return self.__donnee; }
+            // Pendant le vol du montage, el est remplacé (innerHTML vide) :
+            // l'origine capturée en synchrone fait foi.
+            return 'string' === typeof self.__origine ? self.__origine : el.innerHTML;
           },
         });
       });

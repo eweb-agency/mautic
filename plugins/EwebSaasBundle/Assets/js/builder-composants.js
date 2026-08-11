@@ -109,7 +109,13 @@
     // pour proposer le sélecteur de formulaires dans le panneau Styles.
     bm.add('sendly-form', { label: 'Formulaire', media: ICONS['FORMULAIRE'], category: BASIQUE, order: 16,
       content: '<div data-sendly="form" style="padding:16px;text-align:center;color:#6a7486">Formulaire — choisissez le formulaire dans l\'onglet Styles</div>' });
-    bm.add('sendly-ia', { label: 'Assistant IA', media: ICONS['ASSISTANT IA'], category: BASIQUE, order: 17, content: '' });
+    // La tuile IA n'apparaît QUE si le copilote est activé sur l'instance
+    // (même gating 3 niveaux que les boutons IA des e-mails) : sans clé,
+    // le panneau n'existe pas — une tuile qui n'ouvre rien serait une
+    // promesse cassée (constaté sur un tenant sans clé, P5).
+    if (window.SendlyAiConfig && window.SendlyAiConfig.enabled) {
+      bm.add('sendly-ia', { label: 'Assistant IA', media: ICONS['ASSISTANT IA'], category: BASIQUE, order: 17, content: '' });
+    }
 
     // Tri = ordre visuel (la vue rend dans l'ordre de collection)…
     var tous = bm.getAll().map(function (b) {

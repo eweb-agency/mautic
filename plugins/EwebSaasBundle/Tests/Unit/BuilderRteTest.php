@@ -55,7 +55,11 @@ final class BuilderRteTest extends TestCase
         $js = (string) file_get_contents(self::RTE);
 
         self::assertStringContainsString('shouldNotGroupWhenFull = false', $js);
-        self::assertStringContainsString('max-width: 460px', $js);
+        // Borné AUSSI à la largeur visible de la frame : en mobile, un bloc
+        // plus large faisait scroller l'iframe et emportait la barre
+        // hors-champ (constaté proprio).
+        self::assertStringContainsString('max-width: min(460px, calc(100vw - 16px))', $js);
+        self::assertStringContainsString('iwin.scrollTo({ left: 0 })', $js);
         // Tout y est toujours : rien ne quitte la toolbar, elle se replie.
         foreach (['insertTable', 'fontColor', 'TokenPlugin', 'alignment'] as $item) {
             self::assertStringContainsString($item, $js, "capacité perdue : $item");
@@ -96,6 +100,22 @@ final class BuilderRteTest extends TestCase
         self::assertStringContainsString('rte.__cke.setData(rte.__origine)', $js);
         self::assertStringContainsString("['mousedown', 'mouseup', 'click']", $js);
         self::assertStringContainsString('MouseEvent', $js);
+    }
+
+    public function testLeMontageEnVolNePerdJamaisDeContenu(): void
+    {
+        // Défaut proprio 11/08 : premier montage lent (bundle ~1-2 s) ; un
+        // clic pendant le vol fermait la session sur un élément déjà
+        // remplacé -> contenu VIDE, le composant « disparaissait ».
+        $js = (string) file_get_contents(self::RTE);
+
+        // L'origine est capturée en SYNCHRONE, avant tout await.
+        self::assertStringContainsString('self.__origine = el.innerHTML', $js);
+        // Jeton de génération : la fermeture invalide le montage en vol.
+        self::assertStringContainsString('self.__gen = (self.__gen || 0) + 1', $js);
+        self::assertStringContainsString('if (gen !== self.__gen)', $js);
+        // Et le bundle se précharge au load : plus de fenêtre de 1-2 s.
+        self::assertStringContainsString('chargerBundle().catch', $js);
     }
 
     public function testLeMarqueurDeThemeEstEnP4(): void

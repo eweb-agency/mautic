@@ -359,6 +359,15 @@
       if (openCtx && openCtx.id === ctxId) {
         closePanel();
       }
+    },
+    /** Ouvre le panneau sur un contexte précis (chantier D, P5 : la tuile
+     *  « Assistant IA » de l'éditeur est la seule entrée IA — le lanceur
+     *  flottant y est masqué, il fallait une porte programmatique). */
+    open: function (ctxId) {
+      var ctx = contexts().filter(function (c) { return c.id === ctxId && c.available(); })[0];
+      if (ctx) {
+        openPanel(ctx);
+      }
     }
   };
 

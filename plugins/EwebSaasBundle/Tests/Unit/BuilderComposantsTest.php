@@ -111,4 +111,19 @@ final class BuilderComposantsTest extends TestCase
 
         self::assertStringContainsString('style=\\"fill:#fff\\"', $js);
     }
+
+    public function testLaTuileIaNApparaitQueSiLeCopiloteEstActif(): void
+    {
+        // Relevé en réel (P5, tenant sans clé) : sans copilote il n'y a NI
+        // config NI panneau — une tuile qui n'ouvre rien serait une promesse
+        // cassée. Même gating 3 niveaux que les boutons IA des e-mails.
+        $js = (string) file_get_contents(self::JS);
+
+        self::assertStringContainsString('if (window.SendlyAiConfig && window.SendlyAiConfig.enabled) {', $js);
+        $garde = strpos($js, 'window.SendlyAiConfig && window.SendlyAiConfig.enabled');
+        $tuile = strpos($js, "bm.add('sendly-ia'");
+        self::assertNotFalse($garde);
+        self::assertNotFalse($tuile);
+        self::assertLessThan($tuile, $garde, 'la garde doit precede l ajout de la tuile IA');
+    }
 }
