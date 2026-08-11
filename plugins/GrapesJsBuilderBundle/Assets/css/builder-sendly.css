@@ -34,7 +34,7 @@
 
 /* Marqueur de présence (vérifiable en prod : la feuille est bien servie). */
 .gjs-mode-page {
-    --sendly-builder-theme: 'p3b';
+    --sendly-builder-theme: 'p4';
 }
 
 /* ── Variables GrapesJS ─────────────────────────────────────────── */
