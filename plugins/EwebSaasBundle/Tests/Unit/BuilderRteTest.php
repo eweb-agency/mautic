@@ -176,8 +176,48 @@ final class BuilderRteTest extends TestCase
         self::assertStringContainsString("'P' === el.tagName", $js);
     }
 
-    public function testLeMarqueurDeThemeEstEnP4(): void
+    public function testLesClicsReelsDansCkeNeFermentPasLaSession(): void
     {
-        self::assertStringContainsString("--sendly-builder-theme: 'p4'", (string) file_get_contents(self::THEME));
+        // 3e vague (clics RÉELS du proprio, invisibles aux événements
+        // synthétiques) : CKE REMPLACE l'élément d'origine — pour GrapesJS,
+        // cliquer dans l'éditable ou sur la barre CKE était « dehors » et
+        // fermait la session au premier clic. Le bouclier coupe la REMONTÉE
+        // des événements souris depuis l'enveloppe CKE (phase cible
+        // préservée : les boutons fonctionnent).
+        $js = (string) file_get_contents(self::RTE);
+
+        self::assertStringContainsString('function poserBouclier(cke)', $js);
+        self::assertStringContainsString('cke.ui.element', $js);
+        self::assertStringContainsString('e.stopPropagation()', $js);
+        self::assertStringContainsString('poserBouclier(cke)', $js);
+    }
+
+    public function testLeFermeurDeChromeIgnoreLesRediffusionsDuCanvas(): void
+    {
+        // GrapesJS RE-DIFFUSE chaque clic du canvas sur le document
+        // principal avec l'IFRAME pour cible (constaté aux sondes) : sans
+        // la garde, cliquer DANS le texte édité fermait la session.
+        $js = (string) file_get_contents(self::RTE);
+
+        self::assertStringContainsString("'IFRAME' === e.target.tagName", $js);
+        self::assertStringContainsString(".closest('.gjs-cv-canvas')", $js);
+    }
+
+    public function testLaMiniBarreComposantEstMasqueePendantLaSession(): void
+    {
+        // La mini-barre (déplacer/supprimer) flottait PILE sous la barre
+        // CKE : un clic pour elle fermait la session, voire supprimait le
+        // composant via la corbeille.
+        $js    = (string) file_get_contents(self::RTE);
+        $theme = (string) file_get_contents(self::THEME);
+
+        self::assertStringContainsString("classList.add('sendly-rte-active')", $js);
+        self::assertStringContainsString("classList.remove('sendly-rte-active')", $js);
+        self::assertStringContainsString('body.sendly-rte-active .gjs-mode-page .gjs-toolbar', $theme);
+    }
+
+    public function testLeMarqueurDeThemeEstEnRte2(): void
+    {
+        self::assertStringContainsString("--sendly-builder-theme: 'rte2'", (string) file_get_contents(self::THEME));
     }
 }

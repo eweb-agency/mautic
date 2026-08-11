@@ -265,6 +265,28 @@
           });
         }
 
+        /** LE bouclier des clics réels (recette proprio 11/08, 3e vague) :
+         *  GrapesJS ferme la session dès qu'un clic du canvas ne vise pas
+         *  l'élément d'ORIGINE — or CKE l'a REMPLACÉ par sa propre
+         *  interface : cliquer dans l'éditable ou sur un bouton de la barre
+         *  était « dehors » pour GrapesJS → l'éditeur sautait au premier
+         *  clic. (Indétectable aux événements synthétiques, qui visaient
+         *  l'élément d'origine — seule la souris réelle passe par le DOM
+         *  de CKE.) On coupe la REMONTÉE des événements souris depuis
+         *  l'enveloppe CKE : ses boutons fonctionnent (phase cible), et
+         *  GrapesJS ne voit plus ces clics — validé en clics réels. */
+        function poserBouclier(cke) {
+          try {
+            var enveloppe = cke.ui.element;
+            if (enveloppe && !enveloppe.__sendlyBouclier) {
+              enveloppe.__sendlyBouclier = true;
+              ['mousedown', 'mouseup', 'click', 'dblclick'].forEach(function (t) {
+                enveloppe.addEventListener(t, function (e) { e.stopPropagation(); });
+              });
+            }
+          } catch (e) { /* enveloppe indisponible : la session reste utilisable au clavier */ }
+        }
+
         /** Fermeture d'office d'une session encore ouverte : GrapesJS ACTIVE
          *  le texte suivant AVANT de désactiver le précédent, et son disable
          *  tardif n'est PAS suivi d'un getContent (constaté au journal) — on
@@ -297,6 +319,11 @@
           enable: function (el, rte) {
             var self = this;
             editor.RichTextEditor.hideToolbar();
+            // La mini-barre composant (déplacer/supprimer) flotte PILE sous
+            // la barre CKE : un clic pour elle fermait la session — voire
+            // SUPPRIMAIT le composant (corbeille). Masquée pendant la
+            // session via cette classe (règle du thème).
+            document.body.classList.add('sendly-rte-active');
             // Chevauchement GrapesJS : B s'active AVANT la désactivation
             // de A — sans cette fermeture, les données de A partaient en B.
             if (self.__actif && self.__actif !== el) { fermerSession(self.__actif); }
@@ -324,6 +351,7 @@
               el.__sendlyOrigine = cke.getData();
               self.__cke = cke;
               self.__origine = el.__sendlyOrigine;
+              poserBouclier(cke);
               // Un bloc plus large que la frame a pu la faire scroller :
               // on recale pour que la barre soit visible au montage.
               iwin.scrollTo({ left: 0 });
@@ -335,6 +363,7 @@
           disable: function (el, rte) {
             var self = this;
             if (self.__actif === el) { self.__actif = null; self.__cke = null; }
+            document.body.classList.remove('sendly-rte-active');
             el.__sendlyGen = (el.__sendlyGen || 0) + 1;
             if (!el.__sendlyCke) { return; }
             // La donnée est capturée AVANT destruction : getContent est
@@ -361,13 +390,20 @@
         // Le document survit aux recyclages du builder : chaque ouverture
         // enregistre SON écouteur, seul celui de l'éditeur COURANT agit.
         window.__sendlyEditeurCourant = editor;
-        document.addEventListener('mousedown', function () {
+        document.addEventListener('mousedown', function (e) {
           if (editor !== window.__sendlyEditeurCourant) { return; }
+          // ⚠️ GrapesJS RE-DIFFUSE chaque clic du canvas sur le document
+          // principal avec l'IFRAME pour cible (constaté aux sondes) : sans
+          // cette garde, cliquer DANS le texte édité fermait la session.
+          // Seuls les clics du vrai chrome (barre haute, panneaux) ferment.
+          if (e.target && ('IFRAME' === e.target.tagName
+            || (e.target.closest && e.target.closest('.gjs-cv-canvas')))) { return; }
           var rteObj = editor.RichTextEditor.customRte;
           if (rteObj && rteObj.__actif) {
             var el = rteObj.__actif;
             rteObj.__actif = null;
             rteObj.__cke = null;
+            document.body.classList.remove('sendly-rte-active');
             fermerSession(el);
           }
         }, true);
