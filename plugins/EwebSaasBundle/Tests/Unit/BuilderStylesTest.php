@@ -97,4 +97,79 @@ final class BuilderStylesTest extends TestCase
         self::assertStringContainsString("isGranted('form:forms:viewother')", $controller, 'la visibilité des formulaires des autres doit suivre la permission native');
         self::assertStringContainsString("'XMLHttpRequest' !== \$request->headers->get('X-Requested-With')", $controller);
     }
+
+    public function testLesCurseursEcriventParUpValueEtGardentLUnite(): void
+    {
+        // Défaut proprio 11/08 : taille et espacement SANS EFFET. Deux
+        // voleurs d'unité prouvés en pilotant les deux voies en session :
+        // le champ `units` de la définition déclenche le découpage
+        // valeur/unité du modèle de base (qui ne recolle jamais), et la
+        // voie change()->updateStyle stocke « 63px » comme « 63 » ->
+        // CSS invalide. Écriture par upValue du MODÈLE, unité portée par
+        // un champ opaque pour GrapesJS.
+        $js = (string) file_get_contents(self::STYLES);
+
+        self::assertStringContainsString('sendlyUnit:', $js);
+        self::assertStringContainsString('m.upValue(String(v) + unit', $js);
+        self::assertStringContainsString("'sendly-slider' === p.get('type')", $js);
+        // Plus AUCUNE trace des deux voies fautives dans le code.
+        self::assertStringNotContainsString('arg.change', $js);
+        self::assertStringNotContainsString('units: units', $js);
+    }
+
+    public function testLesCompositesHeritentDuNatifSinonLignesVides(): void
+    {
+        // Défaut proprio 11/08 (capture) : Marge interne/externe, Rayon,
+        // Bordure, Ombre portée = étiquettes SANS AUCUN champ. Un composite
+        // ou stack déclaré nu n'a AUCUN sous-champ ; hériter du natif via
+        // `extend` construit tout (sonde live : 4/4 champs 124x27 rendus).
+        $js = (string) file_get_contents(self::STYLES);
+
+        foreach (["{ extend: 'padding', name: 'Marge interne' }",
+            "{ extend: 'margin', name: 'Marge externe' }",
+            "{ extend: 'border-radius', name: 'Rayon de bordure' }",
+            "{ extend: 'border', name: 'Bordure' }",
+            "{ extend: 'box-shadow', name: 'Ombre portée' }",
+            "{ extend: 'background', name: 'Image / dégradé de fond' }"] as $def) {
+            self::assertStringContainsString($def, $js);
+        }
+        self::assertStringNotContainsString("type: 'composite'", $js, 'composite nu = ligne vide');
+        self::assertStringNotContainsString("type: 'stack'", $js, 'stack nu = ligne vide');
+    }
+
+    public function testLesSousChampsHeritesSontFrancises(): void
+    {
+        // Demande proprio 11/08 : les sous-champs hérités du natif arrivent
+        // en anglais (Top, Right, Blur…). Re-libeller les MODÈLES ne re-rend
+        // pas les vues (constaté) : traduction au niveau du DOM — le texte
+        // vit dans `.gjs-sm-icon` — passe initiale + MutationObserver pour
+        // les couches de pile rendues à la volée (ombres, fonds).
+        $js = (string) file_get_contents(self::STYLES);
+
+        self::assertStringContainsString('function franciserSousLibelles()', $js);
+        self::assertStringContainsString('franciserSousLibelles();', $js);
+        self::assertStringContainsString("'.gjs-sm-label .gjs-sm-icon'", $js);
+        self::assertStringContainsString('MutationObserver', $js);
+        foreach (["'Top': 'Haut'", "'Right': 'Droite'", "'Bottom': 'Bas'", "'Left': 'Gauche'",
+            "'Blur': 'Flou'", "'Spread': 'Étendue'", "'X position': 'Position X'"] as $paire) {
+            self::assertStringContainsString($paire, $js);
+        }
+    }
+
+    public function testLesReglesEditeesPerdentLeursDoublonsPrefixes(): void
+    {
+        // Proprio 12/08 : « Rayon de bordure ne fonctionne pas » — la
+        // valeur s'écrivait bien, mais le -webkit-border-radius du thème
+        // importé, placé après dans la règle, l'écrasait en cascade (alias
+        // navigateur). Toute règle ÉDITÉE perd ses doublons préfixés des
+        // propriétés standards présentes ; les règles jamais touchées
+        // restent telles qu'importées.
+        $js = (string) file_get_contents(self::STYLES);
+
+        self::assertStringContainsString('function purgerPrefixes(regle)', $js);
+        self::assertStringContainsString("editor.Css.getAll().on('change:style', purgerPrefixes)", $js);
+        foreach (["'-webkit-'", "'-moz-'", "'-o-'", "'-ms-'"] as $prefixe) {
+            self::assertStringContainsString($prefixe, $js);
+        }
+    }
 }

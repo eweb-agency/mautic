@@ -34,7 +34,7 @@
 
 /* Marqueur de présence (vérifiable en prod : la feuille est bien servie). */
 .gjs-mode-page {
-    --sendly-builder-theme: 'p4';
+    --sendly-builder-theme: 'rte2';
 }
 
 /* ── Variables GrapesJS ─────────────────────────────────────────── */
@@ -270,3 +270,9 @@
 /* Le bouton proxy du mode Code ne doit jamais se voir (ceinture + bretelles
    avec son style inline). */
 .gjs-mode-page .gjs-pn-btn.sendly-cache { display: none; }
+
+/* Pendant une session d'édition de texte (classe posée par builder-rte),
+   la mini-barre composant (déplacer/supprimer) disparaît : elle flottait
+   PILE sous la barre CKE — un clic pour elle fermait la session, voire
+   supprimait le composant via la corbeille (recette proprio 11/08). */
+body.sendly-rte-active .gjs-mode-page .gjs-toolbar { display: none !important; pointer-events: none !important; }

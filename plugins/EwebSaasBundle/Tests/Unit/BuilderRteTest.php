@@ -110,16 +110,114 @@ final class BuilderRteTest extends TestCase
         $js = (string) file_get_contents(self::RTE);
 
         // L'origine est capturée en SYNCHRONE, avant tout await.
-        self::assertStringContainsString('self.__origine = el.innerHTML', $js);
-        // Jeton de génération : la fermeture invalide le montage en vol.
-        self::assertStringContainsString('self.__gen = (self.__gen || 0) + 1', $js);
-        self::assertStringContainsString('if (gen !== self.__gen)', $js);
+        self::assertStringContainsString('el.__sendlyOrigine = el.innerHTML', $js);
+        // Jeton de génération PAR ÉLÉMENT : la fermeture invalide le vol.
+        self::assertStringContainsString('el.__sendlyGen = (el.__sendlyGen || 0) + 1', $js);
+        self::assertStringContainsString('gen !== el.__sendlyGen', $js);
         // Et le bundle se précharge au load : plus de fenêtre de 1-2 s.
         self::assertStringContainsString('chargerBundle().catch', $js);
     }
 
-    public function testLeMarqueurDeThemeEstEnP4(): void
+    public function testLEtatEstPorteParLElementJamaisPartage(): void
     {
-        self::assertStringContainsString("--sendly-builder-theme: 'p4'", (string) file_get_contents(self::THEME));
+        // 2e vague du défaut (reproduite + journalisée en direct 11/08) :
+        // l'état vivait sur l'objet RTE PARTAGÉ, et GrapesJS active le texte
+        // suivant AVANT de désactiver le précédent -> les données de A
+        // partaient dans B (textes écrasés ou vidés). L'état est désormais
+        // porté par CHAQUE ÉLÉMENT, et le chevauchement ferme la session
+        // précédente d'office, modèle synchronisé par NOS soins (le disable
+        // tardif de GrapesJS n'est pas suivi d'un getContent, constaté).
+        $js = (string) file_get_contents(self::RTE);
+
+        foreach (['__sendlyOrigine', '__sendlyDonnee', '__sendlyCke', '__sendlyGen', '__sendlyComp'] as $champ) {
+            self::assertStringContainsString('el.'.$champ, $js);
+        }
+        self::assertStringContainsString('fermerSession(self.__actif)', $js);
+        self::assertStringContainsString('comp.components(deballer(el, contenu))', $js);
+    }
+
+    public function testLeDomEstRestaureApresChaqueDemontage(): void
+    {
+        // LE « composant qui disparaît » élucidé : CKE laisse l'élément VIDE
+        // après destroy, et si le contenu n'a pas changé GrapesJS ne re-rend
+        // pas (modèle identique) -> texte intact au modèle, INVISIBLE à
+        // l'écran. Toute destruction passe donc par la restauration du DOM.
+        $js = (string) file_get_contents(self::RTE);
+
+        self::assertStringContainsString('function detruireEtRestaurer(cke, el)', $js);
+        self::assertStringContainsString('el.innerHTML = deballer(el, c)', $js);
+        // Plus AUCUN destroy nu : tout démontage restaure.
+        self::assertStringNotContainsString('cke.destroy().catch(function () {});', $js);
+    }
+
+    public function testUnClicDansLeChromeFermeDAbordLaSession(): void
+    {
+        // Recette proprio 11/08 : pendant l'édition, un clic sur la barre
+        // haute laissait l'éditeur flottant, et « Terminer » pouvait
+        // appliquer la page SANS la saisie en cours. Tout mousedown du
+        // document principal (le canvas est dans l'iframe, jamais concerné)
+        // ferme d'abord la session — seul l'éditeur COURANT agit, le
+        // document survivant aux recyclages du builder.
+        $js = (string) file_get_contents(self::RTE);
+
+        self::assertStringContainsString('window.__sendlyEditeurCourant = editor', $js);
+        self::assertStringContainsString("document.addEventListener('mousedown'", $js);
+        self::assertStringContainsString('editor !== window.__sendlyEditeurCourant', $js);
+        self::assertStringContainsString('fermerSession(el)', $js);
+    }
+
+    public function testLeDeballageEviteLImbricationDeParagraphes(): void
+    {
+        // CKE rend `<p>…</p>` même quand le composant EST un <p> : sans
+        // déballage, chaque cycle d'édition imbriquait un <p> de plus.
+        $js = (string) file_get_contents(self::RTE);
+
+        self::assertStringContainsString('function deballer(el, html)', $js);
+        self::assertStringContainsString("'P' === el.tagName", $js);
+    }
+
+    public function testLesClicsReelsDansCkeNeFermentPasLaSession(): void
+    {
+        // 3e vague (clics RÉELS du proprio, invisibles aux événements
+        // synthétiques) : CKE REMPLACE l'élément d'origine — pour GrapesJS,
+        // cliquer dans l'éditable ou sur la barre CKE était « dehors » et
+        // fermait la session au premier clic. Le bouclier coupe la REMONTÉE
+        // des événements souris depuis l'enveloppe CKE (phase cible
+        // préservée : les boutons fonctionnent).
+        $js = (string) file_get_contents(self::RTE);
+
+        self::assertStringContainsString('function poserBouclier(cke)', $js);
+        self::assertStringContainsString('cke.ui.element', $js);
+        self::assertStringContainsString('e.stopPropagation()', $js);
+        self::assertStringContainsString('poserBouclier(cke)', $js);
+    }
+
+    public function testLeFermeurDeChromeIgnoreLesRediffusionsDuCanvas(): void
+    {
+        // GrapesJS RE-DIFFUSE chaque clic du canvas sur le document
+        // principal avec l'IFRAME pour cible (constaté aux sondes) : sans
+        // la garde, cliquer DANS le texte édité fermait la session.
+        $js = (string) file_get_contents(self::RTE);
+
+        self::assertStringContainsString("'IFRAME' === e.target.tagName", $js);
+        self::assertStringContainsString(".closest('.gjs-cv-canvas')", $js);
+    }
+
+    public function testLaMiniBarreComposantEstMasqueePendantLaSession(): void
+    {
+        // La mini-barre (déplacer/supprimer) flottait PILE sous la barre
+        // CKE : un clic pour elle fermait la session, voire supprimait le
+        // composant via la corbeille.
+        $js    = (string) file_get_contents(self::RTE);
+        $theme = (string) file_get_contents(self::THEME);
+
+        self::assertStringContainsString("classList.add('sendly-rte-active')", $js);
+        self::assertStringContainsString("classList.remove('sendly-rte-active')", $js);
+        self::assertStringContainsString('body.sendly-rte-active .gjs-mode-page .gjs-toolbar', $theme);
+    }
+
+    public function testLeMarqueurDeThemeEstEnRte2(): void
+    {
+        self::assertStringContainsString("--sendly-builder-theme: 'rte2'", (string) file_get_contents(self::THEME));
     }
 }

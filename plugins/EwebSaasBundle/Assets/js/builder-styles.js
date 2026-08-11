@@ -60,8 +60,10 @@
     'data-form': 'Formulaire',
   };
 
-  function margeInterne() { return { type: 'composite', property: 'padding', name: 'Marge interne' }; }
-  function margeExterne() { return { type: 'composite', property: 'margin', name: 'Marge externe' }; }
+  // `extend` du natif OBLIGATOIRE : un composite nu ({type:'composite'})
+  // n'a AUCUN sous-champ — lignes vides constatées par le proprio 11/08.
+  function margeInterne() { return { extend: 'padding', name: 'Marge interne' }; }
+  function margeExterne() { return { extend: 'margin', name: 'Marge externe' }; }
   function police() { return { extend: 'font-family', name: 'Police' }; }
   function graisse() {
     return { type: 'select', property: 'font-weight', name: 'Épaisseur', options: [
@@ -73,7 +75,11 @@
       { id: 'left', label: 'G' }, { id: 'center', label: 'C' }, { id: 'right', label: 'D' }] };
   }
   function slider(property, name, units, min, max, step) {
-    return { type: 'sendly-slider', property: property, name: name, units: units, min: min, max: max, step: step };
+    // `sendlyUnit` et non `units` : le champ `units` déclenche le découpage
+    // valeur/unité du modèle de propriété de base, qui ne sait pas recoller
+    // -> « 63px » stocké « 63 », CSS invalide, curseurs SANS EFFET (défaut
+    // proprio 11/08 : taille et espacement muets). Champ opaque = intact.
+    return { type: 'sendly-slider', property: property, name: name, sendlyUnit: units && units.length ? units[0] : '', min: min, max: max, step: step };
   }
 
   // La matrice validée : un secteur par famille, id = s-<kind>.
@@ -94,24 +100,24 @@
       { type: 'color', property: 'background-color', name: "Couleur d'arrière-plan" },
       police(), slider('font-size', 'Taille', ['px'], 8, 48, 1), graisse(),
       margeInterne(), margeExterne(),
-      { type: 'composite', property: 'border-radius', name: 'Rayon de bordure' },
-      { type: 'composite', property: 'border', name: 'Bordure' },
-      { type: 'stack', property: 'box-shadow', name: 'Ombre portée' },
+      { extend: 'border-radius', name: 'Rayon de bordure' },
+      { extend: 'border', name: 'Bordure' },
+      { extend: 'box-shadow', name: 'Ombre portée' },
     ] },
     image: { id: 's-image', name: "Paramètres de l'image", open: true, properties: [
       slider('width', 'Largeur', ['%', 'px'], 0, 100, 1),
-      { type: 'composite', property: 'border-radius', name: 'Rayon de bordure' },
-      { type: 'stack', property: 'box-shadow', name: 'Ombre portée' },
+      { extend: 'border-radius', name: 'Rayon de bordure' },
+      { extend: 'box-shadow', name: 'Ombre portée' },
       margeExterne(),
     ] },
     section: { id: 's-section', name: 'Paramètres de la section', open: true, properties: [
       { type: 'color', property: 'background-color', name: "Couleur d'arrière-plan" },
-      { type: 'stack', property: 'background', name: 'Image / dégradé de fond' },
+      { extend: 'background', name: 'Image / dégradé de fond' },
       slider('min-height', 'Hauteur minimale', ['px', 'vh'], 0, 800, 10),
       { type: 'select', property: 'align-items', name: 'Alignement vertical', options: [
         { id: 'flex-start', label: 'Haut' }, { id: 'center', label: 'Centre' }, { id: 'flex-end', label: 'Bas' }] },
       margeInterne(), margeExterne(),
-      { type: 'composite', property: 'border', name: 'Bordure' },
+      { extend: 'border', name: 'Bordure' },
     ] },
     page: { id: 's-page', name: 'Paramètres de la page', open: true, properties: [
       { type: 'color', property: 'background-color', name: "Couleur d'arrière-plan" },
@@ -127,7 +133,7 @@
     carte: { id: 's-carte', name: 'Paramètres de la carte', open: true, properties: [
       slider('height', 'Hauteur', ['px'], 100, 800, 10),
       margeExterne(),
-      { type: 'composite', property: 'border-radius', name: 'Rayon de bordure' },
+      { extend: 'border-radius', name: 'Rayon de bordure' },
     ] },
     rebours: { id: 's-rebours', name: 'Paramètres du compte à rebours', open: true, properties: [
       police(), slider('font-size', 'Taille', ['px'], 10, 96, 1),
@@ -153,22 +159,38 @@
     ] },
   };
 
-  /** Le contrôle signature de la maquette : champ numérique + slider liés. */
+  /** Le contrôle signature de la maquette : champ numérique + slider liés.
+   *  L'écriture passe par `upValue` du MODÈLE de propriété — la SEULE voie
+   *  qui préserve l'unité : le `change()` de l'API des types custom finit
+   *  dans `updateStyle`, qui AVALE le suffixe (« 63px » stocké « 63 »,
+   *  CSS invalide -> curseurs sans le moindre effet, défaut proprio 11/08,
+   *  prouvé en pilotant les deux voies dans la même session). */
   function registerSliderType(editor) {
+    function modeleDe(propriete) {
+      var trouve = null;
+      editor.StyleManager.getSectors().forEach(function (s) {
+        (s.get('properties') || []).forEach(function (p) {
+          if (!trouve && propriete === p.get('property') && 'sendly-slider' === p.get('type')) { trouve = p; }
+        });
+      });
+      return trouve;
+    }
     editor.StyleManager.addType('sendly-slider', {
       create: function (arg) {
         var props = arg.props;
-        var change = arg.change;
         var el = document.createElement('div');
         el.className = 'sendly-sldin';
         el.innerHTML = '<input type="number" class="sldin-num"><input type="range" class="sldin-range">';
         var range = el.querySelector('.sldin-range');
         var num = el.querySelector('.sldin-num');
-        var unit = (props.units && props.units[0]) || '';
+        var unit = props.sendlyUnit || '';
         range.min = num.min = props.min != null ? props.min : 0;
         range.max = num.max = props.max != null ? props.max : 100;
         range.step = num.step = props.step != null ? props.step : 1;
-        var pousse = function (v, partial) { change({ value: String(v) + unit, partial: partial }); };
+        var pousse = function (v, partial) {
+          var m = modeleDe(props.property);
+          if (m) { m.upValue(String(v) + unit, { partial: partial }); }
+        };
         range.addEventListener('input', function () { num.value = range.value; pousse(range.value, true); });
         range.addEventListener('change', function () { pousse(range.value, false); });
         num.addEventListener('change', function () { range.value = num.value; pousse(num.value, false); });
@@ -184,6 +206,67 @@
         }
       },
     });
+  }
+
+  /** Les sous-champs hérités du natif arrivent en ANGLAIS (Top, Right,
+   *  Blur…) et les couches de pile (ombres, fonds) se rendent À LA VOLÉE :
+   *  traduction au niveau du DOM (le texte vit dans `.gjs-sm-icon`, et
+   *  re-libeller les MODÈLES ne re-rend pas les vues — constaté), passe
+   *  initiale + observateur pour tout ce qui apparaît ensuite. */
+  var SOUS_LIBELLES_FR = {
+    'Top': 'Haut', 'Right': 'Droite', 'Bottom': 'Bas', 'Left': 'Gauche',
+    'Top Left': 'Haut gauche', 'Top Right': 'Haut droit', 'Bottom Left': 'Bas gauche', 'Bottom Right': 'Bas droit',
+    'Width': 'Épaisseur', 'Color': 'Couleur',
+    'X position': 'Position X', 'Y position': 'Position Y', 'Blur': 'Flou', 'Spread': 'Étendue',
+    'Image': 'Image', 'Repeat': 'Répétition', 'Attachment': 'Attache', 'Size': 'Taille',
+    'Background repeat': 'Répétition', 'Background position': 'Position',
+    'Background attachment': 'Attache', 'Background size': 'Taille',
+  };
+
+  function franciserSousLibelles() {
+    var conteneur = document.querySelector('.builder-panel');
+    if (!conteneur) { return; }
+    var traduireIcone = function (span) {
+      Array.prototype.forEach.call(span.childNodes, function (n) {
+        if (3 === n.nodeType) {
+          var t = n.textContent.trim();
+          if (SOUS_LIBELLES_FR[t]) { n.textContent = n.textContent.replace(t, SOUS_LIBELLES_FR[t]); }
+        }
+      });
+    };
+    var passe = function (racine) {
+      if (racine.querySelectorAll) {
+        Array.prototype.forEach.call(racine.querySelectorAll('.gjs-sm-label .gjs-sm-icon'), traduireIcone);
+      }
+    };
+    passe(conteneur);
+    new MutationObserver(function (mutations) {
+      mutations.forEach(function (m) {
+        Array.prototype.forEach.call(m.addedNodes, function (n) {
+          if (1 === n.nodeType) { passe(n); }
+        });
+      });
+    }).observe(conteneur, { subtree: true, childList: true });
+  }
+
+  /** Les thèmes importés sont truffés de variantes PRÉFIXÉES
+   *  (-webkit-border-radius…) que le panneau n'édite jamais : placées
+   *  après la propriété standard dans la règle, elles l'ÉCRASENT en
+   *  cascade (alias navigateur) — « Rayon de bordure ne fonctionne pas »,
+   *  proprio 12/08, élucidé règle en main. À chaque édition d'une règle,
+   *  ses doublons préfixés des propriétés standards présentes sautent. */
+  function purgerPrefixes(regle) {
+    var st = {};
+    Object.keys(regle.getStyle()).forEach(function (k) { st[k] = regle.getStyle()[k]; });
+    var modif = false;
+    Object.keys(st).forEach(function (k) {
+      if ('-' !== k[0]) {
+        ['-webkit-', '-moz-', '-o-', '-ms-'].forEach(function (p) {
+          if (undefined !== st[p + k]) { delete st[p + k]; modif = true; }
+        });
+      }
+    });
+    if (modif) { regle.setStyle(st); }
   }
 
   /** addSector à chaud rend chaque secteur deux fois : on garde le dernier. */
@@ -285,6 +368,10 @@
           if (!sm.getSector(def.id)) { sm.addSector(def.id, def); }
         });
         dedupeSectorDom();
+        franciserSousLibelles();
+        // Seules les règles ÉDITÉES sont purgées de leurs préfixes : les
+        // règles du thème jamais touchées rendent comme à l'import.
+        editor.Css.getAll().on('change:style', purgerPrefixes);
         applyKind('page');
       });
       editor.on('component:selected', function (c) {
