@@ -155,4 +155,21 @@ final class BuilderStylesTest extends TestCase
             self::assertStringContainsString($paire, $js);
         }
     }
+
+    public function testLesReglesEditeesPerdentLeursDoublonsPrefixes(): void
+    {
+        // Proprio 12/08 : « Rayon de bordure ne fonctionne pas » — la
+        // valeur s'écrivait bien, mais le -webkit-border-radius du thème
+        // importé, placé après dans la règle, l'écrasait en cascade (alias
+        // navigateur). Toute règle ÉDITÉE perd ses doublons préfixés des
+        // propriétés standards présentes ; les règles jamais touchées
+        // restent telles qu'importées.
+        $js = (string) file_get_contents(self::STYLES);
+
+        self::assertStringContainsString('function purgerPrefixes(regle)', $js);
+        self::assertStringContainsString("editor.Css.getAll().on('change:style', purgerPrefixes)", $js);
+        foreach (["'-webkit-'", "'-moz-'", "'-o-'", "'-ms-'"] as $prefixe) {
+            self::assertStringContainsString($prefixe, $js);
+        }
+    }
 }

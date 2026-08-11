@@ -249,6 +249,26 @@
     }).observe(conteneur, { subtree: true, childList: true });
   }
 
+  /** Les thèmes importés sont truffés de variantes PRÉFIXÉES
+   *  (-webkit-border-radius…) que le panneau n'édite jamais : placées
+   *  après la propriété standard dans la règle, elles l'ÉCRASENT en
+   *  cascade (alias navigateur) — « Rayon de bordure ne fonctionne pas »,
+   *  proprio 12/08, élucidé règle en main. À chaque édition d'une règle,
+   *  ses doublons préfixés des propriétés standards présentes sautent. */
+  function purgerPrefixes(regle) {
+    var st = {};
+    Object.keys(regle.getStyle()).forEach(function (k) { st[k] = regle.getStyle()[k]; });
+    var modif = false;
+    Object.keys(st).forEach(function (k) {
+      if ('-' !== k[0]) {
+        ['-webkit-', '-moz-', '-o-', '-ms-'].forEach(function (p) {
+          if (undefined !== st[p + k]) { delete st[p + k]; modif = true; }
+        });
+      }
+    });
+    if (modif) { regle.setStyle(st); }
+  }
+
   /** addSector à chaud rend chaque secteur deux fois : on garde le dernier. */
   function dedupeSectorDom() {
     var vus = {};
@@ -349,6 +369,9 @@
         });
         dedupeSectorDom();
         franciserSousLibelles();
+        // Seules les règles ÉDITÉES sont purgées de leurs préfixes : les
+        // règles du thème jamais touchées rendent comme à l'import.
+        editor.Css.getAll().on('change:style', purgerPrefixes);
         applyKind('page');
       });
       editor.on('component:selected', function (c) {
