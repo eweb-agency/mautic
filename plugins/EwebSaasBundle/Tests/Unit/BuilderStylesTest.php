@@ -56,6 +56,19 @@ final class BuilderStylesTest extends TestCase
         }
     }
 
+    public function testLeCadreSeCentreParFormatSansTranslate(): void
+    {
+        // Demande proprio 11/08 : cadre centré à chaque format. Par LEFT en
+        // inline et EN RAFALE (le re-rendu écrase une application unique) —
+        // jamais par translateX, qui désynchronise le calque d'outils.
+        $js = (string) file_get_contents(self::STYLES);
+
+        self::assertStringContainsString('centrerCadre', $js);
+        self::assertStringContainsString('[100, 400, 800]', $js);
+        self::assertStringContainsString('.style.left', $js);
+        self::assertStringNotContainsString('translateX', $js);
+    }
+
     public function testLesTraitsSontFrancises(): void
     {
         $js = (string) file_get_contents(self::STYLES);

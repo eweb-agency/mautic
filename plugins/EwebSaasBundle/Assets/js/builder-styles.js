@@ -298,8 +298,24 @@
       // Changer d'appareil laissait l'overlay de sélection à la géométrie
       // de l'appareil PRÉCÉDENT (badge + contour orphelins — défaut proprio
       // 11/08) : on désélectionne, l'utilisateur resélectionne dans la
-      // nouvelle vue.
-      editor.on('change:device', function () { editor.select(); });
+      // nouvelle vue. Et le CADRE SE CENTRE à chaque format (demande proprio
+      // 11/08) : par la propriété LEFT en inline — jamais par transformation CSS,
+      // qui désynchronise le calque d'outils (constaté en P1).
+      function centrerCadre() {
+        var cadre = document.querySelector('.builder-panel .gjs-frame-wrapper');
+        var canvas = document.querySelector('.builder-panel .gjs-cv-canvas');
+        if (!cadre || !canvas) { return; }
+        cadre.style.left = Math.max(0, (canvas.clientWidth - cadre.offsetWidth) / 2) + 'px';
+      }
+      // RAFALE : le re-rendu du changement d'appareil écrase une application
+      // unique (constaté : posé à +60ms, écrasé avant +500ms).
+      function centrerEnRafale() { [100, 400, 800].forEach(function (d) { setTimeout(centrerCadre, d); }); }
+      editor.on('change:device', function () {
+        editor.select();
+        centrerEnRafale();
+      });
+      editor.on('load', centrerEnRafale);
+      window.addEventListener('resize', centrerCadre);
       editor.on('component:update:attributes', function (c) {
         if ('formulaire' === kindOf(c)) { poserJetonFormulaire(c); }
       });

@@ -37,10 +37,29 @@ final class BuilderRteTest extends TestCase
         $js = (string) file_get_contents(self::RTE);
 
         self::assertStringContainsString('iwin.JSON.parse(JSON.stringify(', $js);
-        // Les fonctions du realm principal sont rebranchées APRÈS le clonage.
-        self::assertStringContainsString('Mautic.getFeedItems', $js);
-        self::assertStringContainsString('Mautic.customItemRenderer', $js);
         self::assertStringContainsString('Mautic.MentionLinks', $js);
+        // La mention (autocomplétion {) est ENTIÈREMENT même-realm : feed
+        // SYNCHRONE renvoyant des objets clonés dans le realm de l'iframe,
+        // renderer construit avec le document de l'iframe. Les fonctions
+        // cross-realm du core restaient MUETTES au clavier (constaté proprio).
+        self::assertStringNotContainsString('Mautic.getFeedItems', $js);
+        self::assertStringNotContainsString('Mautic.customItemRenderer', $js);
+        self::assertStringContainsString('idoc.createElement', $js);
+        self::assertStringContainsString('minimumCharacters: 0', $js);
+    }
+
+    public function testLaBarreEstCompacteSansPerdreDeCapacite(): void
+    {
+        // Demande proprio 11/08 : essentiels visibles, le reste replié dans
+        // le « ⋯ » natif (groupement au débordement + max-width).
+        $js = (string) file_get_contents(self::RTE);
+
+        self::assertStringContainsString('shouldNotGroupWhenFull = false', $js);
+        self::assertStringContainsString('max-width: 460px', $js);
+        // Tout y est toujours : rien ne quitte la toolbar, elle se replie.
+        foreach (['insertTable', 'fontColor', 'TokenPlugin', 'alignment'] as $item) {
+            self::assertStringContainsString($item, $js, "capacité perdue : $item");
+        }
     }
 
     public function testLesJetonsSontUnTableauPrechargeEnAsynchrone(): void
