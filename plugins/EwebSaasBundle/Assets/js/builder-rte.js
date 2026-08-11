@@ -197,6 +197,10 @@
 
       editor.on('load', function () {
         prechargerJetons();
+        // PRÉCHAUFFAGE du bundle CKE dans l'iframe : sans lui, le premier
+        // double-clic subissait 1-2 s de chargement — la fenêtre où le clic
+        // impatient perdait du contenu.
+        chargerBundle().catch(function () { /* retentera au premier montage */ });
 
         // Retire le handler modale du preset (enregistré avant nous)...
         editor.off('rte:enable');
@@ -222,12 +226,26 @@
             editor.RichTextEditor.hideToolbar();
             var iwin = frameWin();
             var self = this;
+            // L'ORIGINE est capturée SYNCHRONEMENT, avant tout chargement :
+            // pendant le vol du montage, l'élément est remplacé par CKE — un
+            // getContent qui lirait el.innerHTML rendrait du VIDE et le
+            // composant « disparaissait » (défaut proprio 11/08, perte de
+            // contenu au clic impatient pendant le premier chargement).
+            self.__origine = el.innerHTML;
+            self.__donnee = null;
+            // Jeton de génération : une fermeture pendant le vol invalide le
+            // montage — l'instance qui arrive trop tard est détruite au lieu
+            // de s'installer en zombie.
+            var gen = self.__gen = (self.__gen || 0) + 1;
             return chargerBundle().then(function () {
               return iwin.ClassicEditor.create(el, construireConfig(iwin));
             }).then(function (cke) {
+              if (gen !== self.__gen) {
+                cke.destroy().catch(function () {});
+                return self;
+              }
               self.__cke = cke;
               self.__origine = cke.getData();
-              self.__donnee = null;
               // Un bloc plus large que la frame a pu la faire scroller :
               // on recale pour que la barre soit visible au montage.
               iwin.scrollTo({ left: 0 });
@@ -238,6 +256,8 @@
 
           disable: function (el, rte) {
             var self = this;
+            // Invalide tout montage encore en vol (cf. jeton de génération).
+            self.__gen = (self.__gen || 0) + 1;
             if (!self.__cke) { return; }
             // La donnée est capturée AVANT destruction : getContent est
             // appelé par GrapesJS après coup, l'instance n'existera plus.
@@ -250,7 +270,10 @@
           getContent: function (el, rte) {
             var self = this;
             if (self.__cke) { return self.__cke.getData(); }
-            return null !== self.__donnee ? self.__donnee : el.innerHTML;
+            if (null !== self.__donnee) { return self.__donnee; }
+            // Pendant le vol du montage, el est remplacé (innerHTML vide) :
+            // l'origine capturée en synchrone fait foi.
+            return 'string' === typeof self.__origine ? self.__origine : el.innerHTML;
           },
         });
       });

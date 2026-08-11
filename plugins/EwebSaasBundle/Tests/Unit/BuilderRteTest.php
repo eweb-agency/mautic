@@ -102,6 +102,22 @@ final class BuilderRteTest extends TestCase
         self::assertStringContainsString('MouseEvent', $js);
     }
 
+    public function testLeMontageEnVolNePerdJamaisDeContenu(): void
+    {
+        // Défaut proprio 11/08 : premier montage lent (bundle ~1-2 s) ; un
+        // clic pendant le vol fermait la session sur un élément déjà
+        // remplacé -> contenu VIDE, le composant « disparaissait ».
+        $js = (string) file_get_contents(self::RTE);
+
+        // L'origine est capturée en SYNCHRONE, avant tout await.
+        self::assertStringContainsString('self.__origine = el.innerHTML', $js);
+        // Jeton de génération : la fermeture invalide le montage en vol.
+        self::assertStringContainsString('self.__gen = (self.__gen || 0) + 1', $js);
+        self::assertStringContainsString('if (gen !== self.__gen)', $js);
+        // Et le bundle se précharge au load : plus de fenêtre de 1-2 s.
+        self::assertStringContainsString('chargerBundle().catch', $js);
+    }
+
     public function testLeMarqueurDeThemeEstEnP4(): void
     {
         self::assertStringContainsString("--sendly-builder-theme: 'p4'", (string) file_get_contents(self::THEME));
