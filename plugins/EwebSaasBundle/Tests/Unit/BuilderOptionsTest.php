@@ -68,6 +68,8 @@ final class BuilderOptionsTest extends TestCase
         self::assertStringContainsString("runCommand('sw-visibility')", $js);
         self::assertStringContainsString("stopCommand('sw-visibility')", $js);
 
-        self::assertStringContainsString("--sendly-builder-theme: 'p3b'", (string) file_get_contents(self::THEME));
+        // La valeur du marqueur avance a chaque phase : seule la plus
+        // recente l'epingle (ici BuilderRteTest).
+        self::assertStringContainsString('--sendly-builder-theme:', (string) file_get_contents(self::THEME));
     }
 }
