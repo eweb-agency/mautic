@@ -65,7 +65,7 @@ final class BuilderStylesTest extends TestCase
 
         self::assertStringContainsString('centrerCadre', $js);
         self::assertStringContainsString('[100, 400, 800]', $js);
-        self::assertStringContainsString(".style.left", $js);
+        self::assertStringContainsString('.style.left', $js);
         self::assertStringNotContainsString('translateX', $js);
     }
 
