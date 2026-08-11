@@ -181,6 +181,15 @@
     context: ['page'],
     plugin: function (editor) {
       editor.on('load', function () {
+      // P6 : le gestionnaire d'images parle français. Surcharge des clés
+      // `en` (la locale active) : chirurgical, aucune autre chaîne touchée.
+      editor.I18n.addMessages({ en: { assetManager: {
+        addButton: "Ajouter l'image",
+        inputPlh: 'https://chemin/vers/image.jpg',
+        modalTitle: 'Choisir une image',
+        uploadTitle: 'Déposez vos fichiers ici ou cliquez pour téléverser',
+      } } });
+
         remapBlocks(editor);
         remapPanels(editor);
       });

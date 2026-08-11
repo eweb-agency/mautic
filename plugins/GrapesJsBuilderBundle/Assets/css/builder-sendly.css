@@ -34,7 +34,7 @@
 
 /* Marqueur de présence (vérifiable en prod : la feuille est bien servie). */
 .gjs-mode-page {
-    --sendly-builder-theme: 'rte2';
+    --sendly-builder-theme: 'p6';
 }
 
 /* ── Variables GrapesJS ─────────────────────────────────────────── */
@@ -276,3 +276,27 @@
    PILE sous la barre CKE — un clic pour elle fermait la session, voire
    supprimait le composant via la corbeille (recette proprio 11/08). */
 body.sendly-rte-active .gjs-mode-page .gjs-toolbar { display: none !important; pointer-events: none !important; }
+
+/* P6 — modale « Choisir une image » (gestionnaire d'images) au thème Sendly.
+   Sculptée en direct le 12/08, validée par le proprio (« Bien ») avec UNE
+   retouche : le cadre pointillé d'origine vit sur le FORM intérieur — le
+   styler sur l'enveloppe doublait la bordure (capture proprio). */
+.gjs-mode-page .gjs-mdl-dialog { background: #fff; color: #24303f; border-radius: 14px; box-shadow: 0 24px 64px rgba(22,35,59,.22); font-family: inherit; }
+.gjs-mode-page .gjs-mdl-header { background: #fff; border-bottom: 1px solid #eef0f3; padding: 18px 22px; border-radius: 14px 14px 0 0; }
+.gjs-mode-page .gjs-mdl-title { color: #16233b; font-size: 16px; font-weight: 700; }
+.gjs-mode-page .gjs-mdl-btn-close { color: #7b8698; font-size: 22px; top: 12px; right: 16px; }
+.gjs-mode-page .gjs-mdl-btn-close:hover { color: #16233b; }
+.gjs-mode-page .gjs-mdl-content { background: #fff; padding: 20px 22px; border-radius: 0 0 14px 14px; }
+.gjs-mode-page .gjs-am-file-uploader { border: none; background: transparent; padding: 0; }
+.gjs-mode-page .gjs-am-file-uploader > form { border: 2px dashed #c8d0dc; border-radius: 12px; background: #f7f9fc; color: #5a6675; }
+.gjs-mode-page .gjs-am-file-uploader > form:hover { border-color: #004FFF; background: #f2f6ff; }
+.gjs-mode-page .gjs-am-file-uploader #gjs-am-title, .gjs-mode-page .gjs-am-file-uploader b { color: #5a6675; font-weight: 500; font-size: 13.5px; }
+.gjs-mode-page .gjs-am-assets-cont { background: #fff; border: none; padding: 14px 0 0; }
+.gjs-mode-page .gjs-am-assets-header { padding: 0 0 12px; }
+.gjs-mode-page .gjs-am-add-field input { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 9px; color: #24303f; padding: 9px 12px; }
+.gjs-mode-page .gjs-am-add-asset .gjs-btn-prim, .gjs-mode-page .gjs-am-assets-header button { background: #004FFF; color: #fff; border-radius: 9px; padding: 9px 16px; font-weight: 600; border: none; }
+.gjs-mode-page .gjs-am-assets { background: #fff; border: none; display: flex; flex-wrap: wrap; gap: 10px; }
+.gjs-mode-page .gjs-am-asset { border: 1px solid #eef0f3; border-radius: 10px; padding: 8px; background: #fff; }
+.gjs-mode-page .gjs-am-asset:hover { border-color: #004FFF; box-shadow: 0 4px 14px rgba(22,35,59,.10); }
+.gjs-mode-page .gjs-am-name { color: #24303f; font-size: 12.5px; }
+.gjs-mode-page .gjs-am-close { color: #7b8698; }
