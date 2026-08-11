@@ -60,8 +60,10 @@
     'data-form': 'Formulaire',
   };
 
-  function margeInterne() { return { type: 'composite', property: 'padding', name: 'Marge interne' }; }
-  function margeExterne() { return { type: 'composite', property: 'margin', name: 'Marge externe' }; }
+  // `extend` du natif OBLIGATOIRE : un composite nu ({type:'composite'})
+  // n'a AUCUN sous-champ — lignes vides constatées par le proprio 11/08.
+  function margeInterne() { return { extend: 'padding', name: 'Marge interne' }; }
+  function margeExterne() { return { extend: 'margin', name: 'Marge externe' }; }
   function police() { return { extend: 'font-family', name: 'Police' }; }
   function graisse() {
     return { type: 'select', property: 'font-weight', name: 'Épaisseur', options: [
@@ -98,24 +100,24 @@
       { type: 'color', property: 'background-color', name: "Couleur d'arrière-plan" },
       police(), slider('font-size', 'Taille', ['px'], 8, 48, 1), graisse(),
       margeInterne(), margeExterne(),
-      { type: 'composite', property: 'border-radius', name: 'Rayon de bordure' },
-      { type: 'composite', property: 'border', name: 'Bordure' },
-      { type: 'stack', property: 'box-shadow', name: 'Ombre portée' },
+      { extend: 'border-radius', name: 'Rayon de bordure' },
+      { extend: 'border', name: 'Bordure' },
+      { extend: 'box-shadow', name: 'Ombre portée' },
     ] },
     image: { id: 's-image', name: "Paramètres de l'image", open: true, properties: [
       slider('width', 'Largeur', ['%', 'px'], 0, 100, 1),
-      { type: 'composite', property: 'border-radius', name: 'Rayon de bordure' },
-      { type: 'stack', property: 'box-shadow', name: 'Ombre portée' },
+      { extend: 'border-radius', name: 'Rayon de bordure' },
+      { extend: 'box-shadow', name: 'Ombre portée' },
       margeExterne(),
     ] },
     section: { id: 's-section', name: 'Paramètres de la section', open: true, properties: [
       { type: 'color', property: 'background-color', name: "Couleur d'arrière-plan" },
-      { type: 'stack', property: 'background', name: 'Image / dégradé de fond' },
+      { extend: 'background', name: 'Image / dégradé de fond' },
       slider('min-height', 'Hauteur minimale', ['px', 'vh'], 0, 800, 10),
       { type: 'select', property: 'align-items', name: 'Alignement vertical', options: [
         { id: 'flex-start', label: 'Haut' }, { id: 'center', label: 'Centre' }, { id: 'flex-end', label: 'Bas' }] },
       margeInterne(), margeExterne(),
-      { type: 'composite', property: 'border', name: 'Bordure' },
+      { extend: 'border', name: 'Bordure' },
     ] },
     page: { id: 's-page', name: 'Paramètres de la page', open: true, properties: [
       { type: 'color', property: 'background-color', name: "Couleur d'arrière-plan" },
@@ -131,7 +133,7 @@
     carte: { id: 's-carte', name: 'Paramètres de la carte', open: true, properties: [
       slider('height', 'Hauteur', ['px'], 100, 800, 10),
       margeExterne(),
-      { type: 'composite', property: 'border-radius', name: 'Rayon de bordure' },
+      { extend: 'border-radius', name: 'Rayon de bordure' },
     ] },
     rebours: { id: 's-rebours', name: 'Paramètres du compte à rebours', open: true, properties: [
       police(), slider('font-size', 'Taille', ['px'], 10, 96, 1),

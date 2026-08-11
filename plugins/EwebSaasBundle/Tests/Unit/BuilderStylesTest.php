@@ -116,4 +116,24 @@ final class BuilderStylesTest extends TestCase
         self::assertStringNotContainsString('arg.change', $js);
         self::assertStringNotContainsString('units: units', $js);
     }
+
+    public function testLesCompositesHeritentDuNatifSinonLignesVides(): void
+    {
+        // Défaut proprio 11/08 (capture) : Marge interne/externe, Rayon,
+        // Bordure, Ombre portée = étiquettes SANS AUCUN champ. Un composite
+        // ou stack déclaré nu n'a AUCUN sous-champ ; hériter du natif via
+        // `extend` construit tout (sonde live : 4/4 champs 124x27 rendus).
+        $js = (string) file_get_contents(self::STYLES);
+
+        foreach (["{ extend: 'padding', name: 'Marge interne' }",
+            "{ extend: 'margin', name: 'Marge externe' }",
+            "{ extend: 'border-radius', name: 'Rayon de bordure' }",
+            "{ extend: 'border', name: 'Bordure' }",
+            "{ extend: 'box-shadow', name: 'Ombre portée' }",
+            "{ extend: 'background', name: 'Image / dégradé de fond' }"] as $def) {
+            self::assertStringContainsString($def, $js);
+        }
+        self::assertStringNotContainsString("type: 'composite'", $js, 'composite nu = ligne vide');
+        self::assertStringNotContainsString("type: 'stack'", $js, 'stack nu = ligne vide');
+    }
 }
