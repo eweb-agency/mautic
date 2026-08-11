@@ -136,4 +136,23 @@ final class BuilderStylesTest extends TestCase
         self::assertStringNotContainsString("type: 'composite'", $js, 'composite nu = ligne vide');
         self::assertStringNotContainsString("type: 'stack'", $js, 'stack nu = ligne vide');
     }
+
+    public function testLesSousChampsHeritesSontFrancises(): void
+    {
+        // Demande proprio 11/08 : les sous-champs hérités du natif arrivent
+        // en anglais (Top, Right, Blur…). Re-libeller les MODÈLES ne re-rend
+        // pas les vues (constaté) : traduction au niveau du DOM — le texte
+        // vit dans `.gjs-sm-icon` — passe initiale + MutationObserver pour
+        // les couches de pile rendues à la volée (ombres, fonds).
+        $js = (string) file_get_contents(self::STYLES);
+
+        self::assertStringContainsString('function franciserSousLibelles()', $js);
+        self::assertStringContainsString('franciserSousLibelles();', $js);
+        self::assertStringContainsString("'.gjs-sm-label .gjs-sm-icon'", $js);
+        self::assertStringContainsString('MutationObserver', $js);
+        foreach (["'Top': 'Haut'", "'Right': 'Droite'", "'Bottom': 'Bas'", "'Left': 'Gauche'",
+            "'Blur': 'Flou'", "'Spread': 'Étendue'", "'X position': 'Position X'"] as $paire) {
+            self::assertStringContainsString($paire, $js);
+        }
+    }
 }

@@ -208,6 +208,47 @@
     });
   }
 
+  /** Les sous-champs hérités du natif arrivent en ANGLAIS (Top, Right,
+   *  Blur…) et les couches de pile (ombres, fonds) se rendent À LA VOLÉE :
+   *  traduction au niveau du DOM (le texte vit dans `.gjs-sm-icon`, et
+   *  re-libeller les MODÈLES ne re-rend pas les vues — constaté), passe
+   *  initiale + observateur pour tout ce qui apparaît ensuite. */
+  var SOUS_LIBELLES_FR = {
+    'Top': 'Haut', 'Right': 'Droite', 'Bottom': 'Bas', 'Left': 'Gauche',
+    'Top Left': 'Haut gauche', 'Top Right': 'Haut droit', 'Bottom Left': 'Bas gauche', 'Bottom Right': 'Bas droit',
+    'Width': 'Épaisseur', 'Color': 'Couleur',
+    'X position': 'Position X', 'Y position': 'Position Y', 'Blur': 'Flou', 'Spread': 'Étendue',
+    'Image': 'Image', 'Repeat': 'Répétition', 'Attachment': 'Attache', 'Size': 'Taille',
+    'Background repeat': 'Répétition', 'Background position': 'Position',
+    'Background attachment': 'Attache', 'Background size': 'Taille',
+  };
+
+  function franciserSousLibelles() {
+    var conteneur = document.querySelector('.builder-panel');
+    if (!conteneur) { return; }
+    var traduireIcone = function (span) {
+      Array.prototype.forEach.call(span.childNodes, function (n) {
+        if (3 === n.nodeType) {
+          var t = n.textContent.trim();
+          if (SOUS_LIBELLES_FR[t]) { n.textContent = n.textContent.replace(t, SOUS_LIBELLES_FR[t]); }
+        }
+      });
+    };
+    var passe = function (racine) {
+      if (racine.querySelectorAll) {
+        Array.prototype.forEach.call(racine.querySelectorAll('.gjs-sm-label .gjs-sm-icon'), traduireIcone);
+      }
+    };
+    passe(conteneur);
+    new MutationObserver(function (mutations) {
+      mutations.forEach(function (m) {
+        Array.prototype.forEach.call(m.addedNodes, function (n) {
+          if (1 === n.nodeType) { passe(n); }
+        });
+      });
+    }).observe(conteneur, { subtree: true, childList: true });
+  }
+
   /** addSector à chaud rend chaque secteur deux fois : on garde le dernier. */
   function dedupeSectorDom() {
     var vus = {};
@@ -307,6 +348,7 @@
           if (!sm.getSector(def.id)) { sm.addSector(def.id, def); }
         });
         dedupeSectorDom();
+        franciserSousLibelles();
         applyKind('page');
       });
       editor.on('component:selected', function (c) {
