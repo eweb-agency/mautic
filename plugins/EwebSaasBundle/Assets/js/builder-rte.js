@@ -49,15 +49,20 @@
     window.MauticGrapesJsPlugins = [];
   }
 
-  var TOOLBAR = ['undo', 'redo', '|', 'bold', 'italic', 'underline', 'strikethrough', '|',
+  // Barre COMPACTE (demande proprio 11/08) : les essentiels visibles, le
+  // reste se replie dans le « ⋯ » natif de CKE (groupement au débordement,
+  // forcé par le max-width de STYLE_CKE) — zéro capacité perdue.
+  var TOOLBAR = ['bold', 'italic', 'underline', '|', 'link', 'bulletedList', 'numberedList', '|', 'TokenPlugin', '|',
     'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', '|',
     'alignment', 'outdent', 'indent', '|', 'blockQuote', 'insertTable', '|',
-    'bulletedList', 'numberedList', '|', 'link', '|', 'TokenPlugin'];
+    'strikethrough', 'undo', 'redo'];
 
   var TOOLBAR_SANS_TOKEN = TOOLBAR.filter(function (i) { return 'TokenPlugin' !== i; });
 
   var STYLE_CKE = '.ck.ck-toolbar { border-radius: 10px; border-color: #e5e7eb; box-shadow: 0 8px 22px rgba(22, 35, 59, .14); }'
-    + ' .ck.ck-editor__editable:not(.ck-editor__nested-editable).ck-focused { border-color: #004FFF; box-shadow: none; }';
+    + ' .ck.ck-editor__editable:not(.ck-editor__nested-editable).ck-focused { border-color: #004FFF; box-shadow: none; }'
+    /* le max-width déclenche le repli « ⋯ » natif des items excédentaires */
+    + ' .ck.ck-editor__top .ck-toolbar { max-width: 460px; }';
 
   window.MauticGrapesJsPlugins.push({
     name: 'sendly-rte',
@@ -123,9 +128,47 @@
         var iconf = iwin.JSON.parse(JSON.stringify(base, function (k, v) {
           return 'function' === typeof v ? undefined : v;
         }));
+        iconf.toolbar.shouldNotGroupWhenFull = false;
         iconf.dynamicTokenLabel = 'Insérer un jeton';
         iconf.dynamicToken = Mautic.builderTokensForCkEditor || [];
-        iconf.mention = { feeds: [{ marker: '{', feed: Mautic.getFeedItems, itemRenderer: Mautic.customItemRenderer }] };
+        // Mention ENTIÈREMENT même-realm (les jetons au `{` restaient muets :
+        // feed en Promise du realm principal + renderer fabriquant des nœuds
+        // du document principal = classe de bugs cross-realm entière) :
+        // feed SYNCHRONE renvoyant des objets clonés dans le realm de
+        // l'iframe, renderer construit avec le document de l'iframe.
+        var idoc = frameDoc();
+        iconf.mention = { feeds: [{
+          marker: '{',
+          minimumCharacters: 0,
+          feed: function (queryText) {
+            var q = (queryText || '').toLowerCase();
+            var source = Mautic.builderTokensForCkEditor || [];
+            var retenus = source.filter(function (item) {
+              return item.name.toLowerCase().indexOf(q) !== -1 || item.id.toLowerCase().indexOf(q) !== -1;
+            }).slice(0, 5);
+            return iwin.JSON.parse(JSON.stringify(retenus));
+          },
+          itemRenderer: function (item) {
+            // Réplique du renderer d'items du core, réalisée dans le
+            // DOCUMENT DE L'IFRAME (nœuds du bon realm).
+            var tokenId = item.id;
+            var tokenName = item.name;
+            var itemElement = idoc.createElement('span');
+            var idElement = idoc.createElement('span');
+            idElement.classList.add('custom-item-id');
+            itemElement.classList.add('custom-item');
+            if (0 === tokenName.indexOf('a:')) { tokenName = tokenName.substring(2); }
+            if (/dwc=/i.test(tokenId)) {
+              tokenName = tokenName + ' (' + tokenId.substr(5, tokenId.length - 6) + ')';
+            } else if (/contactfield=company/i.test(tokenId) && !/company/i.test(tokenName)) {
+              tokenName = 'Company ' + tokenName;
+            }
+            itemElement.textContent = tokenName;
+            idElement.textContent = tokenId;
+            itemElement.appendChild(idElement);
+            return itemElement;
+          },
+        }] };
         iconf.extraPlugins = [Mautic.MentionLinks];
         return iconf;
       }
