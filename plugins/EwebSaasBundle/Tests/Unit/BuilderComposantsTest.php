@@ -71,7 +71,7 @@ final class BuilderComposantsTest extends TestCase
         $js = (string) file_get_contents(self::JS);
 
         self::assertStringNotContainsString("runCommand('mautic-editor-page-html-apply')", $js, 'commande fantôme : elle n existe nulle part');
-        $stop = strpos($js, "once('stop:preset-mautic:apply-form'");
+        $stop  = strpos($js, "once('stop:preset-mautic:apply-form'");
         $close = strpos($js, "runCommand('mautic-editor-page-html-close')", (int) $stop);
         self::assertNotFalse($stop, 'Terminer doit attendre la fin du VRAI enregistrement');
         self::assertNotFalse($close, 'Terminer doit fermer APRES l enregistrement');
