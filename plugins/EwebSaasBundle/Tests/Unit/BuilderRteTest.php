@@ -216,8 +216,9 @@ final class BuilderRteTest extends TestCase
         self::assertStringContainsString('body.sendly-rte-active .gjs-mode-page .gjs-toolbar', $theme);
     }
 
-    public function testLeMarqueurDeThemeEstEnRte2(): void
+    public function testLeMarqueurDeThemeExiste(): void
     {
-        self::assertStringContainsString("--sendly-builder-theme: 'rte2'", (string) file_get_contents(self::THEME));
+        // La VALEUR est épinglée par la phase la plus récente (BuilderModalesTest).
+        self::assertStringContainsString('--sendly-builder-theme:', (string) file_get_contents(self::THEME));
     }
 }
