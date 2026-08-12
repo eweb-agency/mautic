@@ -197,6 +197,31 @@
       });
     });
 
+    // Le save du preset ne ré-hydrate PAS le formulaire : le champ caché
+    // page[version] (verrou optimiste) garde l'ancienne valeur, et le
+    // DEUXIÈME enregistrement de la même session est rejeté « modifié par
+    // un autre utilisateur » (constaté en prod, capture proprio 12/08 —
+    // rendu inévitable par « Enregistrer » sans fermer). Après CHAQUE
+    // passage du save, la version est resynchronisée depuis le serveur ;
+    // en cas de conflit réel, la modale d'erreur du preset s'affiche
+    // toujours — la resynchronisation permet simplement au prochain
+    // enregistrement de repartir (« rafraîchir et re-soumettre », sans
+    // recharger la page).
+    editor.on('stop:preset-mautic:apply-form', function () {
+      setTimeout(function () {
+        var champ = document.querySelector('input[name="page[version]"]');
+        if (!champ) { return; }
+        fetch(window.location.pathname, { credentials: 'same-origin', cache: 'no-store' })
+          .then(function (r) { return r.text(); })
+          .then(function (html) {
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            var frais = doc.querySelector('input[name="page[version]"]');
+            if (frais && frais.value) { champ.value = frais.value; }
+          })
+          .catch(function () { /* hors ligne : le prochain save retentera */ });
+      }, 600);
+    });
+
     var apercuDemande = false;
     editor.on('stop:preset-mautic:apply-form', function () {
       if (!apercuDemande) { return; }
