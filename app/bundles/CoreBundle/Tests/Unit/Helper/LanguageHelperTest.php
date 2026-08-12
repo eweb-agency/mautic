@@ -154,6 +154,30 @@ class LanguageHelperTest extends TestCase
         $this->assertEquals(['en_US' => 'English - United States'], $helper->getSupportedLanguages());
     }
 
+    public function testLanguageChoicesAreDeduplicatedByLocale(): void
+    {
+        $langFile = $this->tmpPath.'/languageListChoices.json';
+        file_put_contents($langFile, json_encode([
+            'languages' => [
+                'en_US' => ['name' => 'English (United States)', 'locale' => 'en_US'],
+                'fr'    => ['name' => 'French (France)', 'locale' => 'fr'],
+            ],
+        ]));
+
+        $this->coreParametersHelper->method('get')
+            ->with('language_list_file')
+            ->willReturn($langFile);
+
+        // en_US is also installed under the name "English - United States": without deduplication
+        // by locale the two names for en_US would make the language ChoiceType reject any value
+        $this->assertSame([
+            'English - United States' => 'en_US',
+            'French (France)'         => 'fr',
+        ], $this->getHelper()->getLanguageChoices());
+
+        @unlink($langFile);
+    }
+
     private function getHelper(): LanguageHelper
     {
         return new LanguageHelper($this->pathsHelper, $this->logger, $this->coreParametersHelper, $this->client, $this->translator);
