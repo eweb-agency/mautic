@@ -223,6 +223,27 @@
       command: 'core:canvas-clear', attributes: { title: 'Vider la page' } });
     pm.addButton('options', { id: 'sendly-annuler', label: 'Annuler', className: 'sendly-btn-ghost',
       command: function (ed) { ed.runCommand('mautic-editor-page-html-close'); }, attributes: { title: 'Fermer sans appliquer' } });
+    // « Enregistrer » SANS fermer (demande proprio 12/08 : « le builder se
+    // ferme au moment du clic, il faut que je réouvre pour continuer ») :
+    // même VRAI enregistrement que Terminer (proxy apply-form), le
+    // générateur reste ouvert, retour visuel sur le bouton.
+    pm.addButton('options', { id: 'sendly-enregistrer', label: 'Enregistrer', className: 'sendly-btn-ghost',
+      command: function (ed) {
+        var proxy = pm.getButton('options', 'sendly-apply-proxy');
+        if (!proxy) { return; }
+        var bouton = pm.getButton('options', 'sendly-enregistrer');
+        var vue = bouton && bouton.view && bouton.view.el;
+        if (vue) { vue.textContent = 'Enregistrement…'; }
+        ed.once('stop:preset-mautic:apply-form', function () {
+          if (vue) {
+            vue.textContent = 'Enregistré ✓';
+            setTimeout(function () { vue.textContent = 'Enregistrer'; }, 1800);
+          }
+        });
+        proxy.set('active', 0, { silent: true });
+        proxy.set('active', 1);
+      }, attributes: { title: 'Enregistrer sans fermer' } });
+
     pm.addButton('options', { id: 'sendly-terminer', label: 'Terminer', className: 'sendly-btn-primary',
       command: function (ed) {
         // « Terminer » doit ENREGISTRER : `mautic-editor-page-html-apply`
