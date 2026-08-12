@@ -58,6 +58,25 @@ final class BuilderComposantsTest extends TestCase
         self::assertStringContainsString('text section', $js);
     }
 
+    public function testEnregistrerSauveSansFermer(): void
+    {
+        // Demande proprio 12/08 : « le builder se ferme au moment du clic,
+        // il faut que je réouvre pour continuer ». Enregistrer = même VRAI
+        // enregistrement que Terminer (proxy apply-form), générateur OUVERT,
+        // retour visuel sur le bouton.
+        $js    = (string) file_get_contents(self::JS);
+        $debut = strpos($js, "id: 'sendly-enregistrer'");
+        $fin   = strpos($js, "id: 'sendly-terminer'");
+
+        self::assertNotFalse($debut);
+        self::assertNotFalse($fin);
+        $bloc = substr($js, $debut, $fin - $debut);
+        self::assertStringContainsString("'sendly-apply-proxy'", $bloc);
+        self::assertStringContainsString('Enregistrement…', $bloc);
+        self::assertStringContainsString('Enregistré ✓', $bloc);
+        self::assertStringNotContainsString('html-close', $bloc, 'Enregistrer ne doit JAMAIS fermer');
+    }
+
     public function testTerminerEnregistreVraimentPuisFerme(): void
     {
         // Recette proprio 12/08 : « la page ne s'enregistre pas ». La
