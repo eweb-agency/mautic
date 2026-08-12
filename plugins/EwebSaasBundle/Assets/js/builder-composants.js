@@ -147,6 +147,49 @@
     pm.removeButton('views', 'views-apply');
     pm.removeButton('views', 'close');
 
+    // Un bouton SANS id (ni commande, ni classe) traîne dans le panel
+    // commands du preset : 34 px de vide cliquable à gauche du Undo
+    // (recette proprio 12/08). Tout bouton anonyme du panel saute.
+    var cmds = pm.getPanel('commands');
+    if (cmds) {
+      (cmds.get('buttons').models || []).slice().forEach(function (b) {
+        if (!b.get('id')) { cmds.get('buttons').remove(b); }
+      });
+    }
+
+    // APERÇU sur page NEUVE (recette proprio 12/08) : le preset le
+    // désactive jusqu'au premier « Appliquer » — or notre barre n'a plus
+    // d'Appliquer sans fermer (Terminer = appliquer + fermer). Le clic sur
+    // l'aperçu désactivé APPLIQUE d'abord (proxy : la commande apply-form
+    // exige un BOUTON comme déclencheur — « sender.set is not a function »
+    // en appel direct, même piège que le mode Code), le preset ré-arme le
+    // bouton sur stop:apply-form, puis l'aperçu s'ouvre. Si le navigateur
+    // bloque la fenêtre (ouverture différée), le bouton reste armé : le
+    // clic suivant l'ouvre directement.
+    pm.addButton('options', { id: 'sendly-apply-proxy', className: 'sendly-cache',
+      command: 'preset-mautic:apply-form', attributes: { style: 'display:none' } });
+    var apercuDemande = false;
+    editor.on('stop:preset-mautic:apply-form', function () {
+      if (!apercuDemande) { return; }
+      apercuDemande = false;
+      setTimeout(function () {
+        var b = pm.getButton('devices-c', 'devices-c-preview');
+        if (b && !b.get('disable') && b.get('command')) { editor.runCommand(String(b.get('command'))); }
+      }, 300);
+    });
+    editor.on('load', function () {
+      var elPrev = document.getElementById('btn-views-Preview');
+      if (!elPrev) { return; }
+      elPrev.addEventListener('click', function () {
+        var b = pm.getButton('devices-c', 'devices-c-preview');
+        if (b && b.get('disable')) {
+          apercuDemande = true;
+          var proxy = pm.getButton('options', 'sendly-apply-proxy');
+          if (proxy) { proxy.set('active', 1); }
+        }
+      });
+    });
+
     pm.addButton('options', { id: 'sendly-effacer', label: 'Effacer', className: 'sendly-btn-ghost',
       command: 'core:canvas-clear', attributes: { title: 'Vider la page' } });
     pm.addButton('options', { id: 'sendly-annuler', label: 'Annuler', className: 'sendly-btn-ghost',

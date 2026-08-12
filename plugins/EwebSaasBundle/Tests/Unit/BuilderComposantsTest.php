@@ -112,6 +112,24 @@ final class BuilderComposantsTest extends TestCase
         self::assertStringContainsString('style=\\"fill:#fff\\"', $js);
     }
 
+    public function testLeFantomeDuPanelCommandsEstRetireEtLApercuSArme(): void
+    {
+        // Recette proprio 12/08 : (1) un bouton SANS id traînait dans le
+        // panel commands — 34 px de vide cliquable à gauche du Undo ;
+        // (2) l'aperçu restait mort sur une page neuve (le preset attend un
+        // « Appliquer » que notre barre n'a plus). Le clic sur l'aperçu
+        // désactivé applique via un bouton PROXY (la commande apply-form
+        // plante en appel direct — sender.set is not a function, même piège
+        // que le mode Code) puis l'aperçu s'ouvre au ré-armement.
+        $js = (string) file_get_contents(self::JS);
+
+        self::assertStringContainsString("if (!b.get('id')) { cmds.get('buttons').remove(b); }", $js);
+        self::assertStringContainsString("id: 'sendly-apply-proxy'", $js);
+        self::assertStringContainsString("command: 'preset-mautic:apply-form'", $js);
+        self::assertStringContainsString("stop:preset-mautic:apply-form", $js);
+        self::assertStringContainsString("btn-views-Preview", $js);
+    }
+
     public function testLaTuileIaNApparaitQueSiLeCopiloteEstActif(): void
     {
         // Relevé en réel (P5, tenant sans clé) : sans copilote il n'y a NI

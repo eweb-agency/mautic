@@ -187,13 +187,20 @@
         range.min = num.min = props.min != null ? props.min : 0;
         range.max = num.max = props.max != null ? props.max : 100;
         range.step = num.step = props.step != null ? props.step : 1;
-        var pousse = function (v, partial) {
-          var m = modeleDe(props.property);
-          if (m) { m.upValue(String(v) + unit, { partial: partial }); }
+        var pousse = function (v) {
+          // DIFFÉRÉ : GrapesJS attache AUSSI son écouteur générique à nos
+          // champs et écrit la valeur BRUTE (sans unité) en différé — notre
+          // écriture synchrone perdait la course (constaté en prod : « 34 »
+          // nu au modèle). En écrivant APRÈS lui, l'unité gagne (motif
+          // validé en greffe live la veille, revalidé aujourd'hui : 42px).
+          setTimeout(function () {
+            var m = modeleDe(props.property);
+            if (m) { m.upValue(String(v) + unit); }
+          }, 150);
         };
-        range.addEventListener('input', function () { num.value = range.value; pousse(range.value, true); });
-        range.addEventListener('change', function () { pousse(range.value, false); });
-        num.addEventListener('change', function () { range.value = num.value; pousse(num.value, false); });
+        range.addEventListener('input', function () { num.value = range.value; });
+        range.addEventListener('change', function (e) { e.stopPropagation(); pousse(range.value); });
+        num.addEventListener('change', function (e) { e.stopPropagation(); range.value = num.value; pousse(num.value); });
         return el;
       },
       update: function (arg) {
