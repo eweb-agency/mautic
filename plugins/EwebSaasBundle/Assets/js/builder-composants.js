@@ -225,9 +225,26 @@
       command: function (ed) { ed.runCommand('mautic-editor-page-html-close'); }, attributes: { title: 'Fermer sans appliquer' } });
     pm.addButton('options', { id: 'sendly-terminer', label: 'Terminer', className: 'sendly-btn-primary',
       command: function (ed) {
-        ed.runCommand('mautic-editor-page-html-apply');
-        ed.runCommand('mautic-editor-page-html-close');
-      }, attributes: { title: 'Appliquer et fermer' } });
+        // « Terminer » doit ENREGISTRER : `mautic-editor-page-html-apply`
+        // n'existe NULLE PART (runCommand sur un nom inconnu = silence) —
+        // seule la fermeture rendait le contenu au formulaire, rien ne
+        // partait en base tant que l'utilisateur ne cliquait pas
+        // Enregistrer lui-même (recette proprio 12/08). Le VRAI
+        // enregistrement est `preset-mautic:apply-form` (textarea + POST),
+        // déclenché par le bouton PROXY (la commande exige un bouton
+        // sender), puis la fermeture suit l'événement stop. Prouvé en
+        // session : marqueur retrouvé dans l'aperçu servi par le serveur.
+        var proxy = pm.getButton('options', 'sendly-apply-proxy');
+        if (proxy) {
+          ed.once('stop:preset-mautic:apply-form', function () {
+            setTimeout(function () { ed.runCommand('mautic-editor-page-html-close'); }, 400);
+          });
+          proxy.set('active', 0, { silent: true });
+          proxy.set('active', 1);
+        } else {
+          ed.runCommand('mautic-editor-page-html-close');
+        }
+      }, attributes: { title: 'Enregistrer et fermer' } });
 
     ['fullscreen', 'code-edit', 'ai-generate', 'sw-visibility'].forEach(function (id) {
       if (pm.getButton('options', id)) { pm.removeButton('options', id); }
