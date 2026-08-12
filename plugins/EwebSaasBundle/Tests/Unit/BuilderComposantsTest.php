@@ -58,6 +58,20 @@ final class BuilderComposantsTest extends TestCase
         self::assertStringContainsString('text section', $js);
     }
 
+    public function testLaVersionDuVerrouOptimisteEstResynchroniseeApresChaqueSave(): void
+    {
+        // Capture proprio 12/08 : « modifié par un autre utilisateur entre
+        // temps » au DEUXIÈME enregistrement d'une même session. Le save du
+        // preset ne ré-hydrate pas le formulaire : page[version] gardait
+        // l'ancienne valeur. Après chaque passage du save, la version est
+        // relue depuis le serveur (DOMParser sur la page d'édition).
+        $js = (string) file_get_contents(self::JS);
+
+        self::assertStringContainsString('input[name="page[version]"]', $js);
+        self::assertStringContainsString('DOMParser', $js);
+        self::assertStringContainsString("fetch(window.location.pathname, { credentials: 'same-origin', cache: 'no-store' })", $js);
+    }
+
     public function testEnregistrerSauveSansFermer(): void
     {
         // Demande proprio 12/08 : « le builder se ferme au moment du clic,
