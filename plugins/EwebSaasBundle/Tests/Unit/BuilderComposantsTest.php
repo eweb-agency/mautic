@@ -58,17 +58,23 @@ final class BuilderComposantsTest extends TestCase
         self::assertStringContainsString('text section', $js);
     }
 
-    public function testTerminerAppliquePuisFerme(): void
+    public function testTerminerEnregistreVraimentPuisFerme(): void
     {
-        // Arbitrage 10/08 : Terminer = appliquer + fermer. L'apply écrit le
-        // textarea en SYNCHRONE avant son POST (buttonApply.command.js) :
-        // fermer juste après est sûr — mais l'ordre est vital.
+        // Recette proprio 12/08 : « la page ne s'enregistre pas ». La
+        // commande historique `mautic-editor-page-html-apply` n'existe
+        // NULLE PART (runCommand sur un nom inconnu = silence) — seule la
+        // fermeture rendait le contenu au formulaire, rien ne partait en
+        // base. Le VRAI enregistrement est `preset-mautic:apply-form`
+        // (textarea + POST), déclenché par le bouton PROXY (la commande
+        // exige un bouton sender), la fermeture suit l'événement stop.
+        // Prouvé en session : marqueur retrouvé dans l'aperçu SERVI.
         $js = (string) file_get_contents(self::JS);
 
-        $apply = strpos($js, "runCommand('mautic-editor-page-html-apply')");
-        $close = strpos($js, "runCommand('mautic-editor-page-html-close')", (int) $apply);
-        self::assertNotFalse($apply, 'Terminer doit appliquer');
-        self::assertNotFalse($close, 'Terminer doit fermer APRES avoir appliqué');
+        self::assertStringNotContainsString("runCommand('mautic-editor-page-html-apply')", $js, 'commande fantôme : elle n existe nulle part');
+        $stop  = strpos($js, "once('stop:preset-mautic:apply-form'");
+        $close = strpos($js, "runCommand('mautic-editor-page-html-close')", (int) $stop);
+        self::assertNotFalse($stop, 'Terminer doit attendre la fin du VRAI enregistrement');
+        self::assertNotFalse($close, 'Terminer doit fermer APRES l enregistrement');
     }
 
     public function testLesContoursSontCoupesApresRetraitDuToggle(): void
