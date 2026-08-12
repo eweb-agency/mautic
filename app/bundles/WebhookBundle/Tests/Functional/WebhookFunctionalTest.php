@@ -213,7 +213,7 @@ class WebhookFunctionalTest extends MauticMysqlTestCase
 
         $webhook->addEvent($event);
         $webhook->setName('Webhook from a functional test');
-        $webhook->setWebhookUrl('https://httpbin.org/post');
+        $webhook->setWebhookUrl('https://webhook.example/post');
         $webhook->setSecret('any_secret_will_do');
         $webhook->isPublished(true);
         $webhook->setCreatedBy(1);

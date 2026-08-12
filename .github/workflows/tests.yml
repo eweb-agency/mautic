@@ -163,14 +163,20 @@ jobs:
       run: echo -e "APP_ENV=test\nAPP_DEBUG=1" > .env.local
 
     - name: Run E2E tests
-      run: ddev composer e2e-test
+      # ddev composer swallows the codeception output; run codecept directly and
+      # keep a copy of the console report next to the screenshots for artifacts
+      run: |
+        set -o pipefail
+        ddev exec "APP_ENV=test bin/codecept run acceptance" 2>&1 | tee tests/_output/e2e-run.txt
 
     - name: Upload test artifacts
       if: failure()
       uses: actions/upload-artifact@v4
       with:
         name: e2e-test-screenshots
-        path: tests/_output
+        path: |
+          tests/_output
+          var/logs
         if-no-files-found: ignore
 
   misc:

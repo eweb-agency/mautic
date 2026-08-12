@@ -1,0 +1,18 @@
+{
+    "languages": {
+        "de": {
+            "name": "German",
+            "locale": "de",
+            "author": "Mautic",
+            "releaseDate": "2026-01-01",
+            "version": "1.0.0"
+        },
+        "fr": {
+            "name": "French (France)",
+            "locale": "fr",
+            "author": "Mautic",
+            "releaseDate": "2026-01-01",
+            "version": "1.0.0"
+        }
+    }
+}

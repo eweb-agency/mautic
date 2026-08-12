@@ -31,7 +31,7 @@ final class ProcessWebhookQueuesCommandTest extends MauticMysqlTestCase
 
     public function testCommand(): void
     {
-        $webhook      = $this->createWebhook('test', 'https://httpbin.org/post', 'secret');
+        $webhook      = $this->createWebhook('test', 'https://webhook.example/post', 'secret');
         $event        = $this->createWebhookEvent($webhook, 'Type');
         $handlerStack = $this->getClientMockHandler();
         $queueIds     = [];
@@ -44,7 +44,7 @@ final class ProcessWebhookQueuesCommandTest extends MauticMysqlTestCase
             $handlerStack->append(
                 function (RequestInterface $request) {
                     Assert::assertSame('POST', $request->getMethod());
-                    Assert::assertSame('https://httpbin.org/post', $request->getUri()->__toString());
+                    Assert::assertSame('https://webhook.example/post', $request->getUri()->__toString());
 
                     return new Response(SymfonyResponse::HTTP_OK);
                 }
