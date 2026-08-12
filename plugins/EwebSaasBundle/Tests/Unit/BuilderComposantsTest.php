@@ -126,8 +126,8 @@ final class BuilderComposantsTest extends TestCase
         self::assertStringContainsString("if (!b.get('id')) { cmds.get('buttons').remove(b); }", $js);
         self::assertStringContainsString("id: 'sendly-apply-proxy'", $js);
         self::assertStringContainsString("command: 'preset-mautic:apply-form'", $js);
-        self::assertStringContainsString("stop:preset-mautic:apply-form", $js);
-        self::assertStringContainsString("btn-views-Preview", $js);
+        self::assertStringContainsString('stop:preset-mautic:apply-form', $js);
+        self::assertStringContainsString('btn-views-Preview', $js);
     }
 
     public function testLaTuileIaNApparaitQueSiLeCopiloteEstActif(): void
