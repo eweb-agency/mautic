@@ -168,6 +168,35 @@
     // clic suivant l'ouvre directement.
     pm.addButton('options', { id: 'sendly-apply-proxy', className: 'sendly-cache',
       command: 'preset-mautic:apply-form', attributes: { style: 'display:none' } });
+    // PILULE D'APPAREILS (recette proprio 12/08, « défauts majeurs en
+    // changeant de format ») : les boutons du preset sont À BASCULE — si le
+    // bouton reste « actif » pendant que l'appareil change par ailleurs, le
+    // clic suivant l'ÉTEINT (stop) au lieu d'exécuter : un clic sur deux ne
+    // faisait rien (reproduit : clic tablette → stop:set-device-tablet,
+    // appareil inchangé). Boutons non-bascule + resynchronisation de la
+    // pilule à CHAQUE change:device (états silencieux + classes DOM — un
+    // set non-silencieux relancerait la commande en boucle).
+    var DEVICE_IDS = ['set-device-desktop', 'set-device-tablet', 'set-device-mobile'];
+    var DEVICE_CARTE = { Desktop: 'set-device-desktop', Tablet: 'set-device-tablet', 'Mobile portrait': 'set-device-mobile' };
+    DEVICE_IDS.forEach(function (id) {
+      var b = pm.getButton('devices-c', id);
+      if (b) { b.set('togglable', false); }
+    });
+    editor.on('change:device', function () {
+      var cible = DEVICE_CARTE[editor.getDevice()];
+      DEVICE_IDS.forEach(function (id) {
+        var b = pm.getButton('devices-c', id);
+        if (!b) { return; }
+        var actif = id === cible;
+        if (b.get('active') !== actif) { b.set('active', actif, { silent: true }); }
+        var vue = b.view && b.view.el;
+        if (vue) {
+          vue.classList.toggle('gjs-pn-active', actif);
+          vue.classList.toggle('gjs-four-color', actif);
+        }
+      });
+    });
+
     var apercuDemande = false;
     editor.on('stop:preset-mautic:apply-form', function () {
       if (!apercuDemande) { return; }

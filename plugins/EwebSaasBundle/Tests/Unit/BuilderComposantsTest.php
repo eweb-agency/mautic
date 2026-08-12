@@ -130,6 +130,20 @@ final class BuilderComposantsTest extends TestCase
         self::assertStringContainsString('btn-views-Preview', $js);
     }
 
+    public function testLaPiluleDAppareilsNeBasculeJamaisEtSeResynchronise(): void
+    {
+        // Recette proprio 12/08 : les boutons d'appareil du preset sont a
+        // BASCULE — bouton reste actif pendant que l'appareil change par
+        // ailleurs -> le clic suivant l'ETEINT (stop) au lieu d'executer,
+        // un clic sur deux ne faisait rien (reproduit en clic reel).
+        $js = (string) file_get_contents(self::JS);
+
+        self::assertStringContainsString("b.set('togglable', false)", $js);
+        self::assertStringContainsString("editor.on('change:device'", $js);
+        self::assertStringContainsString("b.set('active', actif, { silent: true })", $js);
+        self::assertStringContainsString("classList.toggle('gjs-pn-active', actif)", $js);
+    }
+
     public function testLaTuileIaNApparaitQueSiLeCopiloteEstActif(): void
     {
         // Relevé en réel (P5, tenant sans clé) : sans copilote il n'y a NI
