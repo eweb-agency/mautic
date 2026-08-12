@@ -382,6 +382,10 @@ class LanguageHelper
 
         $choices = array_merge($choices, array_flip($this->getSupportedLanguages()));
 
+        // Keep a single entry per locale, the installed language name winning over the fetched
+        // one: duplicated values make the language ChoiceType reject any submitted locale
+        $choices = array_flip(array_flip($choices));
+
         // Alpha sort the languages by name
         ksort($choices, SORT_FLAG_CASE | SORT_NATURAL);
 

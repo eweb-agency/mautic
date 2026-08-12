@@ -227,16 +227,13 @@ class ContactManagementCest
         $contactName1 = $contact->grabContactNameFromList(1);
         $contactName2 = $contact->grabContactNameFromList(2);
 
-        // Navigate to the campaign page
+        // Navigate to the campaign page and open the "Contacts" tab
         $I->amOnPage(CampaignPage::$URL);
-
-        // Click on the "Contacts" tab in the campaign page
-        $I->waitForElementClickable(CampaignPage::$contactsTab, 5);
-        $I->click(CampaignPage::$contactsTab);
+        $campaign->openContactsTab();
 
         // Verify that the first and second contacts are not in the campaign yet
-        $I->dontSee($contactName1, CampaignPage::$firstContactFromContactsTab);
-        $I->dontSee($contactName2, CampaignPage::$secondContactFromContactsTab);
+        $I->dontSee($contactName1, CampaignPage::$leadsContainer);
+        $I->dontSee($contactName2, CampaignPage::$leadsContainer);
 
         // Return to the contacts page
         $I->amOnPage(ContactPage::$URL);
@@ -251,13 +248,12 @@ class ContactManagementCest
         // Add the contacts to the campaign
         $campaign->addContactsToCampaign();
 
-        // Navigate back to the campaign page and click on the "Contacts" tab
+        // Navigate back to the campaign page and open the "Contacts" tab
         $I->amOnPage(CampaignPage::$URL);
-        $I->waitForElementClickable(CampaignPage::$contactsTab, 5);
-        $I->click(CampaignPage::$contactsTab);
+        $campaign->openContactsTab();
 
         // Verify that the first and second contacts are now in the campaign
-        $I->waitForElementVisible(CampaignPage::$firstContactFromContactsTab, 60);
+        $I->waitForElementVisible(CampaignPage::$firstContactFromContactsTab, 30);
         $I->see($contactName1, CampaignPage::$firstContactFromContactsTab);
         $I->see($contactName2, CampaignPage::$secondContactFromContactsTab);
     }
@@ -301,13 +297,17 @@ class ContactManagementCest
         $I->click(ContactPage::$firstCampaignFromRemoveList);
         $I->click(ContactPage::$campaignsModalSaveButton);
 
-        // Navigate to the campaign page and click on the "Contacts" tab
+        // Wait for the batch action to complete before asserting on its outcome
+        $I->waitForElementNotVisible('#MauticSharedModal', 30);
+        $I->ensureNotificationAppears('contacts affected');
+
+        // Navigate to the campaign page and open the "Contacts" tab
         $I->amOnPage(CampaignPage::$URL);
-        $I->click(CampaignPage::$contactsTab);
+        $campaign->openContactsTab();
 
         // Verify that the first and second contacts are no longer in the campaign
-        $I->dontSee($contactName1, CampaignPage::$firstContactFromContactsTab);
-        $I->dontSee($contactName2, CampaignPage::$secondContactFromContactsTab);
+        $I->dontSee($contactName1, CampaignPage::$leadsContainer);
+        $I->dontSee($contactName2, CampaignPage::$leadsContainer);
     }
 
     public function batchChangeOwner(
