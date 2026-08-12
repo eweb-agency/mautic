@@ -111,6 +111,12 @@ final class BuilderStylesTest extends TestCase
 
         self::assertStringContainsString('sendlyUnit:', $js);
         self::assertStringContainsString('m.upValue(String(v) + unit', $js);
+        // L'écriture est DIFFÉRÉE : GrapesJS attache aussi son écouteur
+        // générique à nos champs et écrit la valeur brute (sans unité) en
+        // différé — l'écriture synchrone perdait la course (constaté en
+        // prod : « 34 » nu au modèle). stopPropagation + setTimeout.
+        self::assertStringContainsString('setTimeout(function () {', $js);
+        self::assertStringContainsString('e.stopPropagation(); pousse(', $js);
         self::assertStringContainsString("'sendly-slider' === p.get('type')", $js);
         // Plus AUCUNE trace des deux voies fautives dans le code.
         self::assertStringNotContainsString('arg.change', $js);

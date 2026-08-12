@@ -18,14 +18,23 @@ class TwigPass implements CompilerPassInterface
                 ->addMethodCall('setBuilderIntegrationsHelper', [new Reference('mautic.integrations.helper.builder_integrations')])
                 ->addMethodCall('setInstallService', [new Reference('mautic.install.service')])
                 ->addMethodCall('setSiteUrl', ['%mautic.site_url%'])
-                // SENDLY_RELEASE (posé par l'image Docker, unique par build) entre
-                // dans le hash du ?v des assets : sans lui, le ?v ne change qu'aux
-                // montées de version Mautic et les navigateurs servent l'ANCIEN
-                // app.js agrégé après chaque déploiement (cache heuristique — le
-                // serveur n'envoyait aucun en-tête). Évalué à la COMPILATION du
-                // conteneur : l'image le fige au build, un env absent = comportement
-                // d'origine.
-                ->addMethodCall('setVersion', ['%mautic.secret_key%', MAUTIC_VERSION.(getenv('SENDLY_RELEASE') ?: '')]);
+                // La release (unique par build d'image, écrite dans app/release.txt
+                // par le Dockerfile) entre dans le hash du ?v des assets : sans elle,
+                // le ?v ne change qu'aux montées de version Mautic et les navigateurs
+                // servent l'ANCIEN app.js agrégé après chaque déploiement. Un FICHIER
+                // et non getenv : la compilation du conteneur se fait chez chaque
+                // tenant DANS UNE REQUÊTE WEB (le ?v diffère par tenant, constaté),
+                // et Apache/mod_php ne transmet pas l'environnement du conteneur —
+                // getenv y est vide (constaté : ?v inchangé sur 2 déploiements).
+                // Fichier absent = comportement d'origine.
+                ->addMethodCall('setVersion', ['%mautic.secret_key%', MAUTIC_VERSION.self::release()]);
         }
+    }
+
+    private static function release(): string
+    {
+        $fichier = dirname(__DIR__, 4).'/release.txt';
+
+        return is_readable($fichier) ? trim((string) file_get_contents($fichier)) : '';
     }
 }
