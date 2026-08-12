@@ -161,7 +161,7 @@
 
         .wrapper--content {
             width: 30%;
-            min-width: 420px;
+            min-width: min(420px, 100%); /* 420px fixe debordait en mobile (scroll horizontal, releve editeur 12/08) */
             max-width: 480px;
             padding: 50px 35px;
         }
