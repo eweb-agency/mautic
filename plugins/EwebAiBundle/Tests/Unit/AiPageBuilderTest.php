@@ -7,12 +7,9 @@ namespace MauticPlugin\EwebAiBundle\Tests\Unit;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Assistant de page (chantier D, P5) : la tuile « Assistant IA » du builder
- * de landing pages ouvre le panneau conversationnel UNIQUE (contrat
- * AssistantLauncherTest) avec un contexte 'page-builder' qui parle à
- * l'endpoint /s/ai/generate existant et INSÈRE le résultat dans la page,
- * de façon annulable. Surfaces JavaScript agrégées sans harnais de DOM :
- * contrat verrouillé au niveau des SOURCES.
+ * Assistant de page EN PLACE — chantier D, P7 (maquette validée par le
+ * proprio le 12/08) : plus aucun panneau flottant, tout se passe à
+ * l'endroit du dépôt. Contrat verrouillé au niveau des SOURCES.
  */
 final class AiPageBuilderTest extends TestCase
 {
@@ -24,105 +21,137 @@ final class AiPageBuilderTest extends TestCase
         return (string) file_get_contents($path);
     }
 
-    public function testLeContexteDePageExisteEtSInscritDansLePanneauUnique(): void
+    public function testPlusAucunPanneauFlottant(): void
     {
         $js = $this->source('ai-page-builder.js');
 
-        self::assertStringContainsString("id: 'page-builder'", $js);
-        self::assertStringContainsString('priority: 20', $js);
-        // Disponible UNIQUEMENT dans le builder de pages (pas d'e-mails).
-        self::assertStringContainsString('.builder-active.gjs-mode-page', $js);
-        foreach (['title:', 'welcome:', 'placeholder:', 'thinking:', 'shortcuts:', 'onSend:', 'onUndo:'] as $membre) {
-            self::assertStringContainsString($membre, $js);
+        // Le contexte du panneau conversationnel P5 a DISPARU : l'assistant
+        // de page ne s'inscrit plus dans SendlyAssistantContexts.
+        self::assertStringNotContainsString('SendlyAssistantContexts', $js);
+        self::assertStringNotContainsString('SendlyAssistant.open', $js);
+        self::assertStringContainsString("name: 'sendly-ai-page'", $js);
+        self::assertStringContainsString("context: ['page']", $js);
+    }
+
+    public function testLInviteSOuvreEnPlaceAuDepotEtAuClic(): void
+    {
+        $js = $this->source('ai-page-builder.js');
+
+        // Dépôt de la tuile : l'invite s'ouvre À L'ENDROIT du dépôt.
+        self::assertStringContainsString("'block:drag:stop'", $js);
+        self::assertStringContainsString("'sendly-ia' !== bloc.get('id')", $js);
+        self::assertStringContainsString('data-sendly-invite', $js);
+        // Clic sur la tuile : insertion après la sélection, sinon fin de page.
+        self::assertStringContainsString('sel.index() + 1', $js);
+        self::assertStringContainsString('editor.getWrapper().components().length', $js);
+        // Champ + raccourcis, Entrée déclenche.
+        self::assertStringContainsString('Décris la section à générer…', $js);
+        self::assertStringContainsString('RACCOURCIS', $js);
+        self::assertStringContainsString("'Enter' === e.key", $js);
+    }
+
+    public function testLeSqueletteEtLaBarreContextuelle(): void
+    {
+        $js = $this->source('ai-page-builder.js');
+
+        self::assertStringContainsString('sendly-ia-squelette', $js);
+        self::assertStringContainsString('sendly-shimmer', $js);
+        foreach (['↻ Régénérer', '✎ Ajuster', '✓ Garder'] as $bouton) {
+            self::assertStringContainsString($bouton, $js);
         }
-        // AUCUN panneau propre : le contexte n'a pas le droit de bâtir un DOM
-        // de conversation à lui (contrat du panneau unique).
-        self::assertStringNotContainsString('sendly-assist-panel', $js);
+        // « Ajuster » rouvre la saisie PRÉ-REMPLIE de la dernière consigne.
+        self::assertStringContainsString('ouvrirInvite(p, i, consigne)', $js);
+        // La barre vit dans un composant dédié, purgeable.
+        self::assertStringContainsString('data-sendly-barre', $js);
     }
 
-    public function testLaReponseLueEstLeChampTextDuControleur(): void
+    public function testLeBouclierCouvreSourisEtClavier(): void
     {
         $js = $this->source('ai-page-builder.js');
 
-        // AiController::generateAction répond {'text' => $text} — tout autre
-        // champ lu serait un contrat imaginaire (bug attrapé avant commit).
-        self::assertStringContainsString('rep.text', $js);
-        self::assertStringNotContainsString('rep.result', $js);
-        self::assertStringNotContainsString('rep.html', $js);
+        // GrapesJS re-diffuse les clics du canvas et capte le clavier :
+        // chaque élément d'interface est blindé (leçons P4/P6, clics réels).
+        self::assertStringContainsString("['mousedown', 'mouseup', 'click', 'dblclick', 'keydown', 'keyup', 'keypress']", $js);
+        self::assertStringContainsString('e.stopPropagation()', $js);
     }
 
-    public function testLEndpointVientDeLaConfigExposeeAvecRepli(): void
+    public function testAmeliorerEtTraduireVontSurLaMiniBarre(): void
     {
         $js = $this->source('ai-page-builder.js');
 
-        // AiConfigAssetsSubscriber expose la route de génération sous la clé
-        // `endpoint` (pas une clé inventée) ; repli sur le chemin en dur.
+        // Décision P7-a : les retouches vivent sur la mini-barre du
+        // composant texte sélectionné.
+        self::assertStringContainsString("editor.Commands.add('sendly-ia-ameliorer'", $js);
+        self::assertStringContainsString("editor.Commands.add('sendly-ia-traduire'", $js);
+        self::assertStringContainsString("editor.on('component:selected', equiperMiniBarre)", $js);
+        self::assertStringContainsString("'text' !== comp.get('type')", $js);
+        // Traduction : menu de langues ancré au composant.
+        self::assertStringContainsString('Traduire en…', $js);
+        self::assertStringContainsString('LANGUES', $js);
+        // Retouche annulable : mémo pris AVANT le remplacement.
+        self::assertStringContainsString('var avant = sel.components()', $js);
+    }
+
+    public function testLaSurfacePageEtLeContratReseau(): void
+    {
+        $js = $this->source('ai-page-builder.js');
+
+        // Le serveur sert un prompt LANDING dédié quand surface=page
+        // (les textes « façon e-mail » étaient le défaut relevé en P5).
+        self::assertStringContainsString("corps.surface = 'page'", $js);
         self::assertStringContainsString('window.SendlyAiConfig.endpoint', $js);
-        self::assertStringContainsString("'/s/ai/generate'", $js);
-        // Garde XHR même-origine du contrôleur.
         self::assertStringContainsString("'X-Requested-With': 'XMLHttpRequest'", $js);
-    }
-
-    public function testLesTroisModesEtLeurContrat(): void
-    {
-        $js = $this->source('ai-page-builder.js');
-
-        foreach (["'translate'", "'improve'", "'generate'"] as $mode) {
-            self::assertStringContainsString($mode, $js);
-        }
-        // improve/translate exigent une sélection : son HTML part en content.
-        self::assertStringContainsString('corps.content = selection.html', $js);
-        self::assertStringContainsString('corps.lang', $js);
-        // Sans sélection, message d'aide — pas d'appel réseau à vide.
-        self::assertStringContainsString("Sélectionne d\\'abord le composant", $js);
-    }
-
-    public function testLInsertionEstDansLArbreEtAnnulable(): void
-    {
-        $js = $this->source('ai-page-builder.js');
-
-        // generate : insertion APRÈS la sélection, sinon en fin de page.
-        self::assertStringContainsString('selection.model.index() + 1', $js);
-        self::assertStringContainsString('ed.getWrapper().append(html)', $js);
-        // improve/translate : remplacement du CONTENU du composant, avec
-        // mémo de l'état d'avant pris AVANT le remplacement.
-        self::assertStringContainsString('selection.model.components(html)', $js);
-        self::assertStringContainsString('var avant = selection.model.components()', $js);
-        // Chaque action porte un mémo d'annulation consommé par onUndo.
-        self::assertStringContainsString("etat['undo-' + turnId]", $js);
-        self::assertStringContainsString('undoable: true', $js);
-        self::assertStringContainsString('markUndone', $js);
-    }
-
-    public function testLeSansCleRepondProprement(): void
-    {
-        $js = $this->source('ai-page-builder.js');
-
-        // Relevé en réel sur un tenant sans clé : POST /s/ai/generate → 503
-        // {"error":"disabled"} — le message doit rester en français client.
-        self::assertStringContainsString('503 === xhr.status', $js);
+        self::assertStringContainsString('rep.text', $js);
         self::assertStringContainsString("L\\'assistant n\\'est pas activé sur cette instance.", $js);
     }
 
-    public function testLaTuileOuvreLePanneauSansRienInserer(): void
+    public function testLesResidusDInterfaceNePartentJamaisEnBase(): void
     {
         $js = $this->source('ai-page-builder.js');
 
-        // Clic sur la tuile ET dépôt dans le canvas mènent au panneau…
-        self::assertStringContainsString("window.SendlyAssistant.open('page-builder')", $js);
-        self::assertStringContainsString("'block:drag:stop'", $js);
-        self::assertStringContainsString("'sendly-ia' !== bloc.get('id')", $js);
-        // …et le dépôt ne laisse AUCUN résidu vide dans la page.
-        self::assertStringContainsString('c.remove()', $js);
+        // Invites et barres sont purgées du HTML exporté : une sauvegarde
+        // pendant une génération ne fige JAMAIS notre interface dans la page.
+        self::assertStringContainsString('editor.getHtml = function', $js);
+        self::assertStringContainsString('data-sendly-(?:invite|barre)', $js);
     }
 
-    public function testLaFacadeSaitOuvrirUnContexteCible(): void
+    public function testLIconographieIaEstCelleDeLaTuile(): void
     {
-        $js = $this->source('ai-assistant.js');
+        // Question proprio 12/08 : l'interface P7 doit porter la MÊME
+        // étincelle (SVG) que la tuile « Assistant IA », pas un caractère
+        // approchant ; la traduction reste dans la famille Lucide.
+        $js    = $this->source('ai-page-builder.js');
+        $tuile = (string) file_get_contents(__DIR__.'/../../../EwebSaasBundle/Assets/js/builder-composants.js');
 
-        // open(ctxId) : ouvre le panneau sur un contexte PRÉCIS s'il est
-        // disponible — c'est la porte qu'emprunte la tuile du builder.
-        self::assertStringContainsString('open: function (ctxId)', $js);
-        self::assertStringContainsString('openPanel(ctx)', $js);
+        self::assertStringContainsString('M9.1071 5.448', $js, 'le path de l étincelle de la tuile');
+        self::assertStringContainsString('M9.1071 5.448', $tuile);
+        self::assertStringContainsString('ICONE_IA', $js);
+        self::assertStringContainsString('ICONE_LANGUES', $js);
+        self::assertStringNotContainsString("label: '✦'", $js);
+        self::assertStringNotContainsString('🌐', $js);
+    }
+
+    public function testLePromptServeurConnaitLaSurfacePage(): void
+    {
+        $service = (string) file_get_contents(__DIR__.'/../../Service/AiCopilotService.php');
+
+        self::assertStringContainsString("'page' === (\$params['surface'] ?? '')", $service);
+        self::assertStringContainsString('landing-page conversion copywriter', $service);
+        self::assertStringContainsString('never lorem ipsum', $service);
+
+        $controller = (string) file_get_contents(__DIR__.'/../../Controller/AiController.php');
+        self::assertStringContainsString("'surface'", $controller);
+    }
+
+    public function testLaFicheDeCapacitesDeLAideConnaitLesSms(): void
+    {
+        // Capture proprio 12/08 : l'aide NIAIT l'envoi de SMS (« nous ne
+        // proposons pas ») alors que Sendly le propose via un connecteur de
+        // transport (Twilio…) — une fausse réponse dessert l'assistant.
+        $service = (string) file_get_contents(__DIR__.'/../../Service/AiCopilotService.php');
+
+        self::assertStringContainsString('SMS / text messages: fully supported', $service);
+        self::assertStringContainsString('Twilio', $service);
+        self::assertStringContainsString('never DENY one from the capability list', $service);
     }
 }

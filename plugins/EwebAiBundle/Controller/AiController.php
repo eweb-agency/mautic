@@ -79,6 +79,9 @@ final class AiController
                 'instruction' => mb_substr((string) ($payload['instruction'] ?? ''), 0, self::MAX_INSTRUCTION),
                 'lang'        => mb_substr((string) ($payload['lang'] ?? ''), 0, 60),
                 'format'      => 'mjml' === ($payload['format'] ?? '') ? 'mjml' : 'html',
+                // Le générateur de landing pages s'annonce (prompt dédié) ;
+                // toute autre valeur retombe sur le comportement e-mail.
+                'surface'     => 'page' === ($payload['surface'] ?? '') ? 'page' : '',
             ]);
 
             return new JsonResponse(['text' => $text]);
@@ -115,6 +118,9 @@ final class AiController
                 'question' => mb_substr((string) ($payload['question'] ?? ''), 0, self::MAX_INSTRUCTION),
                 'history'  => $payload['history'] ?? [],
                 'lang'     => mb_substr((string) ($payload['lang'] ?? ''), 0, 60),
+                // La section où se trouve l'utilisateur : l'accompagnement
+                // suit l'écran (le prompt contextualise la réponse).
+                'section'  => mb_substr((string) ($payload['section'] ?? ''), 0, 60),
             ]);
 
             return new JsonResponse(['answer' => $answer]);

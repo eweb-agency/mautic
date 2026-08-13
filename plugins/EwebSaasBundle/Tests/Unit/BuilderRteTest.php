@@ -216,6 +216,22 @@ final class BuilderRteTest extends TestCase
         self::assertStringContainsString('body.sendly-rte-active .gjs-mode-page .gjs-toolbar', $theme);
     }
 
+    public function testLeMenuDesJetonsEstCherchableEtGroupe(): void
+    {
+        // Recette proprio 12/08 : la liste « Insérer un jeton » était brute
+        // (longue, sans recherche ni groupes, recouvrant le texte). À chaque
+        // ouverture du panneau : champ de recherche en tête, jetons groupés
+        // par famille d'identifiant, rappel du raccourci { , défilement borné.
+        $js = (string) file_get_contents(self::RTE);
+
+        self::assertStringContainsString('Rechercher un jeton…', $js);
+        self::assertStringContainsString('Astuce : tapez { directement dans le texte', $js);
+        self::assertStringContainsString('function famille(id)', $js);
+        self::assertStringContainsString('sendly-jeton-groupe', $js);
+        self::assertStringContainsString('ck-dropdown__panel-visible', $js);
+        self::assertStringContainsString('function observerJetons()', $js);
+    }
+
     public function testLeMarqueurDeThemeExiste(): void
     {
         // La VALEUR est épinglée par la phase la plus récente (BuilderModalesTest).

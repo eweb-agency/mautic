@@ -275,7 +275,95 @@
          *  de CKE.) On coupe la REMONTÉE des événements souris depuis
          *  l'enveloppe CKE : ses boutons fonctionnent (phase cible), et
          *  GrapesJS ne voit plus ces clics — validé en clics réels. */
+        /** Le menu « Insérer un jeton » du core est une LISTE BRUTE : longue,
+         *  sans recherche ni groupes, qui recouvre le texte (recette proprio
+         *  12/08 : « pas pratique du tout »). À chaque ouverture du panneau,
+         *  on l'augmente : champ de recherche en tête, jetons regroupés par
+         *  famille (préfixe de l'identifiant), rappel du raccourci `{`. */
+        var GROUPES_JETONS = [
+          [/^\{contactfield=/, 'Contact'],
+          [/^\{ownerfield=/, 'Propriétaire'],
+          [/^\{pagelink=|^\{assetlink=|^\{page=/, 'Pages et fichiers'],
+          [/^\{segment|^\{leadlist/, 'Segments'],
+          [/^\{category/, 'Catégories'],
+          [/^\{channel|^\{saved|^\{success|^\{identifier|^\{unsubscribe|^\{webview/, 'Préférences et suivi'],
+        ];
+        function famille(id) {
+          for (var i = 0; i < GROUPES_JETONS.length; i++) {
+            if (GROUPES_JETONS[i][0].test(id)) { return GROUPES_JETONS[i][1]; }
+          }
+          return 'Divers';
+        }
+        function augmenterPanneauJetons(idoc) {
+          var panneaux = idoc.querySelectorAll('.ck-dropdown__panel-visible');
+          Array.prototype.forEach.call(panneaux, function (panneau) {
+            var items = panneau.querySelectorAll('.custom-item');
+            if (!items.length || panneau.__sendlyJetons) { return; }
+            panneau.__sendlyJetons = true;
+            panneau.style.maxHeight = '320px';
+            panneau.style.overflowY = 'auto';
+            // 1. Recherche en tête.
+            var boite = idoc.createElement('div');
+            boite.style.cssText = 'position:sticky;top:0;background:#fff;padding:6px;border-bottom:1px solid #e5e7eb;z-index:2;';
+            var champ = idoc.createElement('input');
+            champ.type = 'text';
+            champ.placeholder = 'Rechercher un jeton…';
+            champ.style.cssText = 'width:100%;border:1px solid #e5e7eb;border-radius:7px;padding:6px 9px;font-size:12.5px;outline:none;box-sizing:border-box;';
+            ['mousedown', 'mouseup', 'click', 'keydown', 'keyup'].forEach(function (t) {
+              champ.addEventListener(t, function (e) { e.stopPropagation(); });
+            });
+            boite.appendChild(champ);
+            var hint = idoc.createElement('div');
+            hint.textContent = 'Astuce : tapez { directement dans le texte';
+            hint.style.cssText = 'font-size:10.5px;color:#7b8698;padding:4px 2px 0;';
+            boite.appendChild(hint);
+            panneau.insertBefore(boite, panneau.firstChild);
+            // 2. Groupes : un intitulé avant le premier item de chaque famille.
+            var lignes = [];
+            Array.prototype.forEach.call(items, function (item) {
+              var li = item.closest('li') || item;
+              var idEl = item.querySelector('.custom-item-id');
+              var id = idEl ? idEl.textContent.trim() : '';
+              lignes.push({ li: li, id: id, texte: (item.textContent || '').toLowerCase(), groupe: famille(id) });
+            });
+            var vu = {};
+            lignes.forEach(function (l) {
+              if (!vu[l.groupe]) {
+                vu[l.groupe] = true;
+                var t = idoc.createElement('div');
+                t.textContent = l.groupe;
+                t.className = 'sendly-jeton-groupe';
+                t.dataset.groupe = l.groupe;
+                t.style.cssText = 'font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#7b8698;padding:7px 10px 3px;';
+                l.li.parentNode.insertBefore(t, l.li);
+              }
+            });
+            // 3. Filtre en direct.
+            champ.addEventListener('input', function () {
+              var q = champ.value.toLowerCase();
+              var visiblesParGroupe = {};
+              lignes.forEach(function (l) {
+                var ok = !q || -1 !== l.texte.indexOf(q) || -1 !== l.id.toLowerCase().indexOf(q);
+                l.li.style.display = ok ? '' : 'none';
+                if (ok) { visiblesParGroupe[l.groupe] = true; }
+              });
+              Array.prototype.forEach.call(panneau.querySelectorAll('.sendly-jeton-groupe'), function (t) {
+                t.style.display = visiblesParGroupe[t.dataset.groupe] ? '' : 'none';
+              });
+            });
+            setTimeout(function () { champ.focus(); }, 40);
+          });
+        }
+        function observerJetons() {
+          var idoc = frameDoc();
+          if (!idoc || idoc.__sendlyObsJetons) { return; }
+          idoc.__sendlyObsJetons = true;
+          new MutationObserver(function () { augmenterPanneauJetons(idoc); })
+            .observe(idoc.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+        }
+
         function poserBouclier(cke) {
+          observerJetons();
           try {
             var enveloppe = cke.ui.element;
             if (enveloppe && !enveloppe.__sendlyBouclier) {
