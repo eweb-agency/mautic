@@ -211,7 +211,10 @@ final class PortalMenuTest extends TestCase
         self::assertStringContainsString('@media (max-width: 767px)', $twig);
         self::assertStringContainsString('.sendly-softwares.open::before', $twig);
         self::assertStringContainsString('rgba(22, 35, 59, .34)', $twig);
-        self::assertStringContainsString('border-radius: 16px 16px 0 0', $twig);
+        self::assertStringContainsString('border-radius: 16px 16px 0 0 !important', $twig);
+        // Le blur du header = bloc conteneur des fixed (constaté live).
+        self::assertStringContainsString('.navbar:has(.sendly-softwares.open)', $twig);
+        self::assertStringContainsString('backdrop-filter: none !important', $twig);
         self::assertStringContainsString('env(safe-area-inset-bottom)', $twig);
         // L-c : sous-titres concrets, dans les deux langues.
         $fr = (string) file_get_contents(__DIR__.'/../../Translations/fr/messages.ini');
