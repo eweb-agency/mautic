@@ -71,6 +71,9 @@ final class BuilderMobileTest extends TestCase
         self::assertStringContainsString("dispatchEvent(new MouseEvent('dblclick'", $js);
         self::assertStringContainsString('sendly-rte-active', $js);
         self::assertStringContainsString("editor.on('canvas:frame:load', poserEditionTactile)", $js);
+        // En phase de CAPTURE : en bulle, GrapesJS avale le clic avant le
+        // document de l'iframe (constaté live 13/08 — clicRecu: false).
+        self::assertStringContainsString('}, true);', $js);
     }
 
     public function testLeMenuTroisPointsPorteLesActionsSecondaires(): void
