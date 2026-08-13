@@ -350,12 +350,13 @@
         // La TUILE au DÉPÔT : l'invite s'ouvre À L'ENDROIT du dépôt.
         editor.on('block:drag:stop', function (composant, bloc) {
           if (!bloc || 'sendly-ia' !== bloc.get('id')) { return; }
-          var premiers = Array.isArray(composant) ? composant : [composant];
+          var premiers = (Array.isArray(composant) ? composant : [composant]).filter(Boolean);
           var repere = premiers[0];
           var parent = repere && repere.parent ? repere.parent() : null;
           var index = repere && repere.index ? repere.index() : 0;
           premiers.forEach(function (c) { if (c && c.remove) { c.remove(); } });
           if (parent) { ouvrirInvite(parent, index, ''); }
+          else { ouvrirInvite(editor.getWrapper(), editor.getWrapper().components().length, ''); }
         });
 
         // Les résidus d'interface ne survivent JAMAIS à une sauvegarde :

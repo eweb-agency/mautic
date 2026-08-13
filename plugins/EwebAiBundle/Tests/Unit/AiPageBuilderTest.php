@@ -41,6 +41,11 @@ final class AiPageBuilderTest extends TestCase
         self::assertStringContainsString("'block:drag:stop'", $js);
         self::assertStringContainsString("'sendly-ia' !== bloc.get('id')", $js);
         self::assertStringContainsString('data-sendly-invite', $js);
+        // Filet du dépôt (recette proprio 13/08) : même si GrapesJS ne
+        // remet aucun composant exploitable, l'invite s'ouvre en fin de
+        // page — un dépôt ne doit JAMAIS ne rien faire.
+        self::assertStringContainsString(".filter(Boolean)", $js);
+        self::assertStringContainsString("else { ouvrirInvite(editor.getWrapper(), editor.getWrapper().components().length, ''); }", $js);
         // Clic sur la tuile : insertion après la sélection, sinon fin de page.
         self::assertStringContainsString('sel.index() + 1', $js);
         self::assertStringContainsString('editor.getWrapper().components().length', $js);
