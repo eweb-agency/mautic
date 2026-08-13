@@ -197,10 +197,21 @@ final class PortalMenuTest extends TestCase
         // et la feuille du bas avec voile en mobile (langage P8).
         $twig = (string) file_get_contents(self::PARTIAL);
 
-        self::assertStringContainsString('border-radius: 14px', $twig);
+        self::assertStringContainsString('border-radius: 16px !important', $twig);
         self::assertStringContainsString('sendly-soft-entete', $twig);
         self::assertStringContainsString('background: #eef4ff', $twig);
-        self::assertStringContainsString('background: #f2f4f8', $twig);
+        // v2 raffinée (13/08 soir) : sous-titres sur UNE ligne (408px +
+        // insécable), graisse 600, rangées à hauteur FIXE (désalignement
+        // Espace/Portail), FAB effacé et navbar élevée (le z interne du
+        // menu vit dans le contexte navbar z1030 < FAB z1035).
+        self::assertStringContainsString('min-width: 408px', $twig);
+        self::assertStringContainsString('text-overflow: ellipsis', $twig);
+        self::assertStringContainsString('font-weight: 600; font-size: 13.5px', $twig);
+        self::assertStringNotContainsString('font-weight: 700; font-size: 14px', $twig);
+        self::assertStringContainsString('min-height: 58px', $twig);
+        self::assertStringContainsString('body:has(.sendly-softwares.open) #sendly-assist-fab { display: none !important; }', $twig);
+        self::assertStringContainsString('z-index: 1060 !important', $twig);
+        self::assertStringContainsString('background: #f3f5f9', $twig);
         self::assertStringNotContainsString('box-shadow: 0 4px 12px rgba(0, 79, 255, .32)', $twig, 'l ombre coloree des tuiles saturees ne doit pas revenir');
         self::assertStringContainsString('sendly-soft-row--courant', $twig);
         self::assertStringContainsString('sendly-soft-etat', $twig);
