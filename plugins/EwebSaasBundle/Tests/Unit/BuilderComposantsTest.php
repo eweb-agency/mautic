@@ -197,4 +197,17 @@ final class BuilderComposantsTest extends TestCase
         self::assertNotFalse($tuile);
         self::assertLessThan($tuile, $garde, 'la garde doit precede l ajout de la tuile IA');
     }
+
+    public function testLaTuileIaPorteUnComposantRepere(): void
+    {
+        // Recette proprio 13/08 : avec `content: ''`, le DÉPÔT de la tuile
+        // ne créait AUCUN composant — block:drag:stop n'avait ni parent ni
+        // index, et le glisser-déposer ne faisait strictement rien (seul le
+        // clic marchait). Le repère donne une cible au gestionnaire, qui le
+        // retire aussitôt pour ouvrir l'invite à sa place.
+        $js = (string) file_get_contents(self::JS);
+
+        self::assertStringContainsString('<div data-sendly-ia-drop="1"></div>', $js);
+        self::assertStringNotContainsString("order: 17, content: '' }", $js);
+    }
 }

@@ -114,7 +114,11 @@
     // le panneau n'existe pas — une tuile qui n'ouvre rien serait une
     // promesse cassée (constaté sur un tenant sans clé, P5).
     if (window.SendlyAiConfig && window.SendlyAiConfig.enabled) {
-      bm.add('sendly-ia', { label: 'Assistant IA', media: ICONS['ASSISTANT IA'], category: BASIQUE, order: 17, content: '' });
+      // Le contenu n'est PAS vide : le dépôt d'un bloc vide ne crée AUCUN
+      // composant, et le glisser-déposer ne savait pas OÙ ouvrir l'invite
+      // (recette proprio 13/08 — le clic marchait, le drag ne faisait
+      // rien). Le repère est remplacé par l'invite dès le dépôt.
+      bm.add('sendly-ia', { label: 'Assistant IA', media: ICONS['ASSISTANT IA'], category: BASIQUE, order: 17, content: '<div data-sendly-ia-drop="1"></div>' });
     }
 
     // Tri = ordre visuel (la vue rend dans l'ordre de collection)…
