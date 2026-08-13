@@ -44,7 +44,7 @@ final class AiPageBuilderTest extends TestCase
         // Filet du dépôt (recette proprio 13/08) : même si GrapesJS ne
         // remet aucun composant exploitable, l'invite s'ouvre en fin de
         // page — un dépôt ne doit JAMAIS ne rien faire.
-        self::assertStringContainsString(".filter(Boolean)", $js);
+        self::assertStringContainsString('.filter(Boolean)', $js);
         self::assertStringContainsString("else { ouvrirInvite(editor.getWrapper(), editor.getWrapper().components().length, ''); }", $js);
         // Clic sur la tuile : insertion après la sélection, sinon fin de page.
         self::assertStringContainsString('sel.index() + 1', $js);
@@ -61,6 +61,12 @@ final class AiPageBuilderTest extends TestCase
 
         self::assertStringContainsString('sendly-ia-squelette', $js);
         self::assertStringContainsString('sendly-shimmer', $js);
+        // Capture proprio 13/08 : la carte blanche à pointillés flashait
+        // comme un bloc vide sur les sections à fond sombre. Le squelette
+        // est translucide (lisible sur clair ET foncé) et se nomme.
+        self::assertStringContainsString('Génération en cours…', $js);
+        self::assertStringContainsString('rgba(127,140,160', $js);
+        self::assertStringNotContainsString('dashed #b9c3d2', $js);
         foreach (['↻ Régénérer', '✎ Ajuster', '✓ Garder'] as $bouton) {
             self::assertStringContainsString($bouton, $js);
         }

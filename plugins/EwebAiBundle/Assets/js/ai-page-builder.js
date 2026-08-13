@@ -108,8 +108,13 @@
           + '.sendly-ia-invite .chip:hover { background: #e3edff; }'
           + '.sendly-ia-invite .erreur { color: #c02942; font-size: 12.5px; margin-top: 8px; }'
           + '.sendly-ia-invite .fermer { float: right; border: none; background: none; color: #7b8698; font-size: 16px; cursor: pointer; margin: -4px -4px 0 8px; }'
-          + '.sendly-ia-squelette { border: 1.5px dashed #b9c3d2; border-radius: 12px; background: #fff; padding: 18px; margin: 10px 0; }'
-          + '.sendly-ia-squelette div { height: 10px; border-radius: 5px; margin-bottom: 10px; background: linear-gradient(90deg, #e8ecf2 30%, #f5f7fa 50%, #e8ecf2 70%); background-size: 200% 100%; animation: sendly-shimmer 1.2s infinite linear; }'
+          /* Squelette DISCRET et adaptatif (capture proprio 13/08 : la carte
+           * blanche à pointillés flashait comme un bloc vide sur les sections
+           * à fond sombre). Teintes translucides : lisibles sur clair ET
+           * foncé, et un libellé dit ce qui se passe. */
+          + '.sendly-ia-squelette { border-radius: 12px; background: rgba(127,140,160,.10); padding: 16px 18px; margin: 10px 0; font-family: -apple-system, "Segoe UI", sans-serif; }'
+          + '.sendly-ia-squelette .etat { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: rgba(127,140,160,.95); margin-bottom: 12px; }'
+          + '.sendly-ia-squelette .os { height: 10px; border-radius: 5px; margin-bottom: 10px; background: linear-gradient(90deg, rgba(127,140,160,.18) 30%, rgba(127,140,160,.38) 50%, rgba(127,140,160,.18) 70%); background-size: 200% 100%; animation: sendly-shimmer 1.2s infinite linear; }'
           + '@keyframes sendly-shimmer { to { background-position: -200% 0; } }'
           + '.sendly-ia-barre { display: flex; gap: 6px; align-items: center; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; padding: 7px 9px; margin: 8px 0; box-shadow: 0 6px 18px rgba(22,35,59,.10); font-family: -apple-system, "Segoe UI", sans-serif; }'
           + '.sendly-ia-barre button { border: 1px solid #e5e7eb; background: #fff; color: #24303f; border-radius: 8px; padding: 5px 10px; font-size: 12.5px; cursor: pointer; }'
@@ -179,7 +184,8 @@
           el.innerHTML = '';
           var sq = blinder(idoc.createElement('div'));
           sq.className = 'sendly-ia-squelette';
-          sq.innerHTML = '<div style="width:70%"></div><div style="width:50%"></div><div style="width:35%; margin-bottom:0"></div>';
+          sq.innerHTML = '<div class="etat">' + ICONE_IA + ' Génération en cours…</div>'
+            + '<div class="os" style="width:70%"></div><div class="os" style="width:50%"></div><div class="os" style="width:35%; margin-bottom:0"></div>';
           el.appendChild(sq);
         }
         appelIa({ mode: 'generate', instruction: consigne }).then(function (html) {
