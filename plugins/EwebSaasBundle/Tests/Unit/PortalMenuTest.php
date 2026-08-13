@@ -199,7 +199,10 @@ final class PortalMenuTest extends TestCase
 
         self::assertStringContainsString('border-radius: 16px !important', $twig);
         self::assertStringContainsString('sendly-soft-entete', $twig);
-        self::assertStringContainsString('background: #eef4ff', $twig);
+        // Pastilles à fond BLANC + liseré (la teinte se fondait dans la
+        // rangée courante — dernier retour proprio 13/08).
+        self::assertStringContainsString('background: #fff; border: 1px solid #dbe7ff', $twig);
+        self::assertStringContainsString('background: #fff; border: 1px solid #e8ebf0', $twig);
         // v2 raffinée (13/08 soir) : sous-titres sur UNE ligne (408px +
         // insécable), graisse 600, rangées à hauteur FIXE (désalignement
         // Espace/Portail), FAB effacé et navbar élevée (le z interne du
@@ -211,7 +214,6 @@ final class PortalMenuTest extends TestCase
         self::assertStringContainsString('height: 58px !important', $twig);
         self::assertStringContainsString('body:has(.sendly-softwares.open) #sendly-assist-fab { display: none !important; }', $twig);
         self::assertStringContainsString('z-index: 1060 !important', $twig);
-        self::assertStringContainsString('background: #f3f5f9', $twig);
         self::assertStringNotContainsString('box-shadow: 0 4px 12px rgba(0, 79, 255, .32)', $twig, 'l ombre coloree des tuiles saturees ne doit pas revenir');
         self::assertStringContainsString('sendly-soft-row--courant', $twig);
         self::assertStringContainsString('sendly-soft-etat', $twig);

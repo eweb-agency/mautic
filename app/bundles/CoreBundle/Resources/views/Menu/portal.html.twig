@@ -54,8 +54,11 @@
             width: 38px; height: 38px; border-radius: 11px; flex: none;
             display: inline-flex; align-items: center; justify-content: center;
         }
-        .sendly-soft-tile--marketing { background: #eef4ff; }
-        .sendly-soft-tile--portal { background: #f3f5f9; }
+        /* Fond BLANC (retour proprio 13/08 soir : la teinte se fondait
+           dans la rangée courante teintée) + liseré fin pour exister sur
+           le fond blanc du panneau. */
+        .sendly-soft-tile--marketing { background: #fff; border: 1px solid #dbe7ff; }
+        .sendly-soft-tile--portal { background: #fff; border: 1px solid #e8ebf0; }
         /* Icônes au TRAIT (glyphes du portail) — 16px, jamais de fill. */
         .sendly-softwares .sendly-soft-tile svg { width: 16px; height: 16px; }
         /* Le thème force display:flex sur les spans des liens de dropdown :
