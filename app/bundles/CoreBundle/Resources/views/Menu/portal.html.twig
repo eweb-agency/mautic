@@ -1,14 +1,19 @@
-{# « Vos logiciels » — le commutateur inter-logiciels, repris À L'IDENTIQUE du
-   motif Webmecanik sur capture du proprio (05/08, 2e itération — la pastille
-   ronde de la v1 a été rejetée) : un bouton-grille dans la barre haute, et un
-   panneau qui LISTE LES LOGICIELS — tuile carrée arrondie, nom en gras,
-   sous-titre, flèche d'ouverture à droite.
+{# « Vos logiciels » — le commutateur inter-logiciels, REDESSINÉ le 13/08
+   (maquette variante A validée par le proprio, pastilles P-1 « teinte
+   douce » : le carré bleu saturé à ombre colorée lisait comme une icône
+   d'app IA — retour proprio). Un en-tête discret, la ligne du logiciel
+   courant teintée bleu avec son état « ● Vous y êtes » (le badge plein se
+   cassait sur deux lignes en mobile — capture proprio), le portail avec
+   un bouton rond « ouvrir ».
 
-   Deux logiciels chez Sendly : l'ESPACE MARKETING (l'application courante —
-   listée sans lien, marquée « Vous y êtes ») et le PORTAIL (pilotage du
-   compte, s'ouvre via la flèche). L'URL vient du paramètre `saas_portal_url`
-   (EwebSaasBundle) — vide, le menu disparaît entièrement. Liens SANS préfixe
-   de langue : le portail (next-intl) choisit la locale du visiteur. #}
+   En MOBILE (<768px), le panneau devient une FEUILLE DU BAS avec voile —
+   le même langage tactile que le builder P8 (décision L-b).
+
+   Deux logiciels chez Sendly : l'ESPACE MARKETING (l'application courante,
+   listée sans lien) et le PORTAIL (pilotage du compte). L'URL vient du
+   paramètre `saas_portal_url` (EwebSaasBundle) — vide, le menu disparaît
+   entièrement. Liens SANS préfixe de langue : le portail (next-intl)
+   choisit la locale du visiteur. #}
 {% set portalUrl = configGetParameter('saas_portal_url') %}
 {% if portalUrl %}
 <li class="dropdown sendly-softwares">
@@ -16,77 +21,106 @@
         /* Styles portés par le partial : la surface vit et meurt d'un bloc. */
         .sendly-softwares > a { display: inline-flex; align-items: center; }
         .sendly-softwares .dropdown-menu {
-            min-width: 340px; padding: 10px; border-radius: 14px;
+            min-width: 340px; padding: 8px; border-radius: 14px;
             box-shadow: 0 18px 44px rgba(22, 35, 59, .14);
             border: 1px solid #eef1f5;
+        }
+        .sendly-softwares .sendly-soft-entete {
+            font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
+            text-transform: uppercase; color: #7b8698; padding: 8px 12px 6px;
         }
         .sendly-softwares .dropdown-menu li + li { margin-top: 2px; }
         /* Spécificité VOLONTAIREMENT supérieure aux règles génériques du menu
            Bootstrap de Mautic (`.dropdown-menu li a` pose display:block +
-           white-space:nowrap et cassait la ligne-lien : tuile étirée pleine
-           largeur, texte éjecté — constaté à la vérification en prod). Le
-           span et le lien reçoivent LA MÊME géométrie. */
+           white-space:nowrap et cassait la ligne-lien — constaté en prod). */
         .sendly-softwares .dropdown-menu li > .sendly-soft-row {
-            display: flex; align-items: center; gap: 14px; padding: 12px;
+            display: flex; align-items: center; gap: 13px; padding: 11px 12px;
             border-radius: 10px; white-space: normal; clear: none;
         }
+        .sendly-softwares .dropdown-menu li > .sendly-soft-row--courant { background: #f0f5ff; }
         .sendly-softwares .dropdown-menu li > a.sendly-soft-row:hover,
-        .sendly-softwares .dropdown-menu li > a.sendly-soft-row:focus { background: #f0f5ff; text-decoration: none; }
-        .sendly-softwares .dropdown-menu li > a.sendly-soft-row:hover .sendly-soft-action { color: #004FFF; }
+        .sendly-softwares .dropdown-menu li > a.sendly-soft-row:focus { background: #f7f8fa; text-decoration: none; }
+        .sendly-softwares .dropdown-menu li > a.sendly-soft-row:hover .sendly-soft-ouvrir { border-color: #004FFF; color: #004FFF; }
+        /* Pastilles P-1 « teinte douce » : fond teinté clair, icône colorée
+           au trait, liseré fin — plus d'aplat saturé ni d'ombre colorée. */
         .sendly-softwares .sendly-soft-tile {
             width: 40px; height: 40px; border-radius: 12px; flex: none;
             display: inline-flex; align-items: center; justify-content: center;
         }
-        /* Un peu de profondeur : chaque tuile projette son ombre colorée. */
-        .sendly-soft-tile--marketing { background: #004FFF; box-shadow: 0 4px 12px rgba(0, 79, 255, .32); }
-        .sendly-soft-tile--portal { background: #16233b; box-shadow: 0 4px 10px rgba(22, 35, 59, .18); }
-        /* Icônes au TRAIT (les glyphes du portail, inlinés) — jamais de
-           fill imposé : il transformerait le trait en pâté. 17px : la
-           taille 22px mangeait la tuile (retour proprio, 4e itération). */
+        .sendly-soft-tile--marketing { background: #eef4ff; border: 1px solid #dbe7ff; }
+        .sendly-soft-tile--portal { background: #f2f4f8; border: 1px solid #e5e9f0; }
+        /* Icônes au TRAIT (glyphes du portail) — 17px, jamais de fill. */
         .sendly-softwares .sendly-soft-tile svg { width: 17px; height: 17px; }
-        /* Même précaution pour les SPANS INTERNES : le thème force
-           `display:flex` sur tout span logé dans un lien de dropdown, ce qui
-           faisait sortir nom/sous-titre/flèche du flux (validé en injectant
-           ces règles en prod avant de committer). */
+        /* Le thème force display:flex sur les spans des liens de dropdown :
+           chaque span interne re-déclare sa géométrie (constaté en prod). */
         .sendly-softwares .dropdown-menu .sendly-soft-text { display: block; min-width: 0; flex: 1 1 auto; width: auto; }
         .sendly-softwares .dropdown-menu .sendly-soft-name { display: block; font-weight: 700; font-size: 14px; color: #24303f; line-height: 1.25; width: auto; }
         .sendly-softwares .dropdown-menu .sendly-soft-sub { display: block; color: #6a7486; font-size: 12px; line-height: 1.3; width: auto; height: auto; }
-        .sendly-softwares .dropdown-menu .sendly-soft-action { display: inline-flex; width: auto; flex: none; color: #4a5264; font-size: 16px; }
-        .sendly-soft-current {
-            flex: none; font-size: 11px; font-weight: 600; color: #004FFF;
-            background: rgba(0, 79, 255, .09);
-            border-radius: 999px; padding: 2px 8px;
+        .sendly-softwares .dropdown-menu .sendly-soft-action { display: inline-flex; width: auto; flex: none; }
+        /* L'état « Vous y êtes » : point vert + texte, JAMAIS de retour à la
+           ligne (le badge plein se cassait en deux — capture proprio 13/08). */
+        .sendly-softwares .dropdown-menu .sendly-soft-etat {
+            display: inline-flex; align-items: center; gap: 5px; flex: none; width: auto;
+            font-size: 11px; font-weight: 600; color: #6a7486; white-space: nowrap;
+        }
+        .sendly-softwares .sendly-soft-etat::before {
+            content: ""; width: 7px; height: 7px; border-radius: 99px;
+            background: #0d9455; flex: none;
+        }
+        /* Le portail s'ouvre par un vrai BOUTON rond, pas une icône nue. */
+        .sendly-softwares .dropdown-menu .sendly-soft-ouvrir {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 30px; height: 30px; border-radius: 99px; flex: none;
+            border: 1px solid #e5e7eb; color: #4a5264; background: #fff; font-size: 14px;
+        }
+        /* ── Téléphone : feuille du bas avec voile (décision L-b) ────── */
+        @media (max-width: 767px) {
+            .sendly-softwares.open::before {
+                content: ""; position: fixed; inset: 0; z-index: 1049;
+                background: rgba(22, 35, 59, .34);
+            }
+            .sendly-softwares .dropdown-menu {
+                position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 1050;
+                min-width: 0; width: auto; margin: 0;
+                border-radius: 16px 16px 0 0; border: 0;
+                box-shadow: 0 -10px 30px rgba(22, 35, 59, .2);
+                padding: 20px 10px calc(14px + env(safe-area-inset-bottom));
+            }
+            /* La poignée de feuille, comme au builder P8. */
+            .sendly-softwares .dropdown-menu::before {
+                content: ""; position: absolute; top: 8px; left: 50%;
+                width: 34px; height: 4px; border-radius: 2px;
+                background: #d7dce4; transform: translateX(-50%);
+            }
+            .sendly-softwares .dropdown-menu li > .sendly-soft-row { padding: 13px 12px; }
         }
     </style>
     <a class="dropdown-toggle" data-toggle="dropdown" href="#" aria-label="{{ 'eweb.saas.portal.menu'|trans }}" title="{{ 'eweb.saas.portal.menu'|trans }}">
         <i class="ri-apps-2-line ri-xl"></i>
     </a>
     <ul class="dropdown-menu dropdown-menu-right">
+        <li class="sendly-soft-entete" role="presentation">{{ 'eweb.saas.portal.menu'|trans }}</li>
         <li>
             {# L'application courante : on la liste (le panneau dit ce que
                vous avez), on ne la lie pas (un lien vers soi-même se lit
-               comme un bug). #}
-            {# Les tuiles portent les GLYPHES DU PORTAIL (demande proprio,
-               3e itération — le monogramme de marque y était illisible) :
-               l'avion en papier de « Espace marketing » et le tableau de
-               bord du portail, inlinés au trait blanc. #}
-            <span class="sendly-soft-row">
-                <span class="sendly-soft-tile sendly-soft-tile--marketing"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></span>
+               comme un bug). Tuiles = glyphes du portail, au trait. #}
+            <span class="sendly-soft-row sendly-soft-row--courant">
+                <span class="sendly-soft-tile sendly-soft-tile--marketing"><svg viewBox="0 0 24 24" fill="none" stroke="#004FFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></span>
                 <span class="sendly-soft-text">
                     <span class="sendly-soft-name">{{ 'eweb.saas.portal.marketing_title'|trans }}</span>
                     <span class="sendly-soft-sub">{{ 'eweb.saas.portal.marketing_subtitle'|trans }}</span>
                 </span>
-                <span class="sendly-soft-current">{{ 'eweb.saas.portal.current'|trans }}</span>
+                <span class="sendly-soft-etat">{{ 'eweb.saas.portal.current'|trans }}</span>
             </span>
         </li>
         <li>
             <a class="sendly-soft-row" href="{{ portalUrl }}/dashboard/organization">
-                <span class="sendly-soft-tile sendly-soft-tile--portal"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span>
+                <span class="sendly-soft-tile sendly-soft-tile--portal"><svg viewBox="0 0 24 24" fill="none" stroke="#16233b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span>
                 <span class="sendly-soft-text">
                     <span class="sendly-soft-name">{{ 'eweb.saas.portal.portal_title'|trans }}</span>
                     <span class="sendly-soft-sub">{{ 'eweb.saas.portal.portal_subtitle'|trans }}</span>
                 </span>
-                <span class="sendly-soft-action"><i class="ri-external-link-line"></i></span>
+                <span class="sendly-soft-action sendly-soft-ouvrir"><i class="ri-external-link-line"></i></span>
             </a>
         </li>
     </ul>

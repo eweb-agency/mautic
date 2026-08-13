@@ -80,7 +80,11 @@ final class PortalMenuTest extends TestCase
         // dans le header mobile (qui porte désormais le wordmark).
         $partial = (string) file_get_contents(self::PARTIAL);
         self::assertStringNotContainsString('logo--minimized.svg', $partial);
-        self::assertSame(2, substr_count($partial, 'stroke="#fff"'), 'deux tuiles, deux glyphes au trait');
+        // P-1 « teinte douce » (13/08) : le trait prend la couleur du
+        // logiciel — bleu marketing, encre portail — sur fond teinté clair.
+        self::assertSame(1, substr_count($partial, 'stroke="#004FFF"'), 'le glyphe marketing au trait bleu');
+        self::assertSame(1, substr_count($partial, 'stroke="#16233b"'), 'le glyphe portail au trait encre');
+        self::assertStringNotContainsString('stroke="#fff"', $partial, 'plus de trait blanc : les aplats satures ont disparu');
 
         $navbar = (string) file_get_contents(self::NAVBAR);
         self::assertStringContainsString('brand-logo--mobile', $navbar);
@@ -183,15 +187,38 @@ final class PortalMenuTest extends TestCase
         self::assertStringContainsString('content: none !important', $twig, 'la suppression a l etat ferme (anti-retraction) doit rester');
     }
 
-    public function testLePanneauLogicielsEstEmbelli(): void
+    public function testLeRedesignVosLogicielsRespecteLaMaquetteValidee(): void
     {
-        // Passe visuelle validee en direct le 10/08 : carte 14px, rangees
-        // arrondies genereuses, pilule « Vous y etes » bleue, tuiles ombrees.
+        // Maquette variante A + pastilles P-1 « teinte douce » validées le
+        // 13/08 (remplace la passe du 10/08) : plus d'aplat bleu saturé à
+        // ombre colorée (lisait comme une icône d'app IA), un en-tête,
+        // l'état en point vert + texte (le badge plein se cassait sur deux
+        // lignes en mobile — capture proprio), la ligne courante teintée,
+        // et la feuille du bas avec voile en mobile (langage P8).
         $twig = (string) file_get_contents(self::PARTIAL);
 
         self::assertStringContainsString('border-radius: 14px', $twig);
-        self::assertStringContainsString('rgba(0, 79, 255, .09)', $twig, 'le badge courant doit etre la pilule bleue');
-        self::assertStringContainsString('box-shadow: 0 4px 12px rgba(0, 79, 255, .32)', $twig, 'la tuile marketing porte son ombre coloree');
+        self::assertStringContainsString('sendly-soft-entete', $twig);
+        self::assertStringContainsString('background: #eef4ff', $twig);
+        self::assertStringContainsString('background: #f2f4f8', $twig);
+        self::assertStringNotContainsString('box-shadow: 0 4px 12px rgba(0, 79, 255, .32)', $twig, 'l ombre coloree des tuiles saturees ne doit pas revenir');
+        self::assertStringContainsString('sendly-soft-row--courant', $twig);
+        self::assertStringContainsString('sendly-soft-etat', $twig);
+        self::assertStringContainsString('white-space: nowrap', $twig);
+        self::assertStringContainsString('background: #0d9455', $twig);
+        self::assertStringContainsString('sendly-soft-ouvrir', $twig);
+        // Feuille du bas : media mobile, voile, poignée, garde de pouce.
+        self::assertStringContainsString('@media (max-width: 767px)', $twig);
+        self::assertStringContainsString('.sendly-softwares.open::before', $twig);
+        self::assertStringContainsString('rgba(22, 35, 59, .34)', $twig);
+        self::assertStringContainsString('border-radius: 16px 16px 0 0', $twig);
+        self::assertStringContainsString('env(safe-area-inset-bottom)', $twig);
+        // L-c : sous-titres concrets, dans les deux langues.
+        $fr = (string) file_get_contents(__DIR__.'/../../Translations/fr/messages.ini');
+        self::assertStringContainsString('Campagnes, e-mails, pages, contacts', $fr);
+        self::assertStringContainsString('Abonnement, équipe, facturation', $fr);
+        $en = (string) file_get_contents(__DIR__.'/../../Translations/en_US/messages.ini');
+        self::assertStringContainsString('Campaigns, emails, pages, contacts', $en);
     }
 
     public function testLeHeaderMobileTientSurUneRangee(): void
