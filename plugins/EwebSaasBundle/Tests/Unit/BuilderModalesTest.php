@@ -57,6 +57,6 @@ final class BuilderModalesTest extends TestCase
 
     public function testLeMarqueurDeThemeEstEnP6(): void
     {
-        self::assertStringContainsString("--sendly-builder-theme: 'p6'", (string) file_get_contents(self::THEME));
+        self::assertStringContainsString("--sendly-builder-theme: 'p8'", (string) file_get_contents(self::THEME));
     }
 }

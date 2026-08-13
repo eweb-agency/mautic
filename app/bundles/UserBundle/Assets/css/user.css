@@ -13,9 +13,15 @@
 }
 
 .mautic-logo {
-    width: 150px;
+    width: 180px;
     margin: 0 auto;
     background: #ffffff;
+}
+
+.mautic-logo > svg {
+    width: 100%;
+    height: auto;
+    display: block;
 }
 
 .mautic-logo > svg.mautic-logo-figure .circle {
