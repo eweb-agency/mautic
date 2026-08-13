@@ -34,7 +34,7 @@
 
 /* Marqueur de présence (vérifiable en prod : la feuille est bien servie). */
 .gjs-mode-page {
-    --sendly-builder-theme: 'p6';
+    --sendly-builder-theme: 'p8';
 }
 
 /* ── Variables GrapesJS ─────────────────────────────────────────── */
@@ -300,3 +300,81 @@ body.sendly-rte-active .gjs-mode-page .gjs-toolbar { display: none !important; p
 .gjs-mode-page .gjs-am-asset:hover { border-color: #004FFF; box-shadow: 0 4px 14px rgba(22,35,59,.10); }
 .gjs-mode-page .gjs-am-name { color: #24303f; font-size: 12.5px; }
 .gjs-mode-page .gjs-am-close { color: #7b8698; }
+
+/* ══ P8 — Builder sur téléphone (maquette validée 12/08) ══════════ */
+/* La classe .sendly-mobile est posée par builder-mobile.js quand
+   l'écran fait moins de 768px (ou en recette via body.sendly-mobile-force).
+   Tout est scopé mode page : l'éditeur d'e-mails ne voit rien. */
+
+/* Les éléments mobiles n'existent visuellement QUE sur mobile. */
+.sendly-mobile-nav, .sendly-poignee, .sendly-menu-plus, .sendly-menu-mobile { display: none; }
+
+/* Onglets du haut masqués : ils vivent dans la barre du bas. */
+.gjs-mode-page.sendly-mobile .gjs-pn-views { display: none; }
+
+/* Le panneau devient une FEUILLE qui glisse du bas. */
+.gjs-mode-page.sendly-mobile .gjs-pn-views-container {
+    position: fixed; left: 0; right: 0; bottom: 0; top: auto;
+    width: 100%; height: auto; max-height: 62vh;
+    border-radius: 14px 14px 0 0; border-right: 0;
+    box-shadow: 0 -10px 30px rgba(22, 35, 59, .18);
+    padding: 22px 0 60px; overflow-y: auto;
+    transform: translateY(105%); transition: transform .25s ease;
+    z-index: 6;
+}
+.gjs-mode-page.sendly-mobile.sendly-feuille-ouverte .gjs-pn-views-container { transform: translateY(0); }
+.gjs-mode-page.sendly-mobile .sendly-poignee {
+    display: block; position: absolute; top: 0; left: 0; right: 0;
+    height: 22px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer;
+}
+.gjs-mode-page.sendly-mobile .sendly-poignee::after {
+    content: ""; position: absolute; top: 8px; left: 50%;
+    width: 34px; height: 4px; border-radius: 2px;
+    background: #d7dce4; transform: translateX(-50%);
+}
+
+/* Canvas plein écran : gouttière fine, place pour la barre du bas. */
+.gjs-mode-page.sendly-mobile .gjs-cv-canvas {
+    left: 8px; right: 8px; width: calc(100% - 16px);
+    top: 64px; height: calc(100% - 124px);
+}
+.gjs-mode-page.sendly-mobile .gjs-pn-commands { left: 0; width: 100%; }
+.gjs-mode-page.sendly-mobile .gjs-pn-devices-c { display: none; }
+
+/* Barre du haut légère : Annuler + Terminer + « ⋯ » seulement. */
+.gjs-mode-page.sendly-mobile .gjs-pn-options .gjs-pn-btn { display: none; }
+.gjs-mode-page.sendly-mobile .gjs-pn-options [data-sendly-id="sendly-annuler"],
+.gjs-mode-page.sendly-mobile .gjs-pn-options [data-sendly-id="sendly-terminer"] { display: inline-flex; }
+.gjs-mode-page.sendly-mobile .sendly-menu-plus {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 8px; border: 1px solid #e5e7eb;
+    background: #fff; color: #24303f; font-size: 16px; cursor: pointer; margin-left: 6px;
+}
+.gjs-mode-page.sendly-mobile .sendly-menu-mobile {
+    display: block; position: absolute; top: 52px; right: 10px; z-index: 7;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(22, 35, 59, .16); padding: 6px; min-width: 210px;
+}
+.gjs-mode-page.sendly-mobile .sendly-menu-mobile button {
+    display: block; width: 100%; text-align: left; border: 0; background: none;
+    padding: 10px 12px; font-size: 13.5px; color: #24303f; border-radius: 7px; cursor: pointer;
+}
+.gjs-mode-page.sendly-mobile .sendly-menu-mobile button:hover { background: #f2f6ff; color: #004FFF; }
+
+/* Barre de navigation du bas : 3 onglets au pouce (motif maquette). */
+.gjs-mode-page.sendly-mobile .sendly-mobile-nav {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0;
+    height: 52px; background: #fff; border-top: 1px solid #eef1f5; z-index: 8;
+}
+.gjs-mode-page.sendly-mobile .sendly-mobile-nav button {
+    flex: 1; border: 0; background: none; cursor: pointer;
+    font-size: 12.5px; font-weight: 600; color: #7b8698; position: relative;
+}
+.gjs-mode-page.sendly-mobile .sendly-mobile-nav button.sendly-nav-actif { color: #004FFF; }
+.gjs-mode-page.sendly-mobile .sendly-mobile-nav button.sendly-nav-actif::before {
+    content: ""; position: absolute; top: 0; left: 22%; right: 22%;
+    height: 2.5px; background: #004FFF; border-radius: 2px;
+}
+
+/* Tuiles en grille tactile dans la feuille (3 colonnes conservées). */
+.gjs-mode-page.sendly-mobile .gjs-blocks-c { padding: 6px 14px 14px; }
