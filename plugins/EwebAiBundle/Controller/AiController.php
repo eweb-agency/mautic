@@ -38,6 +38,12 @@ final class AiController
 
     public function generateAction(Request $request): JsonResponse
     {
+        // Plan gratuit : le droit manque, même si une clé traîne (403 ≠ 503 :
+        // le front distingue « à débloquer » de « pas configuré »).
+        if ($this->copilot->isTeaser()) {
+            return new JsonResponse(['error' => 'entitlement'], Response::HTTP_FORBIDDEN);
+        }
+
         // Court-circuit : aucune clé → aucune fonctionnalité, aucun appel réseau.
         if (!$this->copilot->isEnabled()) {
             return new JsonResponse(['error' => 'disabled'], Response::HTTP_SERVICE_UNAVAILABLE);
@@ -103,6 +109,10 @@ final class AiController
      */
     public function assistAction(Request $request): JsonResponse
     {
+        if ($this->copilot->isTeaser()) {
+            return new JsonResponse(['error' => 'entitlement'], Response::HTTP_FORBIDDEN);
+        }
+
         if (!$this->copilot->isEnabled()) {
             return new JsonResponse(['error' => 'disabled'], Response::HTTP_SERVICE_UNAVAILABLE);
         }
