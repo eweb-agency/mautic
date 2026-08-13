@@ -237,7 +237,7 @@ class AiCopilotService
         $messages[] = ['role' => 'user', 'content' => mb_substr($question, 0, self::ASSIST_MAX_QUESTION)];
 
         $text = $this->callAnthropic(
-            $this->buildAssistSystem((string) ($params['lang'] ?? '')),
+            $this->buildAssistSystem((string) ($params['lang'] ?? ''), (string) ($params['section'] ?? '')),
             '',
             self::ASSIST_MAX_TOKENS,
             null,
@@ -694,9 +694,10 @@ class AiCopilotService
      * marketing automation, rien d'autre) et la MARQUE (le produit s'appelle
      * Sendly, aucun autre nom de produit ou de moteur, jamais).
      */
-    private function buildAssistSystem(string $lang): string
+    private function buildAssistSystem(string $lang, string $section = ''): string
     {
         $language = '' !== trim($lang) ? trim($lang) : 'French';
+        $section  = trim($section);
 
         // La fiche de CAPACITÉS doit refléter le VRAI produit : une liste
         // « e-mail seulement » a fait NIER l'envoi de SMS à un client
@@ -717,6 +718,9 @@ class AiCopilotService
             '- The product is called Sendly and ONLY Sendly. Never mention any other product, engine or brand name.',
             '- If the question is not about using Sendly or marketing automation, politely say you can only help with Sendly.',
             '- Never invent a feature — and never DENY one from the capability list above. If you are unsure whether something exists, say where to look in the interface or suggest contacting support instead of denying.',
+            '' !== $section
+                ? 'CONTEXT: the user is currently in the « '.$section.' » section of Sendly. Assume their question relates to it unless stated otherwise, and tailor steps and interface paths to that section first.'
+                : '',
         ]);
     }
 

@@ -118,6 +118,9 @@ final class AiController
                 'question' => mb_substr((string) ($payload['question'] ?? ''), 0, self::MAX_INSTRUCTION),
                 'history'  => $payload['history'] ?? [],
                 'lang'     => mb_substr((string) ($payload['lang'] ?? ''), 0, 60),
+                // La section où se trouve l'utilisateur : l'accompagnement
+                // suit l'écran (le prompt contextualise la réponse).
+                'section'  => mb_substr((string) ($payload['section'] ?? ''), 0, 60),
             ]);
 
             return new JsonResponse(['answer' => $answer]);

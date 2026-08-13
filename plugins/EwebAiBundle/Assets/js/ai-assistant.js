@@ -372,6 +372,35 @@
   };
 
   // ── Contexte PAR DÉFAUT : l'aide générale (priorité 0) ─────────────────
+  // L'ACCOMPAGNEMENT SUIT L'ÉCRAN (exigence produit 12/08 — « tout le but
+  // de cet assistant ») : le titre, l'accueil et les raccourcis de l'aide
+  // se calquent sur la section où l'utilisateur se trouve, et la section
+  // part AU SERVEUR pour des réponses contextualisées.
+  var SECTIONS_AIDE = [
+    [/\/s\/contacts/, 'Contacts', 'vos contacts : création, import CSV, historique, dédoublonnage', ['Comment importer des contacts en CSV ?', 'Comment fusionner des doublons ?', 'Comment voir l\'historique d\'un contact ?']],
+    [/\/s\/companies/, 'Sociétés', 'vos sociétés : création, association de contacts', ['Comment associer un contact à une société ?', 'Comment importer des sociétés ?']],
+    [/\/s\/segments/, 'Segments', 'vos segments : filtres, combinaisons, mise à jour', ['Comment créer un segment dynamique ?', 'Pourquoi mon segment est-il vide ?', 'Comment combiner plusieurs filtres ?']],
+    [/\/s\/campaigns/, 'Campagnes', 'vos campagnes : scénarios, déclencheurs, planification', ['Comment lancer ma première campagne ?', 'Comment ajouter une condition dans un scénario ?', 'Pourquoi ma campagne ne se déclenche pas ?']],
+    [/\/s\/emails/, 'E-mails', 'vos e-mails : création, envoi, A/B test, délivrabilité', ['Comment faire un A/B test d\'objet ?', 'Comment améliorer ma délivrabilité ?', 'Quelle différence entre e-mail segment et e-mail modèle ?']],
+    [/\/s\/sms/, 'SMS', 'vos SMS : rédaction, envoi via votre connecteur (Twilio…)', ['Comment envoyer un SMS à un segment ?', 'Comment configurer le connecteur SMS ?', 'Comment personnaliser un SMS avec des jetons ?']],
+    [/\/s\/forms/, 'Formulaires', 'vos formulaires : champs, actions, intégration', ['Comment intégrer un formulaire sur mon site ?', 'Comment déclencher une action après soumission ?']],
+    [/\/s\/pages/, 'Pages', 'vos pages d\'atterrissage : générateur, publication, aperçu', ['Comment publier ma page ?', 'Comment ajouter un formulaire à ma page ?', 'Comment dupliquer une page ?']],
+    [/\/s\/assets/, 'Ressources', 'vos ressources : fichiers téléchargeables et suivi', ['Comment suivre les téléchargements d\'un fichier ?']],
+    [/\/s\/dwc/, 'Contenu web dynamique', 'le contenu web dynamique : blocs personnalisés par segment', ['Comment afficher un contenu différent selon le segment ?', 'Comment intégrer un bloc dynamique sur mon site ?']],
+    [/\/s\/points/, 'Points', 'les points : scoring des contacts et déclencheurs', ['Comment attribuer des points à une ouverture d\'e-mail ?', 'Comment créer un déclencheur de points ?']],
+    [/\/s\/stages/, 'Stages', 'les stages : étapes du cycle de vie de vos contacts', ['Comment faire avancer un contact de stage ?']],
+    [/\/s\/reports/, 'Rapports', 'vos rapports : sources de données, colonnes, planification', ['Comment créer un rapport d\'ouvertures ?', 'Comment recevoir un rapport par e-mail chaque semaine ?']],
+  ];
+  function sectionCourante() {
+    var chemin = window.location.pathname;
+    for (var i = 0; i < SECTIONS_AIDE.length; i++) {
+      if (SECTIONS_AIDE[i][0].test(chemin)) {
+        return { nom: SECTIONS_AIDE[i][1], sujet: SECTIONS_AIDE[i][2], raccourcis: SECTIONS_AIDE[i][3] };
+      }
+    }
+    return null;
+  }
+
   window.SendlyAssistantContexts = window.SendlyAssistantContexts || [];
   window.SendlyAssistantContexts.push({
     id: 'help',
@@ -381,9 +410,14 @@
       return !!(c && c.assistEndpoint);
     },
     title: function () {
-      return t('mautic.core.ai.assistant.button', 'Assistant IA');
+      var s = sectionCourante();
+      return s ? 'Assistant ' + s.nom : t('mautic.core.ai.assistant.button', 'Assistant IA');
     },
     welcome: function () {
+      var s = sectionCourante();
+      if (s) {
+        return 'Bonjour ! Vous êtes dans « ' + s.nom + ' » — posez-moi une question sur ' + s.sujet + '.';
+      }
       return t('mautic.core.ai.assistant.welcome',
         'Bonjour ! Posez-moi une question sur Sendly : segments, campagnes, e-mails, délivrabilité…');
     },
@@ -394,6 +428,8 @@
       return t('mautic.core.ai.assistant.thinking', 'Je réfléchis…');
     },
     shortcuts: function () {
+      var s = sectionCourante();
+      if (s) { return s.raccourcis; }
       return [
         t('mautic.core.ai.assistant.suggest1', 'Comment créer un segment ?'),
         t('mautic.core.ai.assistant.suggest2', 'Comment améliorer ma délivrabilité ?'),
@@ -421,7 +457,7 @@
         url: cfg().assistEndpoint,
         type: 'POST',
         dataType: 'json',
-        data: { question: q, history: history, lang: document.documentElement.lang || 'fr' },
+        data: { question: q, history: history, lang: document.documentElement.lang || 'fr', section: (sectionCourante() || {}).nom || '' },
         success: function (res) {
           if (res && res.answer) {
             var answer = String(res.answer);
