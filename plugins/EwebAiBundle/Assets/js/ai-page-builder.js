@@ -311,7 +311,7 @@
         }, 50);
       }
 
-      /** Ajoute ✦ (Améliorer) et 🌐 (Traduire) à la mini-barre des textes. */
+      /** Ajoute Améliorer (étincelle) et Traduire (langues) à la mini-barre. */
       function equiperMiniBarre(comp) {
         if (!comp || 'text' !== comp.get('type')) { return; }
         var barre = comp.get('toolbar') || [];
