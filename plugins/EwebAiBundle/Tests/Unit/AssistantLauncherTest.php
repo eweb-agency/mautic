@@ -71,4 +71,34 @@ final class AssistantLauncherTest extends TestCase
             self::assertStringContainsString($keep, $js);
         }
     }
+
+    public function testLAccompagnementSuitLEcran(): void
+    {
+        // Exigence produit 12/08 (« tout le but de cet assistant ») : le
+        // titre, l'accueil et les raccourcis de l'aide se calquent sur la
+        // section courante, et la section part AU SERVEUR pour des
+        // réponses contextualisées.
+        $js = $this->source('ai-assistant.js');
+
+        self::assertStringContainsString('var SECTIONS_AIDE = [', $js);
+        self::assertStringContainsString('function sectionCourante()', $js);
+        self::assertStringContainsString("'Assistant ' + s.nom", $js);
+        self::assertStringContainsString('Vous êtes dans « ', $js);
+        self::assertStringContainsString('return s.raccourcis;', $js);
+        self::assertStringContainsString("section: (sectionCourante() || {}).nom || ''", $js);
+        // Les 13 sections cartographiées, dont les SMS.
+        foreach (['Contacts', 'Segments', 'Campagnes', 'E-mails', 'SMS', 'Formulaires', 'Rapports'] as $nom) {
+            self::assertStringContainsString("'".$nom."'", $js);
+        }
+    }
+
+    public function testLeServeurContextualiseParSection(): void
+    {
+        $service = (string) file_get_contents(__DIR__.'/../../Service/AiCopilotService.php');
+        self::assertStringContainsString('string $section = \'\'', $service);
+        self::assertStringContainsString('the user is currently in the « ', $service);
+
+        $controller = (string) file_get_contents(__DIR__.'/../../Controller/AiController.php');
+        self::assertStringContainsString("'section'  => mb_substr", $controller);
+    }
 }
