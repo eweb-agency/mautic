@@ -269,6 +269,33 @@ export default class BuilderService {
         },
         grapesjsmautic: BuilderService.getMauticConf('page-html'),
         [grapesjsckeditor]: BuilderService.getCkeConf('page:getBuilderTokens'),
+        // Retouche d'image en mode page (maquette validée 13/08) : titre et
+        // bouton en français, 6 outils (les réglages fins restent au thème
+        // par défaut de l'e-mail), barre d'outils EN BAS — la mise en forme
+        // responsive vit dans builder-sendly.css (.gjs-mode-page).
+        [grapesjstuiimageeditor]: {
+          labelImageEditor: "Retoucher l'image",
+          labelApply: 'Appliquer',
+          config: {
+            includeUI: {
+              menu: ['crop', 'rotate', 'flip', 'draw', 'text', 'filter'],
+              menuBarPosition: 'bottom',
+              // Icônes lisibles sur la barre BLANCHE du thème (le sprite
+              // tui est teinté à l'init — le CSS ne peut pas le recolorer).
+              theme: {
+                'common.backgroundColor': '#191c22',
+                'common.border': '0',
+                'menu.normalIcon.color': '#6a7486',
+                'menu.activeIcon.color': '#004FFF',
+                'menu.hoverIcon.color': '#24303f',
+                'menu.disabledIcon.color': '#c8cfdb',
+                'menu.iconSize': { width: '22px', height: '22px' },
+                'submenu.backgroundColor': '#22262e',
+                'submenu.partition.color': '#3a4254',
+              },
+            },
+          },
+        },
         ...BuilderService.getPluginOptions('page'), // grapesjs-custom-plugins: add the plugin-options
       },
     });

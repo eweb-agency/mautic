@@ -378,3 +378,58 @@ body.sendly-rte-active .gjs-mode-page .gjs-toolbar { display: none !important; p
 
 /* Tuiles en grille tactile dans la feuille (3 colonnes conservées). */
 .gjs-mode-page.sendly-mobile .gjs-blocks-c { padding: 6px 14px 14px; }
+
+/* ══ Retouche d'image (tui) au thème Sendly — maquette validée 13/08 ══ */
+/* Sculpté en direct dans la modale ouverte (13/08) puis recopié ici.
+   Le canvas est re-calepiné par builder-retouche.js (resizeEditor) : le
+   CSS ne gère que l'enveloppe. Relevés qui ont coûté :
+   - la barre .tui-image-editor-controls est en display:TABLE → width:100%
+     n'y est qu'un minimum, elle s'étend au contenu (591px) → flex ;
+   - centrage + débordement : justify-content:center COUPE le début de la
+     barre → flex-start + margin:auto sur le menu ;
+   - le bouton Appliquer du plugin a ses styles EN INLINE (→ !important). */
+.gjs-mode-page .gjs-mdl-dialog:has(.tui-image-editor-container) { width: min(760px, calc(100vw - 32px)); border-radius: 14px; overflow: hidden; }
+.gjs-mode-page .gjs-mdl-dialog:has(.tui-image-editor-container) .gjs-mdl-content,
+.gjs-mode-page .gjs-mdl-dialog:has(.tui-image-editor-container) .gjs-mdl-content > div { position: static !important; }
+/* Bureau : Appliquer en pied à droite, dans la rangée d'outils (maquette) */
+.gjs-mode-page .gjs-mdl-dialog:has(.tui-image-editor-container) .tui-image-editor__apply-btn {
+    position: absolute !important; bottom: 14px !important; right: 14px !important; top: auto !important; margin: 0 !important;
+    background: #004FFF !important; color: #fff !important; font-size: 13px !important; font-weight: 600 !important;
+    border-radius: 9px !important; padding: 8px 16px !important; box-shadow: 0 4px 12px rgba(0, 79, 255, .32) !important; z-index: 3;
+}
+/* Barre d'outils : blanche, EN BAS, libellés français sous les icônes */
+.gjs-mode-page .tui-image-editor-controls {
+    background: #fff !important; border-top: 1px solid #eef1f5;
+    top: auto !important; bottom: 0 !important; height: 62px !important;
+    width: 100% !important; left: 0 !important;
+    display: flex !important; align-items: center !important; justify-content: flex-start !important;
+    overflow-x: auto !important; overflow-y: hidden !important;
+}
+.gjs-mode-page .tui-image-editor-controls .tui-image-editor-menu { display: flex !important; align-items: center; gap: 2px; width: auto !important; margin: 0 auto !important; }
+.gjs-mode-page .tui-image-editor-controls .tui-image-editor-controls-buttons,
+.gjs-mode-page .tui-image-editor-controls .tui-image-editor-controls-logo { display: none !important; }
+.gjs-mode-page .tui-image-editor-menu > .tui-image-editor-item { display: inline-flex !important; flex-direction: column; align-items: center; gap: 3px; padding: 6px 10px !important; }
+.gjs-mode-page .tui-image-editor-menu > .tui-image-editor-item::after { font-size: 10px; font-weight: 600; color: #4a5264; font-family: -apple-system, "Segoe UI", sans-serif; }
+.gjs-mode-page .tie-btn-crop::after { content: "Recadrer"; }
+.gjs-mode-page .tie-btn-rotate::after { content: "Pivoter"; }
+.gjs-mode-page .tie-btn-flip::after { content: "Miroir"; }
+.gjs-mode-page .tie-btn-draw::after { content: "Dessiner"; }
+.gjs-mode-page .tie-btn-text::after { content: "Texte"; }
+.gjs-mode-page .tie-btn-filter::after { content: "Filtres"; }
+/* La zone image laisse la place à la barre du bas */
+.gjs-mode-page .tui-image-editor-main-container { bottom: 62px !important; }
+
+/* Téléphone : la retouche passe en PLEIN ÉCRAN (décision R-b) */
+@media (max-width: 767px) {
+    .gjs-mode-page .gjs-mdl-container:has(.tui-image-editor-container) { padding: 0 !important; }
+    .gjs-mode-page .gjs-mdl-dialog:has(.tui-image-editor-container) {
+        position: fixed; inset: 0; width: 100vw !important; max-width: none;
+        height: 100%; margin: 0 !important; border-radius: 0;
+        display: flex; flex-direction: column;
+    }
+    .gjs-mode-page .gjs-mdl-dialog:has(.tui-image-editor-container) .gjs-mdl-content { flex: 1; padding: 0 !important; overflow: hidden; }
+    /* Appliquer rejoint la rangée du titre, toujours visible (maquette) */
+    .gjs-mode-page .gjs-mdl-dialog:has(.tui-image-editor-container) .tui-image-editor__apply-btn {
+        position: fixed !important; top: 12px !important; right: 48px !important; bottom: auto !important;
+    }
+}
