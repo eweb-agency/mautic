@@ -125,6 +125,40 @@
           fermerFeuille();
         });
 
+        /* ── Édition de texte au TAP (retour proprio 13/08) ────────── */
+        /* Le RTE ne se monte qu'au DOUBLE-clic — un geste invisible et
+         * peu fiable au doigt (« je clique plusieurs fois, rien ne se
+         * passe »). En mobile : taper une fois SÉLECTIONNE (natif GJS),
+         * re-taper le texte déjà sélectionné ÉDITE — le motif des apps
+         * de notes. Le double-tap continue de marcher par ailleurs.
+         * L'écouteur vit DANS l'iframe, en phase de CAPTURE : GrapesJS
+         * AVALE le clic avant qu'il ne bulle jusqu'au document (il le
+         * re-diffuse sur le document principal) — en bulle l'écouteur ne
+         * reçoit RIEN (constaté live 13/08) ; la capture passe avant
+         * tout stopPropagation (leçon P4, clics réels). */
+        var selectionRecente = 0;
+        editor.on('component:selected', function () { selectionRecente = Date.now(); });
+
+        function poserEditionTactile() {
+          var idoc = editor.Canvas.getDocument();
+          if (!idoc || idoc.__sendlyTapEdition) { return; }
+          idoc.__sendlyTapEdition = true;
+          idoc.addEventListener('click', function (e) {
+            if (!actif()) { return; }
+            if (document.body.classList.contains('sendly-rte-active')) { return; }
+            var sel = editor.getSelected();
+            if (!sel || 'text' !== sel.get('type')) { return; }
+            var el = sel.view && sel.view.el;
+            if (!el || !el.contains(e.target)) { return; }
+            // Cette sélection vient-elle du tap en cours ? (le mousedown
+            // qui précède ce click a déjà sélectionné le composant)
+            if (Date.now() - selectionRecente < 350) { return; }
+            el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, view: idoc.defaultView }));
+          }, true);
+        }
+        poserEditionTactile();
+        editor.on('canvas:frame:load', poserEditionTactile);
+
         /* ── Menu « ⋯ » de la barre du haut (décision P8-a) ────────── */
         var optionsPanneau = document.querySelector('.builder-panel .gjs-pn-options');
         var menu = null;
