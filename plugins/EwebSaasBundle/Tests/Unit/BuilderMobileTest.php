@@ -56,6 +56,23 @@ final class BuilderMobileTest extends TestCase
         self::assertStringContainsString('fermerFeuille(); return;', $js);
     }
 
+    public function testLeTexteSEditeAuTapEnMobile(): void
+    {
+        $js = (string) file_get_contents(self::JS);
+
+        // Retour proprio 13/08 : le double-clic est un geste invisible au
+        // doigt. Re-taper un texte DÉJÀ sélectionné monte le RTE ; la
+        // sélection issue du tap en cours est ignorée (fenêtre 350 ms),
+        // et l'écouteur vit dans l'IFRAME (les re-diffusions GrapesJS
+        // vont au document principal — leçon P4).
+        self::assertStringContainsString('poserEditionTactile', $js);
+        self::assertStringContainsString("'text' !== sel.get('type')", $js);
+        self::assertStringContainsString('selectionRecente < 350', $js);
+        self::assertStringContainsString("dispatchEvent(new MouseEvent('dblclick'", $js);
+        self::assertStringContainsString('sendly-rte-active', $js);
+        self::assertStringContainsString("editor.on('canvas:frame:load', poserEditionTactile)", $js);
+    }
+
     public function testLeMenuTroisPointsPorteLesActionsSecondaires(): void
     {
         $js = (string) file_get_contents(self::JS);

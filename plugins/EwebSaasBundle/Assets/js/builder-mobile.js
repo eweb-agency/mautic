@@ -125,6 +125,38 @@
           fermerFeuille();
         });
 
+        /* ── Édition de texte au TAP (retour proprio 13/08) ────────── */
+        /* Le RTE ne se monte qu'au DOUBLE-clic — un geste invisible et
+         * peu fiable au doigt (« je clique plusieurs fois, rien ne se
+         * passe »). En mobile : taper une fois SÉLECTIONNE (natif GJS),
+         * re-taper le texte déjà sélectionné ÉDITE — le motif des apps
+         * de notes. Le double-tap continue de marcher par ailleurs.
+         * L'écouteur vit DANS l'iframe : les re-diffusions GrapesJS
+         * partent vers le document PRINCIPAL, il ne voit donc que les
+         * vrais clics (leçon P4, clics réels). */
+        var selectionRecente = 0;
+        editor.on('component:selected', function () { selectionRecente = Date.now(); });
+
+        function poserEditionTactile() {
+          var idoc = editor.Canvas.getDocument();
+          if (!idoc || idoc.__sendlyTapEdition) { return; }
+          idoc.__sendlyTapEdition = true;
+          idoc.addEventListener('click', function (e) {
+            if (!actif()) { return; }
+            if (document.body.classList.contains('sendly-rte-active')) { return; }
+            var sel = editor.getSelected();
+            if (!sel || 'text' !== sel.get('type')) { return; }
+            var el = sel.view && sel.view.el;
+            if (!el || !el.contains(e.target)) { return; }
+            // Cette sélection vient-elle du tap en cours ? (le mousedown
+            // qui précède ce click a déjà sélectionné le composant)
+            if (Date.now() - selectionRecente < 350) { return; }
+            el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, view: idoc.defaultView }));
+          });
+        }
+        poserEditionTactile();
+        editor.on('canvas:frame:load', poserEditionTactile);
+
         /* ── Menu « ⋯ » de la barre du haut (décision P8-a) ────────── */
         var optionsPanneau = document.querySelector('.builder-panel .gjs-pn-options');
         var menu = null;
