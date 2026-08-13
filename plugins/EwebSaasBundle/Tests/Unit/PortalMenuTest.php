@@ -208,7 +208,7 @@ final class PortalMenuTest extends TestCase
         self::assertStringContainsString('text-overflow: ellipsis', $twig);
         self::assertStringContainsString('font-weight: 600; font-size: 13.5px', $twig);
         self::assertStringNotContainsString('font-weight: 700; font-size: 14px', $twig);
-        self::assertStringContainsString('min-height: 58px', $twig);
+        self::assertStringContainsString('height: 58px !important', $twig);
         self::assertStringContainsString('body:has(.sendly-softwares.open) #sendly-assist-fab { display: none !important; }', $twig);
         self::assertStringContainsString('z-index: 1060 !important', $twig);
         self::assertStringContainsString('background: #f3f5f9', $twig);

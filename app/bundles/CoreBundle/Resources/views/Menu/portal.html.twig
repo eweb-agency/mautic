@@ -39,7 +39,10 @@
         .sendly-softwares .dropdown-menu li > .sendly-soft-row {
             display: flex; align-items: center; gap: 12px; padding: 10px 12px !important;
             border-radius: 11px; white-space: normal; clear: none;
-            min-height: 58px; transition: background .14s;
+            /* hauteur EXACTE : 8px d'écart span/lien subsistaient malgré
+               paddings et contenus IDENTIQUES mesurés (13/08) — le contenu
+               est insécable, la hauteur fixe est sans risque. */
+            height: 58px !important; transition: background .14s;
         }
         .sendly-softwares .dropdown-menu li > .sendly-soft-row--courant { background: #f3f7ff; }
         .sendly-softwares .dropdown-menu li > a.sendly-soft-row:hover,
@@ -108,7 +111,7 @@
                 width: 34px; height: 4px; border-radius: 2px;
                 background: #d7dce4; transform: translateX(-50%);
             }
-            .sendly-softwares .dropdown-menu li > .sendly-soft-row { padding: 12px !important; min-height: 54px; }
+            .sendly-softwares .dropdown-menu li > .sendly-soft-row { padding: 0 12px !important; height: 56px !important; }
         }
     </style>
     <a class="dropdown-toggle" data-toggle="dropdown" href="#" aria-label="{{ 'eweb.saas.portal.menu'|trans }}" title="{{ 'eweb.saas.portal.menu'|trans }}">
