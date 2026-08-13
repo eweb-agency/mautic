@@ -220,6 +220,9 @@ final class PortalMenuTest extends TestCase
         self::assertStringContainsString('white-space: nowrap', $twig);
         self::assertStringContainsString('background: #0d9455', $twig);
         self::assertStringContainsString('sendly-soft-ouvrir', $twig);
+        // Flèche ↗ nue au trait (le boîte+flèche RemixIcon était lourd).
+        self::assertStringContainsString('M7 7h10v10', $twig);
+        self::assertStringNotContainsString('ri-external-link-line', $twig);
         // Feuille du bas : media mobile, voile, poignée, garde de pouce.
         self::assertStringContainsString('@media (max-width: 767px)', $twig);
         self::assertStringContainsString('.sendly-softwares.open::before', $twig);

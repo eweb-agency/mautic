@@ -81,9 +81,10 @@
         .sendly-softwares .dropdown-menu .sendly-soft-ouvrir {
             display: inline-flex; align-items: center; justify-content: center;
             width: 28px; height: 28px; border-radius: 99px; flex: none;
-            border: 1px solid #e8ebf0; color: #6a7486; background: #fff; font-size: 13px;
+            border: 1px solid #e8ebf0; color: #6a7486; background: #fff;
             transition: border-color .14s, color .14s;
         }
+        .sendly-softwares .sendly-soft-ouvrir svg { width: 13px; height: 13px; }
         /* ── Téléphone : feuille du bas avec voile (décision L-b) ────── */
         @media (max-width: 767px) {
             /* Le blur du header en fait un BLOC CONTENEUR des `fixed` :
@@ -142,7 +143,9 @@
                     <span class="sendly-soft-name">{{ 'eweb.saas.portal.portal_title'|trans }}</span>
                     <span class="sendly-soft-sub">{{ 'eweb.saas.portal.portal_subtitle'|trans }}</span>
                 </span>
-                <span class="sendly-soft-action sendly-soft-ouvrir"><i class="ri-external-link-line"></i></span>
+                {# Flèche ↗ nue au trait Lucide (retour proprio 13/08 : le
+                   pictogramme boîte+flèche de RemixIcon était lourd). #}
+                <span class="sendly-soft-action sendly-soft-ouvrir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span>
             </a>
         </li>
     </ul>
