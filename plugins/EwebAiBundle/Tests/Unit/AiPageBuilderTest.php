@@ -115,6 +115,22 @@ final class AiPageBuilderTest extends TestCase
         self::assertStringContainsString('data-sendly-(?:invite|barre)', $js);
     }
 
+    public function testLIconographieIaEstCelleDeLaTuile(): void
+    {
+        // Question proprio 12/08 : l'interface P7 doit porter la MÊME
+        // étincelle (SVG) que la tuile « Assistant IA », pas un caractère
+        // approchant ; la traduction reste dans la famille Lucide.
+        $js    = $this->source('ai-page-builder.js');
+        $tuile = (string) file_get_contents(__DIR__.'/../../../EwebSaasBundle/Assets/js/builder-composants.js');
+
+        self::assertStringContainsString('M9.1071 5.448', $js, 'le path de l étincelle de la tuile');
+        self::assertStringContainsString('M9.1071 5.448', $tuile);
+        self::assertStringContainsString('ICONE_IA', $js);
+        self::assertStringContainsString('ICONE_LANGUES', $js);
+        self::assertStringNotContainsString("label: '✦'", $js);
+        self::assertStringNotContainsString('🌐', $js);
+    }
+
     public function testLePromptServeurConnaitLaSurfacePage(): void
     {
         $service = (string) file_get_contents(__DIR__.'/../../Service/AiCopilotService.php');

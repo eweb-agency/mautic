@@ -39,6 +39,12 @@
 
   var LANGUES = ['anglais', 'espagnol', 'allemand', 'italien', 'néerlandais'];
 
+  // La MÊME étincelle que la tuile « Assistant IA » (identité visuelle
+  // unique de l'IA — question proprio 12/08), en currentColor pour suivre
+  // la couleur du contexte ; et une icône « langues » du même trait Lucide.
+  var ICONE_IA = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px"><path d="M9.1071 5.448C9.7051 3.698 12.1231 3.645 12.8321 5.289L12.8921 5.449L13.6991 7.809C13.884 8.35023 14.1829 8.84551 14.5755 9.26142C14.9682 9.67734 15.4454 10.0042 15.9751 10.22L16.1921 10.301L18.5521 11.107C20.3021 11.705 20.3551 14.123 18.7121 14.832L18.5521 14.892L16.1921 15.699C15.6507 15.8838 15.1552 16.1826 14.7391 16.5753C14.323 16.9679 13.996 17.4452 13.7801 17.975L13.6991 18.191L12.8931 20.552C12.2951 22.302 9.8771 22.355 9.1691 20.712L9.1071 20.552L8.3011 18.192C8.11628 17.6506 7.81748 17.1551 7.42485 16.739C7.03221 16.3229 6.5549 15.9959 6.0251 15.78L5.8091 15.699L3.4491 14.893C1.6981 14.295 1.6451 11.877 3.2891 11.169L3.4491 11.107L5.8091 10.301C6.35034 10.1161 6.84562 9.81719 7.26153 9.42457C7.67744 9.03195 8.00432 8.55469 8.2201 8.025L8.3011 7.809L9.1071 5.448Z"/></svg>';
+  var ICONE_LANGUES = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>';
+
   function endpoint() {
     return (window.SendlyAiConfig && window.SendlyAiConfig.endpoint)
       || (window.mauticBasePath || '') + '/s/ai/generate';
@@ -140,7 +146,7 @@
         var boite = blinder(idoc.createElement('div'));
         boite.className = 'sendly-ia-invite';
         boite.innerHTML = '<button class="fermer" title="Fermer">✕</button>'
-          + '<div class="ligne"><input type="text" placeholder="Décris la section à générer…"><button class="envoyer">✦ Générer</button></div>'
+          + '<div class="ligne"><input type="text" placeholder="Décris la section à générer…"><button class="envoyer">' + ICONE_IA + ' Générer</button></div>'
           + '<div class="chips"></div>';
         var champ = boite.querySelector('input');
         champ.value = valeur;
@@ -311,8 +317,8 @@
         var barre = comp.get('toolbar') || [];
         if (barre.some(function (b) { return 'sendly-ia-ameliorer' === b.command; })) { return; }
         comp.set('toolbar', barre.concat([
-          { attributes: { class: 'sendly-tb-ia', title: 'Améliorer avec l\'IA' }, command: 'sendly-ia-ameliorer', label: '✦' },
-          { attributes: { class: 'sendly-tb-ia', title: 'Traduire' }, command: 'sendly-ia-traduire', label: '🌐' },
+          { attributes: { class: 'sendly-tb-ia', title: 'Améliorer avec l\'IA' }, command: 'sendly-ia-ameliorer', label: ICONE_IA },
+          { attributes: { class: 'sendly-tb-ia', title: 'Traduire' }, command: 'sendly-ia-traduire', label: ICONE_LANGUES },
         ]));
       }
 
