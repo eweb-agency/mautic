@@ -134,8 +134,8 @@
         }
 
         function cliquerBouton(id) {
-          var b = editor.Panels.getButton('options', id);
-          if (b && b.view && b.view.el) { b.view.el.click(); }
+          var el = optionsPanneau ? optionsPanneau.querySelector('[data-sendly-id="' + id + '"]') : null;
+          if (el) { el.click(); }
         }
 
         var ENTREES = [
@@ -152,10 +152,14 @@
         if (optionsPanneau) {
           // Chaque bouton du panneau reçoit son id en attribut : le CSS
           // mobile choisit QUI reste visible (Annuler, Terminer, ⋯).
+          // Les modèles n'exposent PAS leur vue (constaté live, 0.22) :
+          // la collection et les .gjs-pn-btn du DOM se correspondent par
+          // ORDRE — c'est le rendu de la collection elle-même.
           var boutons = editor.Panels.getPanel('options');
-          if (boutons && boutons.get('buttons')) {
-            boutons.get('buttons').forEach(function (b) {
-              if (b.view && b.view.el) { b.view.el.setAttribute('data-sendly-id', b.get('id')); }
+          var elsBoutons = optionsPanneau.querySelectorAll('.gjs-pn-btn');
+          if (boutons && boutons.get('buttons') && elsBoutons.length === boutons.get('buttons').length) {
+            boutons.get('buttons').forEach(function (b, i) {
+              elsBoutons[i].setAttribute('data-sendly-id', b.get('id'));
             });
           }
           var plus = document.createElement('button');
