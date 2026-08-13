@@ -79,6 +79,9 @@ final class AiController
                 'instruction' => mb_substr((string) ($payload['instruction'] ?? ''), 0, self::MAX_INSTRUCTION),
                 'lang'        => mb_substr((string) ($payload['lang'] ?? ''), 0, 60),
                 'format'      => 'mjml' === ($payload['format'] ?? '') ? 'mjml' : 'html',
+                // Le générateur de landing pages s'annonce (prompt dédié) ;
+                // toute autre valeur retombe sur le comportement e-mail.
+                'surface'     => 'page' === ($payload['surface'] ?? '') ? 'page' : '',
             ]);
 
             return new JsonResponse(['text' => $text]);

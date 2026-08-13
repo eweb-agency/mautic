@@ -520,6 +520,24 @@ class AiCopilotService
      */
     private function buildGeneratePrompt(array $params, string $format): array
     {
+        // Le générateur de LANDING PAGES envoie surface=page : le prompt
+        // e-mail y produisait des sections rédigées comme des corps de mail
+        // (« défauts de texte », recette proprio 12/08). Sans surface, le
+        // comportement e-mail d'origine est inchangé (copilote e-mails).
+        if ('page' === ($params['surface'] ?? '')) {
+            $system = 'You are an expert landing-page conversion copywriter and front-end developer. '
+                .'Produce ONE self-contained SECTION of a landing page based on the user brief below. '
+                .'Output clean semantic HTML (a single <section> wrapping a centered container with headings, short paragraphs and button-style links), '
+                .'styled with tasteful inline CSS only (max-width container, generous padding, clear visual hierarchy, readable contrast) so it renders correctly standalone. '
+                .'No external assets, no scripts, no images unless the brief asks for them, and never lorem ipsum — write real, specific, benefit-driven copy. '
+                .'Write in the same language as the brief. Reply with ONLY the markup — no markdown code fences, no commentary.';
+
+            $brief = trim((string) ($params['instruction'] ?? ''));
+            $user  = "Brief:\n".('' !== $brief ? $brief : 'Write a hero section with a strong headline and a call-to-action button.');
+
+            return [$system, $user];
+        }
+
         $system = 'You are an expert email-marketing copywriter and email developer. '
             .'Produce the BODY of a marketing email based on the user brief below. '
             .$this->formatRules($format)
@@ -680,16 +698,25 @@ class AiCopilotService
     {
         $language = '' !== trim($lang) ? trim($lang) : 'French';
 
+        // La fiche de CAPACITÉS doit refléter le VRAI produit : une liste
+        // « e-mail seulement » a fait NIER l'envoi de SMS à un client
+        // (capture proprio 12/08) — une fausse réponse dessert l'assistant
+        // plus qu'une absence de réponse.
         return implode("\n", [
             'You are the in-app help assistant of Sendly, a marketing automation platform.',
-            'You help signed-in users operate the tool: contacts, segments, campaigns, emails, forms, landing pages, deliverability, reports.',
+            'You help signed-in users operate the tool. Sendly capabilities include:',
+            '- contacts and companies, segments (including natural-language segment creation),',
+            '- visual campaign workflows, marketing emails with A/B testing,',
+            '- SMS / text messages: fully supported, sent through a transport connector such as Twilio configured by the administrator; message content lives under the « Canaux » menu,',
+            '- web notifications, forms, landing pages with a visual builder, assets/resources, dynamic web content,',
+            '- points, triggers and stages, tags, projects, reports and deliverability tools.',
             'RULES:',
             '- Answer in '.$language.'.',
             '- Be concise. When guiding, use short numbered steps and quote interface paths like « Segments → Nouveau ».',
             '- Plain text only: no Markdown syntax (no #, no **, no backticks) — the panel renders raw text.',
             '- The product is called Sendly and ONLY Sendly. Never mention any other product, engine or brand name.',
             '- If the question is not about using Sendly or marketing automation, politely say you can only help with Sendly.',
-            '- Never invent a feature: if unsure, say so and suggest contacting support.',
+            '- Never invent a feature — and never DENY one from the capability list above. If you are unsure whether something exists, say where to look in the interface or suggest contacting support instead of denying.',
         ]);
     }
 

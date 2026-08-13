@@ -1,23 +1,27 @@
 /**
- * Assistant de page — chantier D, P5 : la tuile « Assistant IA » de la
- * bibliothèque de composants ouvre LE panneau conversationnel unique
- * (décision proprio 10/08 : tuile = seule entrée IA de l'éditeur, le
- * lanceur flottant y est masqué par builder-shell.js).
+ * Assistant de page EN PLACE — chantier D, P7 (maquette validée 12/08).
  *
- * Le contexte « Assistant de page » (priorité 20) parle à l'endpoint
- * EXISTANT /s/ai/generate (modes generate / improve / translate, format
- * html) — gated par la clé Anthropic de l'instance comme tout le copilote.
+ * Plus AUCUN panneau flottant : tout se passe À L'ENDROIT du dépôt.
+ * - La tuile « Assistant IA » se GLISSE dans la page (ligne d'insertion
+ *   native) ou se CLIQUE (insertion après la sélection, sinon en fin de
+ *   page) → un BLOC DE SAISIE apparaît en place (champ + raccourcis).
+ * - Pendant la génération : squelette animé à la place du bloc.
+ * - La section générée arrive SUR PLACE, coiffée d'une barre contextuelle
+ *   Régénérer / Ajuster / Garder / Annuler. « Ajuster » rouvre la saisie
+ *   PRÉ-REMPLIE de la dernière consigne. Après « Garder », la section est
+ *   un bloc 100 % normal.
+ * - « Améliorer / Traduire » vivent sur la MINI-BARRE du composant texte
+ *   sélectionné (décision P7-a), plus sur un panneau.
  *
- * Ce que sait faire la conversation :
- * - « Génère une section … »  → generate : le HTML produit est INSÉRÉ dans
- *   la page (après la sélection, sinon en fin de page), annulable.
- * - « Améliore … » avec un composant sélectionné → improve : le contenu du
- *   composant est remplacé, annulable.
- * - « Traduis … en <langue> » avec une sélection → translate : idem.
+ * Toute l'interface vit DANS L'IFRAME du canvas (même realm, motif prouvé
+ * par le RTE P4) et chaque élément porte le BOUCLIER stopPropagation :
+ * GrapesJS re-diffuse les clics du canvas et ferme/sélectionne sinon
+ * (leçons P4/P6, constatées en clics réels).
  *
- * Enregistré via `window.MauticGrapesJsPlugins` (contexte ['page']) pour
- * capturer l'instance GrapesJS, et via `window.SendlyAssistantContexts`
- * pour le panneau. Fichier agrégé dans app.js — aucun rebuild.
+ * Parle à /s/ai/generate avec surface=page (prompt landing dédié côté
+ * serveur — les textes « façon e-mail » étaient le défaut relevé en P5).
+ * Gated par la clé de l'instance : sans SendlyAiConfig, la tuile n'existe
+ * pas (builder-composants) et ce module reste dormant.
  */
 (function () {
   'use strict';
@@ -25,165 +29,336 @@
   if (!window.MauticGrapesJsPlugins) {
     window.MauticGrapesJsPlugins = [];
   }
-  if (!window.SendlyAssistantContexts) {
-    window.SendlyAssistantContexts = [];
-  }
 
-  var etat = { editor: null };
+  var RACCOURCIS = [
+    'Une section hero avec un titre fort et un bouton',
+    'Une section « 3 avantages » avec icônes',
+    'Une bande de témoignages clients',
+    'Un appel à l\'action final avec bouton',
+  ];
 
-  function t(cle, defaut) {
-    try {
-      var v = Mautic.translate ? Mautic.translate(cle) : null;
-      return v && v !== cle ? v : defaut;
-    } catch (e) { return defaut; }
-  }
+  var LANGUES = ['anglais', 'espagnol', 'allemand', 'italien', 'néerlandais'];
 
   function endpoint() {
-    // La config exposée par AiConfigAssetsSubscriber nomme la route de
-    // génération `endpoint` (relevé) ; repli sur le chemin en dur.
     return (window.SendlyAiConfig && window.SendlyAiConfig.endpoint)
       || (window.mauticBasePath || '') + '/s/ai/generate';
   }
 
-  function builderOuvert() {
-    return !!document.querySelector('.builder-active.gjs-mode-page');
-  }
-
-  /** Le mode se déduit du message : traduire / améliorer / générer. */
-  function analyser(texte) {
-    var bas = texte.toLowerCase();
-    var langue = (bas.match(/tradui[st]?e?s?.*?\ben\s+([a-zà-ÿ-]+)/) || [])[1] || '';
-    if (/tradui/.test(bas)) { return { mode: 'translate', lang: langue || 'anglais' }; }
-    if (/améliore|ameliore|reformule|corrige|raccourcis|allonge/.test(bas)) { return { mode: 'improve' }; }
-    return { mode: 'generate' };
-  }
-
-  function selectionHtml() {
-    var sel = etat.editor ? etat.editor.getSelected() : null;
-    return sel ? { model: sel, html: sel.toHTML() } : null;
-  }
-
-  function envoyer(texte, api) {
-    var plan = analyser(texte);
-    var selection = selectionHtml();
-    var corps = { mode: plan.mode, format: 'html' };
-
-    if ('generate' === plan.mode) {
-      corps.instruction = texte;
-    } else {
-      if (!selection) {
-        api.ia('Sélectionne d\'abord le composant à ' + ('translate' === plan.mode ? 'traduire' : 'améliorer') + ' dans la page, puis renvoie ta demande.');
-        api.finish();
-        return;
-      }
-      corps.content = selection.html;
-      corps.instruction = texte;
-      if (plan.lang) { corps.lang = plan.lang; }
-    }
-
-    mQuery.ajax({
-      url: endpoint(),
-      method: 'POST',
-      contentType: 'application/json',
-      data: JSON.stringify(corps),
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
-    }).done(function (rep) {
-      // Le contrôleur répond { text: … } (relevé dans AiController).
-      var html = rep && rep.text;
-      if (!html) {
-        api.fail(t('mautic.core.ai.error', 'La génération n\'a rien renvoyé — réessaie en reformulant.'));
-        return;
-      }
-      var ed = etat.editor;
-      if ('generate' === plan.mode) {
-        // Insertion APRÈS la sélection, sinon en fin de page — annulable.
-        var ajoutes = selection
-          ? selection.model.parent().append(html, { at: selection.model.index() + 1 })
-          : ed.getWrapper().append(html);
-        var turnId = 'gen-' + Date.now();
-        etat['undo-' + turnId] = ajoutes;
-        api.ia('Section insérée dans la page — regarde le canvas. Tu peux la retoucher comme n\'importe quel bloc, ou annuler ci-dessous.', { turnId: turnId, undoable: true });
-      } else {
-        var avant = selection.model.components().map(function (c) { return c.toHTML(); }).join('');
-        selection.model.components(html);
-        var turnId2 = 'mod-' + Date.now();
-        etat['undo-' + turnId2] = { model: selection.model, avant: avant };
-        api.ia(('translate' === plan.mode ? 'Traduction appliquée' : 'Texte amélioré') + ' sur le composant sélectionné — annulable ci-dessous.', { turnId: turnId2, undoable: true });
-      }
-      api.finish();
-    }).fail(function (xhr) {
-      if (xhr && 503 === xhr.status) {
-        api.fail('L\'assistant n\'est pas activé sur cette instance.');
-        return;
-      }
-      api.fail(t('mautic.core.ai.error', 'Le service n\'a pas répondu — réessaie dans un instant.'));
+  function appelIa(corps) {
+    corps.format = 'html';
+    corps.surface = 'page';
+    return new Promise(function (res, rej) {
+      mQuery.ajax({
+        url: endpoint(),
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(corps),
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      }).done(function (rep) {
+        if (rep && rep.text) { res(rep.text); } else { rej(new Error('vide')); }
+      }).fail(function (xhr) {
+        rej(new Error(xhr && 503 === xhr.status ? 'desactive' : 'reseau'));
+      });
     });
   }
 
-  function annuler(turnId, api) {
-    var memo = etat['undo-' + turnId];
-    if (!memo) { return; }
-    if (Array.isArray(memo)) {
-      memo.forEach(function (c) { c.remove(); });
-    } else if (memo.model) {
-      memo.model.components(memo.avant);
-    }
-    delete etat['undo-' + turnId];
-    if (api && api.markUndone) { api.markUndone(turnId); }
+  function messageErreur(err) {
+    return 'desactive' === err.message
+      ? 'L\'assistant n\'est pas activé sur cette instance.'
+      : 'La génération a échoué — réessaie dans un instant.';
   }
-
-  window.SendlyAssistantContexts.push({
-    id: 'page-builder',
-    priority: 20,
-    available: builderOuvert,
-    title: function () { return 'Assistant de page'; },
-    welcome: function () {
-      return 'Je travaille directement dans ta page : demande-moi de <b>générer une section</b> (« Génère une section hero pour un cabinet d\'architectes »), d\'<b>améliorer</b> le composant sélectionné, ou de le <b>traduire</b>.';
-    },
-    placeholder: function () { return 'Décris la section à générer, ou sélectionne un bloc…'; },
-    thinking: function () { return 'Je compose…'; },
-    shortcuts: function () {
-      return [
-        'Génère une section hero avec un titre fort et un bouton',
-        'Génère une section « 3 avantages » avec icônes',
-        'Améliore le texte du composant sélectionné',
-        'Traduis le composant sélectionné en anglais',
-      ];
-    },
-    onSend: envoyer,
-    onUndo: annuler,
-  });
 
   window.MauticGrapesJsPlugins.push({
     name: 'sendly-ai-page',
     context: ['page'],
     plugin: function (editor) {
-      editor.on('load', function () {
-        etat.editor = editor;
+      function frameDoc() { var f = document.querySelector('.builder-panel .gjs-frame'); return f ? f.contentDocument : null; }
+      function frameWin() { var f = document.querySelector('.builder-panel .gjs-frame'); return f ? f.contentWindow : null; }
 
-        // La TUILE ouvre le panneau : au clic…
+      /** BOUCLIER : aucun événement souris/clavier de notre interface ne
+       *  doit remonter à GrapesJS (re-diffusion des clics du canvas +
+       *  raccourcis clavier globaux — leçons P4/P6). */
+      function blinder(el) {
+        ['mousedown', 'mouseup', 'click', 'dblclick', 'keydown', 'keyup', 'keypress'].forEach(function (t) {
+          el.addEventListener(t, function (e) { e.stopPropagation(); });
+        });
+        return el;
+      }
+
+      /** Feuille de style de l'interface en place, injectée dans l'iframe. */
+      function injecterStyles() {
+        var idoc = frameDoc();
+        if (!idoc || idoc.getElementById('sendly-ia-css')) { return; }
+        var st = idoc.createElement('style');
+        st.id = 'sendly-ia-css';
+        st.textContent = ''
+          + '.sendly-ia-invite { border: 1.5px solid #004FFF; border-radius: 12px; background: #fff; padding: 14px; margin: 10px 0; box-shadow: 0 10px 28px rgba(22,35,59,.12); font-family: -apple-system, "Segoe UI", sans-serif; }'
+          + '.sendly-ia-invite .ligne { display: flex; gap: 8px; }'
+          + '.sendly-ia-invite input { flex: 1; border: 1px solid #e5e7eb; background: #f7f8fa; border-radius: 9px; padding: 10px 12px; font-size: 14px; color: #24303f; outline: none; }'
+          + '.sendly-ia-invite input:focus { border-color: #004FFF; background: #fff; }'
+          + '.sendly-ia-invite button.envoyer { border: none; background: #004FFF; color: #fff; border-radius: 9px; padding: 10px 16px; font-weight: 600; font-size: 13.5px; cursor: pointer; }'
+          + '.sendly-ia-invite .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }'
+          + '.sendly-ia-invite .chip { border: 1px solid #cfe0ff; color: #004FFF; background: #f2f6ff; border-radius: 99px; padding: 4px 10px; font-size: 12px; cursor: pointer; }'
+          + '.sendly-ia-invite .chip:hover { background: #e3edff; }'
+          + '.sendly-ia-invite .erreur { color: #c02942; font-size: 12.5px; margin-top: 8px; }'
+          + '.sendly-ia-invite .fermer { float: right; border: none; background: none; color: #7b8698; font-size: 16px; cursor: pointer; margin: -4px -4px 0 8px; }'
+          + '.sendly-ia-squelette { border: 1.5px dashed #b9c3d2; border-radius: 12px; background: #fff; padding: 18px; margin: 10px 0; }'
+          + '.sendly-ia-squelette div { height: 10px; border-radius: 5px; margin-bottom: 10px; background: linear-gradient(90deg, #e8ecf2 30%, #f5f7fa 50%, #e8ecf2 70%); background-size: 200% 100%; animation: sendly-shimmer 1.2s infinite linear; }'
+          + '@keyframes sendly-shimmer { to { background-position: -200% 0; } }'
+          + '.sendly-ia-barre { display: flex; gap: 6px; align-items: center; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; padding: 7px 9px; margin: 8px 0; box-shadow: 0 6px 18px rgba(22,35,59,.10); font-family: -apple-system, "Segoe UI", sans-serif; }'
+          + '.sendly-ia-barre button { border: 1px solid #e5e7eb; background: #fff; color: #24303f; border-radius: 8px; padding: 5px 10px; font-size: 12.5px; cursor: pointer; }'
+          + '.sendly-ia-barre button:hover { border-color: #004FFF; color: #004FFF; }'
+          + '.sendly-ia-barre button.garder { background: #effaf4; border-color: #bfe3d1; color: #0d9455; font-weight: 600; }'
+          + '.sendly-ia-menu { position: absolute; z-index: 60; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; box-shadow: 0 12px 30px rgba(22,35,59,.16); padding: 6px; font-family: -apple-system, "Segoe UI", sans-serif; min-width: 190px; }'
+          + '.sendly-ia-menu button { display: block; width: 100%; text-align: left; border: none; background: none; padding: 8px 10px; font-size: 13px; color: #24303f; border-radius: 7px; cursor: pointer; }'
+          + '.sendly-ia-menu button:hover { background: #f2f6ff; color: #004FFF; }'
+          + '.sendly-ia-menu .titre { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #7b8698; padding: 6px 10px 2px; }';
+        idoc.head.appendChild(st);
+      }
+
+      /* ------------------------------------------------------------------ *
+       *  LE BLOC DE SAISIE EN PLACE                                         *
+       * ------------------------------------------------------------------ */
+
+      /** Insère un composant-invite à `index` chez `parent`, monte la saisie
+       *  dedans et rend le composant. valeurInitiale pré-remplit (Ajuster). */
+      function ouvrirInvite(parent, index, valeurInitiale) {
+        injecterStyles();
+        var ajout = parent.append('<div data-sendly-invite="1"></div>', { at: index });
+        var comp = ajout && ajout[0];
+        if (!comp) { return; }
+        comp.set({ editable: false, droppable: false, copyable: false, selectable: false, hoverable: false });
+        var el = comp.view && comp.view.el;
+        if (!el) { comp.remove(); return; }
+        monterSaisie(comp, el, valeurInitiale || '');
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+
+      function monterSaisie(comp, el, valeur) {
+        var idoc = frameDoc();
+        el.innerHTML = '';
+        var boite = blinder(idoc.createElement('div'));
+        boite.className = 'sendly-ia-invite';
+        boite.innerHTML = '<button class="fermer" title="Fermer">✕</button>'
+          + '<div class="ligne"><input type="text" placeholder="Décris la section à générer…"><button class="envoyer">✦ Générer</button></div>'
+          + '<div class="chips"></div>';
+        var champ = boite.querySelector('input');
+        champ.value = valeur;
+        var chips = boite.querySelector('.chips');
+        RACCOURCIS.forEach(function (r) {
+          var c = idoc.createElement('button');
+          c.className = 'chip';
+          c.textContent = r;
+          c.addEventListener('click', function () { champ.value = r; lancer(); });
+          chips.appendChild(c);
+        });
+        function lancer() {
+          var consigne = champ.value.trim();
+          if (!consigne) { champ.focus(); return; }
+          generer(comp, consigne);
+        }
+        boite.querySelector('.envoyer').addEventListener('click', lancer);
+        champ.addEventListener('keydown', function (e) { if ('Enter' === e.key) { lancer(); } });
+        boite.querySelector('.fermer').addEventListener('click', function () { comp.remove(); });
+        el.appendChild(boite);
+        setTimeout(function () { champ.focus(); }, 60);
+      }
+
+      /** Remplace l'invite par le squelette, appelle l'IA, insère la
+       *  section coiffée de sa barre contextuelle. */
+      function generer(compInvite, consigne) {
+        var idoc = frameDoc();
+        var el = compInvite.view && compInvite.view.el;
+        if (el) {
+          el.innerHTML = '';
+          var sq = blinder(idoc.createElement('div'));
+          sq.className = 'sendly-ia-squelette';
+          sq.innerHTML = '<div style="width:70%"></div><div style="width:50%"></div><div style="width:35%; margin-bottom:0"></div>';
+          el.appendChild(sq);
+        }
+        appelIa({ mode: 'generate', instruction: consigne }).then(function (html) {
+          var parent = compInvite.parent();
+          var index = compInvite.index();
+          if (!parent) { return; }
+          var ajoutes = parent.append(html, { at: index });
+          compInvite.remove();
+          poserBarre(parent, index, ajoutes, consigne);
+        }).catch(function (err) {
+          var elv = compInvite.view && compInvite.view.el;
+          if (elv) { monterSaisie(compInvite, elv, consigne); var e2 = idoc.createElement('div'); e2.className = 'erreur'; e2.textContent = messageErreur(err); elv.querySelector('.sendly-ia-invite').appendChild(e2); }
+        });
+      }
+
+      /* ------------------------------------------------------------------ *
+       *  LA BARRE CONTEXTUELLE  Régénérer / Ajuster / Garder / Annuler      *
+       * ------------------------------------------------------------------ */
+
+      function poserBarre(parent, index, sections, consigne) {
+        injecterStyles();
+        var ajout = parent.append('<div data-sendly-barre="1"></div>', { at: index });
+        var compBarre = ajout && ajout[0];
+        if (!compBarre) { return; }
+        compBarre.set({ editable: false, droppable: false, copyable: false, selectable: false, hoverable: false });
+        var el = compBarre.view && compBarre.view.el;
+        if (!el) { compBarre.remove(); return; }
+        var idoc = frameDoc();
+        el.innerHTML = '';
+        var barre = blinder(idoc.createElement('div'));
+        barre.className = 'sendly-ia-barre';
+        barre.innerHTML = '<button class="regenerer">↻ Régénérer</button>'
+          + '<button class="ajuster">✎ Ajuster</button>'
+          + '<button class="garder">✓ Garder</button>'
+          + '<button class="annuler" title="Supprimer la section">✕</button>';
+        function retirerSections() { (sections || []).forEach(function (c) { if (c && c.remove) { c.remove(); } }); }
+        barre.querySelector('.garder').addEventListener('click', function () { compBarre.remove(); });
+        barre.querySelector('.annuler').addEventListener('click', function () { retirerSections(); compBarre.remove(); });
+        barre.querySelector('.regenerer').addEventListener('click', function () {
+          var p = compBarre.parent();
+          var i = compBarre.index();
+          retirerSections();
+          compBarre.remove();
+          if (p) {
+            var inv = p.append('<div data-sendly-invite="1"></div>', { at: i });
+            if (inv && inv[0]) { inv[0].set({ editable: false, droppable: false, copyable: false, selectable: false, hoverable: false }); generer(inv[0], consigne); }
+          }
+        });
+        barre.querySelector('.ajuster').addEventListener('click', function () {
+          var p = compBarre.parent();
+          var i = compBarre.index();
+          retirerSections();
+          compBarre.remove();
+          if (p) { ouvrirInvite(p, i, consigne); }
+        });
+        el.appendChild(barre);
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+
+      /* ------------------------------------------------------------------ *
+       *  AMÉLIORER / TRADUIRE — mini-barre du composant sélectionné         *
+       * ------------------------------------------------------------------ */
+
+      function retoucher(mode, lang) {
+        var sel = editor.getSelected();
+        if (!sel || !sel.view || !sel.view.el) { return; }
+        var contenu = sel.toHTML();
+        var avant = sel.components().map(function (c) { return c.toHTML(); }).join('');
+        var corps = { mode: mode, instruction: '', content: contenu };
+        if (lang) { corps.lang = lang; }
+        appelIa(corps).then(function (html) {
+          sel.components(html);
+          poserBarreRetouche(sel, avant);
+        }).catch(function (err) {
+          editor.log(messageErreur(err), { level: 'error' });
+        });
+      }
+
+      /** Après une retouche : petite barre Garder / Annuler sous le composant. */
+      function poserBarreRetouche(comp, avant) {
+        var parent = comp.parent();
+        if (!parent) { return; }
+        poserBarreSimple(parent, comp.index() + 1, function annule() { comp.components(avant); });
+      }
+
+      function poserBarreSimple(parent, index, surAnnule) {
+        injecterStyles();
+        var ajout = parent.append('<div data-sendly-barre="1"></div>', { at: index });
+        var compBarre = ajout && ajout[0];
+        if (!compBarre) { return; }
+        compBarre.set({ editable: false, droppable: false, copyable: false, selectable: false, hoverable: false });
+        var el = compBarre.view && compBarre.view.el;
+        if (!el) { compBarre.remove(); return; }
+        var idoc = frameDoc();
+        var barre = blinder(idoc.createElement('div'));
+        barre.className = 'sendly-ia-barre';
+        barre.innerHTML = '<button class="garder">✓ Garder</button><button class="annuler">↩ Annuler</button>';
+        barre.querySelector('.garder').addEventListener('click', function () { compBarre.remove(); });
+        barre.querySelector('.annuler').addEventListener('click', function () { surAnnule(); compBarre.remove(); });
+        el.innerHTML = '';
+        el.appendChild(barre);
+      }
+
+      /** Menu des langues, ancré près de l'élément du composant. */
+      function ouvrirMenuTraduction(comp) {
+        injecterStyles();
+        var idoc = frameDoc();
+        var iwin = frameWin();
+        var ancien = idoc.querySelector('.sendly-ia-menu');
+        if (ancien) { ancien.remove(); }
+        var menu = blinder(idoc.createElement('div'));
+        menu.className = 'sendly-ia-menu';
+        var titre = idoc.createElement('div');
+        titre.className = 'titre';
+        titre.textContent = 'Traduire en…';
+        menu.appendChild(titre);
+        LANGUES.forEach(function (l) {
+          var b = idoc.createElement('button');
+          b.textContent = l.charAt(0).toUpperCase() + l.slice(1);
+          b.addEventListener('click', function () { menu.remove(); retoucher('translate', l); });
+          menu.appendChild(b);
+        });
+        var r = comp.view.el.getBoundingClientRect();
+        menu.style.left = Math.max(8, r.left) + 'px';
+        menu.style.top = (r.bottom + iwin.scrollY + 6) + 'px';
+        idoc.body.appendChild(menu);
+        setTimeout(function () {
+          idoc.addEventListener('mousedown', function fermer() { menu.remove(); idoc.removeEventListener('mousedown', fermer); });
+        }, 50);
+      }
+
+      /** Ajoute ✦ (Améliorer) et 🌐 (Traduire) à la mini-barre des textes. */
+      function equiperMiniBarre(comp) {
+        if (!comp || 'text' !== comp.get('type')) { return; }
+        var barre = comp.get('toolbar') || [];
+        if (barre.some(function (b) { return 'sendly-ia-ameliorer' === b.command; })) { return; }
+        comp.set('toolbar', barre.concat([
+          { attributes: { class: 'sendly-tb-ia', title: 'Améliorer avec l\'IA' }, command: 'sendly-ia-ameliorer', label: '✦' },
+          { attributes: { class: 'sendly-tb-ia', title: 'Traduire' }, command: 'sendly-ia-traduire', label: '🌐' },
+        ]));
+      }
+
+      /* ------------------------------------------------------------------ *
+       *  CÂBLAGE                                                            *
+       * ------------------------------------------------------------------ */
+
+      editor.Commands.add('sendly-ia-ameliorer', { run: function () { retoucher('improve'); } });
+      editor.Commands.add('sendly-ia-traduire', { run: function (ed) { var s = ed.getSelected(); if (s) { ouvrirMenuTraduction(s); } } });
+
+      editor.on('component:selected', equiperMiniBarre);
+
+      editor.on('load', function () {
+        injecterStyles();
+
+        // La TUILE au CLIC : invite après la sélection, sinon en fin de page.
         var tuile = Array.prototype.find.call(
           document.querySelectorAll('.builder-panel .gjs-block'),
           function (el) { return /assistant ia/i.test(el.textContent || ''); }
         );
         if (tuile) {
           tuile.addEventListener('click', function () {
-            if (window.SendlyAssistant && window.SendlyAssistant.open) {
-              window.SendlyAssistant.open('page-builder');
-            }
+            var sel = editor.getSelected();
+            if (sel && sel.parent()) { ouvrirInvite(sel.parent(), sel.index() + 1, ''); }
+            else { ouvrirInvite(editor.getWrapper(), editor.getWrapper().components().length, ''); }
           });
         }
-        // …et au dépôt dans le canvas (la tuile n'insère rien : contenu vide,
-        // on retire le résidu et on ouvre le panneau).
+
+        // La TUILE au DÉPÔT : l'invite s'ouvre À L'ENDROIT du dépôt.
         editor.on('block:drag:stop', function (composant, bloc) {
           if (!bloc || 'sendly-ia' !== bloc.get('id')) { return; }
-          (Array.isArray(composant) ? composant : [composant]).forEach(function (c) {
-            if (c && c.remove) { c.remove(); }
-          });
-          if (window.SendlyAssistant && window.SendlyAssistant.open) {
-            window.SendlyAssistant.open('page-builder');
-          }
+          var premiers = Array.isArray(composant) ? composant : [composant];
+          var repere = premiers[0];
+          var parent = repere && repere.parent ? repere.parent() : null;
+          var index = repere && repere.index ? repere.index() : 0;
+          premiers.forEach(function (c) { if (c && c.remove) { c.remove(); } });
+          if (parent) { ouvrirInvite(parent, index, ''); }
         });
+
+        // Les résidus d'interface ne survivent JAMAIS à une sauvegarde :
+        // invites et barres sont purgées du HTML exporté.
+        var exportOrig = editor.getHtml.bind(editor);
+        editor.getHtml = function (opts) {
+          var html = exportOrig(opts);
+          return html.replace(/<div data-sendly-(?:invite|barre)="1">[\s\S]*?<\/div>/g, '');
+        };
       });
     },
   });
