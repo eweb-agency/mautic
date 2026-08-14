@@ -41,12 +41,21 @@
       + '@font-face { font-family: "Helvena"; font-weight: 300; font-display: swap; src: url("' + CHEMIN_ASSETS + '/fonts/Helvena_Light.woff2") format("woff2"); }'
       + '@font-face { font-family: "Helvena"; font-weight: 500; font-display: swap; src: url("' + CHEMIN_ASSETS + '/fonts/Helvena_Medium.woff2") format("woff2"); }'
       + '@font-face { font-family: "Helvena"; font-weight: 700; font-display: swap; src: url("' + CHEMIN_ASSETS + '/fonts/Helvena_Bold.woff2") format("woff2"); }'
-      + '#sendly-ia-upsell { position: fixed; inset: 0; z-index: 10050; display: flex; align-items: center; justify-content: center; background: rgba(0,6,23,.55); font-family: "Helvena", "Helvetica Neue", -apple-system, "Segoe UI", sans-serif; padding: 16px; }'
-      + '#sendly-ia-upsell .carte { background: #fff; border-radius: 24px; box-shadow: 0 40px 100px rgba(0,6,23,.5); width: min(500px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; }'
+      /* Entrée orchestrée : voile en fondu, carte en fondu-glissé, puis les
+       * lignes de la liste en cascade. Rejouée à chaque ouverture (le
+       * passage par display:none réarme les animations). */
+      + '@keyframes sendlyUpsellVoile { from { opacity: 0; } to { opacity: 1; } }'
+      + '@keyframes sendlyUpsellCarte { from { opacity: 0; transform: translateY(18px) scale(.98); } to { opacity: 1; transform: none; } }'
+      + '@keyframes sendlyUpsellLigne { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }'
+      + '#sendly-ia-upsell { position: fixed; inset: 0; z-index: 10050; display: flex; align-items: center; justify-content: center; background: rgba(0,6,23,.55); font-family: "Helvena", "Helvetica Neue", -apple-system, "Segoe UI", sans-serif; padding: 16px; animation: sendlyUpsellVoile .25s ease-out; }'
+      + '#sendly-ia-upsell .carte { background: #fff; border-radius: 24px; box-shadow: 0 40px 100px rgba(0,6,23,.5); width: min(500px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; animation: sendlyUpsellCarte .5s cubic-bezier(.22,.9,.3,1); }'
       /* Héros : la vague de la marque + voile navy (motif e-mails DA). */
       + '#sendly-ia-upsell .heros { position: relative; border-radius: 24px 24px 0 0; padding: 22px 30px 24px; background-image: linear-gradient(180deg, rgba(0,18,72,.62), rgba(0,18,72,.18) 55%, rgba(0,79,255,.16)), url("' + CHEMIN_ASSETS + '/img/copilot-vague.jpg"); background-size: cover, cover; background-position: center, center 30%; text-align: center; }'
-      + '#sendly-ia-upsell .heros .fermer { position: absolute; top: 16px; right: 18px; border: 0; background: rgba(255,255,255,.14); border-radius: 99px; width: 30px; height: 30px; color: #fff; font-size: 14px; cursor: pointer; line-height: 1; backdrop-filter: blur(4px); }'
-      + '#sendly-ia-upsell .heros .fermer:hover { background: rgba(255,255,255,.26); }'
+      /* Le ✕ parle le même langage que la pilule : verre dépoli, liseré
+       * dégradé par masque xor, ombre douce. */
+      + '#sendly-ia-upsell .heros .fermer { position: absolute; top: 16px; right: 18px; border: 0; background: linear-gradient(120deg, rgba(255,255,255,.10), rgba(255,255,255,.04) 40%, rgba(255,255,255,.09)); border-radius: 99px; width: 30px; height: 30px; color: #fff; font-size: 14px; cursor: pointer; line-height: 1; backdrop-filter: blur(8px); box-shadow: 0 6px 16px rgba(0,6,23,.22), inset 0 1px 0 rgba(255,255,255,.16); }'
+      + '#sendly-ia-upsell .heros .fermer::before { content: ""; position: absolute; inset: 0; border-radius: 99px; padding: 1px; background: linear-gradient(130deg, rgba(255,255,255,.65), rgba(255,255,255,.08) 35%, rgba(255,255,255,.06) 62%, rgba(255,255,255,.45)); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }'
+      + '#sendly-ia-upsell .heros .fermer:hover { background: linear-gradient(120deg, rgba(255,255,255,.20), rgba(255,255,255,.10) 40%, rgba(255,255,255,.18)); }'
       /* Pilule « ✦ Sendly Copilot » en VERRE DÉPOLI (Frame 26) : fond quasi
        * transparent, liseré en dégradé par masque xor, ombre douce. */
       + '#sendly-ia-upsell .pilule-badge { position: relative; display: inline-flex; align-items: center; gap: 9px; background: linear-gradient(120deg, rgba(255,255,255,.10), rgba(255,255,255,.03) 40%, rgba(255,255,255,.08)); border: 0; backdrop-filter: blur(8px); border-radius: 999px; padding: 8px 18px; font-size: 13px; font-weight: 500; color: #fff; margin-bottom: 14px; box-shadow: 0 10px 26px rgba(0,6,23,.28), inset 0 1px 0 rgba(255,255,255,.18); }'
@@ -57,7 +66,11 @@
       + '#sendly-ia-upsell .heros p { margin: 0 auto; max-width: 36ch; font-size: 14px; line-height: 1.5; font-weight: 500; color: #DFEAFF; }'
       /* Coches rondes pleines (les listes de la DA), rythme régulier. */
       + '#sendly-ia-upsell ul { list-style: none; margin: 0; padding: 20px 36px 6px; display: grid; gap: 0; }'
-      + '#sendly-ia-upsell li { display: flex; align-items: center; gap: 13px; font-size: 14px; font-weight: 500; color: #001248; padding: 7px 0; letter-spacing: .002em; }'
+      + '#sendly-ia-upsell li { display: flex; align-items: center; gap: 13px; font-size: 14px; font-weight: 500; color: #001248; padding: 7px 0; letter-spacing: .002em; animation: sendlyUpsellLigne .45s cubic-bezier(.22,.9,.3,1) both; }'
+      + '#sendly-ia-upsell li:nth-child(1) { animation-delay: .14s; }'
+      + '#sendly-ia-upsell li:nth-child(2) { animation-delay: .21s; }'
+      + '#sendly-ia-upsell li:nth-child(3) { animation-delay: .28s; }'
+      + '#sendly-ia-upsell li:nth-child(4) { animation-delay: .35s; }'
       + '#sendly-ia-upsell li .rond { width: 22px; height: 22px; border-radius: 99px; background: #004FFF; display: inline-flex; align-items: center; justify-content: center; flex: none; }'
       + '#sendly-ia-upsell .filet { height: 1px; background: #F5F7F9; margin: 14px 34px; }'
       /* Rangée plan : la carte « Pro plain » de la DA (couronne + prix). */
@@ -69,8 +82,9 @@
       + '#sendly-ia-upsell .plan .prix b { font-size: 27px; font-weight: 700; color: #000617; letter-spacing: -.02em; margin: 0 1px 0 3px; }'
       /* CTA : pilule intégrale bleue, flèche ↗ (le bouton DA). */
       + '#sendly-ia-upsell .actions { padding: 16px 34px 10px; }'
-      + '#sendly-ia-upsell a.cta { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; border-radius: 999px; background: #004FFF; color: #fff; font-size: 14.5px; font-weight: 700; padding: 14px 0; text-decoration: none; transition: background .15s; }'
-      + '#sendly-ia-upsell a.cta:hover { background: #0033B8; color: #fff; text-decoration: none; }'
+      + '#sendly-ia-upsell a.cta { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; border-radius: 999px; background: #004FFF; color: #fff; font-size: 14.5px; font-weight: 700; padding: 14px 0; text-decoration: none; box-shadow: 0 2px 8px rgba(0,79,255,.18); transition: background .15s, transform .18s, box-shadow .18s; }'
+      + '#sendly-ia-upsell a.cta:hover { background: #0033B8; color: #fff; text-decoration: none; transform: translateY(-1px); box-shadow: 0 12px 26px rgba(0,79,255,.34); }'
+      + '#sendly-ia-upsell a.cta:active { transform: translateY(0); box-shadow: 0 4px 12px rgba(0,79,255,.24); }'
       + '#sendly-ia-upsell a.cta .fl { font-size: 13px; }'
       + '#sendly-ia-upsell .tard { display: block; margin: 0 auto; border: 0; background: none; color: #9aa3b2; font-size: 12.5px; font-weight: 500; cursor: pointer; padding: 4px 12px 14px; }'
       + '#sendly-ia-upsell .tard:hover { color: #001248; }'
@@ -87,6 +101,10 @@
       + '#sendly-ia-upsell .plan { padding: 0 24px; }'
       + '#sendly-ia-upsell .plan .det { white-space: normal; }'
       + '#sendly-ia-upsell .actions { padding: 14px 24px 8px; }'
+      + '}'
+      + '@media (prefers-reduced-motion: reduce) {'
+      + '#sendly-ia-upsell, #sendly-ia-upsell .carte, #sendly-ia-upsell li { animation: none; }'
+      + '#sendly-ia-upsell a.cta, #sendly-ia-upsell a.cta:hover, #sendly-ia-upsell a.cta:active { transform: none; }'
       + '}';
     document.head.appendChild(st);
   }
