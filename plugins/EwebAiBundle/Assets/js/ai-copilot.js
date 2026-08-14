@@ -189,7 +189,7 @@
     }
     // Teaser (plan gratuit) : le bouton existe, l'action propose le plan.
     if (window.SendlyAiConfig.teaser) {
-      if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir(); }
+      if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir('email'); }
       return;
     }
     if (!window.SendlyAiConfig.enabled) {

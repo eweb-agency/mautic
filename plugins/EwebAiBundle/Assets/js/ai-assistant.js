@@ -498,7 +498,7 @@
     fab.addEventListener('click', function () {
       // Teaser (plan gratuit) : le lanceur existe, l'action propose le plan.
       if (teaserActif()) {
-        if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir(); }
+        if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir('aide'); }
         return;
       }
       toggle();

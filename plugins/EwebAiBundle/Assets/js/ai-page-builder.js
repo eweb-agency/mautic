@@ -351,7 +351,7 @@
         if (tuile) {
           tuile.addEventListener('click', function () {
             if (window.SendlyAiConfig && window.SendlyAiConfig.teaser) {
-              if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir(); }
+              if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir('page'); }
               return;
             }
             var sel = editor.getSelected();
@@ -369,7 +369,7 @@
           var index = repere && repere.index ? repere.index() : 0;
           premiers.forEach(function (c) { if (c && c.remove) { c.remove(); } });
           if (window.SendlyAiConfig && window.SendlyAiConfig.teaser) {
-            if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir(); }
+            if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir('page'); }
             return;
           }
           if (parent) { ouvrirInvite(parent, index, ''); }

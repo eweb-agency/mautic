@@ -130,6 +130,13 @@ final class AiEntitlementTest extends TestCase
         // du plugin, jamais du portail (pas de CORS côté portail).
         self::assertStringContainsString('Passez à la vitesse', $upsell);
         self::assertStringContainsString('Essayez Pro pendant 14 jours', $upsell);
+        // Raffinements validés le 14/08 : titres contextuels par porte
+        // d'entrée, réassurance sous le CTA, marque déposée sur la pilule.
+        foreach (['email:', 'page:', 'segment:', 'aide:'] as $contexte) {
+            self::assertStringContainsString($contexte, $upsell, 'titre contextuel manquant : '.$contexte);
+        }
+        self::assertStringContainsString("14 jours d\\'essai, sans engagement.", $upsell);
+        self::assertStringContainsString('marque-r', $upsell);
         self::assertStringContainsString('/plugins/EwebAiBundle/Assets', $upsell);
         self::assertStringContainsString('Helvena', $upsell);
         self::assertStringContainsString('copilot-vague.jpg', $upsell);
@@ -141,16 +148,16 @@ final class AiEntitlementTest extends TestCase
         $tuile = (string) file_get_contents(__DIR__.'/../../../EwebSaasBundle/Assets/js/builder-composants.js');
         self::assertStringContainsString('window.SendlyAiConfig.enabled || window.SendlyAiConfig.teaser', $tuile);
         $page = (string) file_get_contents(__DIR__.'/../../Assets/js/ai-page-builder.js');
-        self::assertSame(2, substr_count($page, 'window.SendlyAiUpsell.ouvrir()'));
+        self::assertSame(2, substr_count($page, "window.SendlyAiUpsell.ouvrir('page')"));
 
-        // E-mails : bouton visible, action verrouillée.
+        // E-mails : bouton visible, action verrouillée, contexte e-mail.
         $copilot = (string) file_get_contents(__DIR__.'/../../Assets/js/ai-copilot.js');
         self::assertStringContainsString('window.SendlyAiConfig.teaser', $copilot);
-        self::assertStringContainsString('window.SendlyAiUpsell.ouvrir()', $copilot);
+        self::assertStringContainsString("window.SendlyAiUpsell.ouvrir('email')", $copilot);
 
         // Lanceur de l'aide (couvre aussi les segments) : visible, verrouillé.
         $assistant = (string) file_get_contents(__DIR__.'/../../Assets/js/ai-assistant.js');
         self::assertStringContainsString('teaserActif()', $assistant);
-        self::assertStringContainsString('window.SendlyAiUpsell.ouvrir()', $assistant);
+        self::assertStringContainsString("window.SendlyAiUpsell.ouvrir('aide')", $assistant);
     }
 }
