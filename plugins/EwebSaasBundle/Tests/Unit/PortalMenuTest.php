@@ -230,7 +230,11 @@ final class PortalMenuTest extends TestCase
         self::assertStringContainsString('border-radius: 16px 16px 0 0 !important', $twig);
         // Le blur du header = bloc conteneur des fixed (constaté live).
         self::assertStringContainsString('.navbar:has(.sendly-softwares.open)', $twig);
-        self::assertStringContainsString('backdrop-filter: none !important', $twig);
+        // iOS Safari ne recalcule pas le bloc conteneur d'un fixed quand le
+        // backdrop-filter disparaît dynamiquement (iPhone, 14/08) : sur
+        // téléphone le flou du header est retiré EN PERMANENCE, pas
+        // seulement à l'ouverture.
+        self::assertStringContainsString('.navbar { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }', $twig);
         self::assertStringContainsString('env(safe-area-inset-bottom)', $twig);
         // L-c : sous-titres concrets, dans les deux langues.
         $fr = (string) file_get_contents(__DIR__.'/../../Translations/fr/messages.ini');
