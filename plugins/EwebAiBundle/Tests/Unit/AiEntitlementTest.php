@@ -137,6 +137,9 @@ final class AiEntitlementTest extends TestCase
         }
         self::assertStringContainsString("14 jours d\\'essai, sans engagement.", $upsell);
         self::assertStringContainsString('marque-r', $upsell);
+        // Marquage de conversion par porte d'entrée (validé 14/08).
+        self::assertStringContainsString("'utm_source', 'copilot-upsell'", $upsell);
+        self::assertStringContainsString("'utm_content', contexte || 'defaut'", $upsell);
         self::assertStringContainsString('/plugins/EwebAiBundle/Assets', $upsell);
         self::assertStringContainsString('Helvena', $upsell);
         self::assertStringContainsString('copilot-vague.jpg', $upsell);

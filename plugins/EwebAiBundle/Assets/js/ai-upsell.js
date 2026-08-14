@@ -182,7 +182,7 @@
   function construire() {
     var conf = window.SendlyAiConfig || {};
     var cta = conf.upgradeUrl
-      ? '<div class="actions"><a class="cta" href="' + conf.upgradeUrl + '" target="_blank" rel="noopener">Essayez Pro pendant 14 jours <span class="fl">↗</span></a><span class="rassure">14 jours d\'essai, sans engagement.</span></div>'
+      ? '<div class="actions"><a class="cta" data-base="' + conf.upgradeUrl + '" href="' + conf.upgradeUrl + '" target="_blank" rel="noopener">Essayez Pro pendant 14 jours <span class="fl">↗</span></a><span class="rassure">14 jours d\'essai, sans engagement.</span></div>'
       : '';
     var lignes = [
       'Sections de page générées à la demande',
@@ -241,6 +241,18 @@
     var voile = document.getElementById('sendly-ia-upsell');
     if (!voile) { voile = construire(); }
     poserTitre(voile, contexte);
+    // Marquage de conversion : quelle surface a mené au clic (UTM lus
+    // côté portail). Sans URL absolue valide, le lien reste intact.
+    var cta = voile.querySelector('a.cta');
+    if (cta && cta.dataset.base) {
+      try {
+        var url = new URL(cta.dataset.base);
+        url.searchParams.set('utm_source', 'copilot-upsell');
+        url.searchParams.set('utm_medium', 'app');
+        url.searchParams.set('utm_content', contexte || 'defaut');
+        cta.href = url.toString();
+      } catch (e) { /* URL relative ou invalide : pas de marquage. */ }
+    }
     voile.classList.remove('sortie');
     voile.style.display = 'flex';
     voile.querySelector('.carte').focus({ preventScroll: true });
