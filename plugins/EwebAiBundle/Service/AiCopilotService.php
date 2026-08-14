@@ -148,7 +148,27 @@ class AiCopilotService
      */
     public function isEnabled(): bool
     {
-        return null !== $this->apiKey;
+        return null !== $this->apiKey && $this->isEntitled();
+    }
+
+    /**
+     * L'IA est un droit du PLAN (décision produit 13/08 : plans payants
+     * uniquement) : le portail pose SENDLY_AI_ENTITLED='0' sur les tenants
+     * gratuits. SANS variable, le droit est réputé acquis — rétro-compatible,
+     * aucun tenant existant ne change tant que le portail ne pousse rien.
+     */
+    public function isEntitled(): bool
+    {
+        return '0' !== ($this->env('SENDLY_AI_ENTITLED') ?? '1');
+    }
+
+    /**
+     * Teaser (plan gratuit) : les points d'entrée IA restent VISIBLES mais
+     * verrouillés — l'interface propose le passage au plan payant.
+     */
+    public function isTeaser(): bool
+    {
+        return !$this->isEntitled();
     }
 
     /**

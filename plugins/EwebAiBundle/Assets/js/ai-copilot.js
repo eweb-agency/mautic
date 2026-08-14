@@ -184,7 +184,15 @@
   }
 
   function openModal() {
-    if (!window.SendlyAiConfig || !window.SendlyAiConfig.enabled) {
+    if (!window.SendlyAiConfig) {
+      return;
+    }
+    // Teaser (plan gratuit) : le bouton existe, l'action propose le plan.
+    if (window.SendlyAiConfig.teaser) {
+      if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir('email'); }
+      return;
+    }
+    if (!window.SendlyAiConfig.enabled) {
       return;
     }
     ensureStyles();
@@ -422,7 +430,7 @@
 
   // ── Injection du bouton d'entrée ────────────────────────────────────────
   function injectButton() {
-    if (!window.SendlyAiConfig || !window.SendlyAiConfig.enabled) {
+    if (!window.SendlyAiConfig || (!window.SendlyAiConfig.enabled && !window.SendlyAiConfig.teaser)) {
       return;
     }
     var $subject = mQuery('#emailform_subject');

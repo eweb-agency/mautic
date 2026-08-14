@@ -190,8 +190,12 @@ final class BuilderComposantsTest extends TestCase
         // cassée. Même gating 3 niveaux que les boutons IA des e-mails.
         $js = (string) file_get_contents(self::JS);
 
-        self::assertStringContainsString('if (window.SendlyAiConfig && window.SendlyAiConfig.enabled) {', $js);
-        $garde = strpos($js, 'window.SendlyAiConfig && window.SendlyAiConfig.enabled');
+        // Évolution 13/08 (décision produit : IA = plans payants) : la
+        // tuile apparaît AUSSI en teaser (plan gratuit) — le clic ouvre
+        // alors l'écran d'upsell. Sans AUCUNE config (ni clé ni directive
+        // du portail), elle reste absente comme avant.
+        self::assertStringContainsString('if (window.SendlyAiConfig && (window.SendlyAiConfig.enabled || window.SendlyAiConfig.teaser)) {', $js);
+        $garde = strpos($js, 'window.SendlyAiConfig && (window.SendlyAiConfig.enabled || window.SendlyAiConfig.teaser)');
         $tuile = strpos($js, "bm.add('sendly-ia'");
         self::assertNotFalse($garde);
         self::assertNotFalse($tuile);

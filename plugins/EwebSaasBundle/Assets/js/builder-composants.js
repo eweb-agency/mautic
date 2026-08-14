@@ -113,7 +113,10 @@
     // (même gating 3 niveaux que les boutons IA des e-mails) : sans clé,
     // le panneau n'existe pas — une tuile qui n'ouvre rien serait une
     // promesse cassée (constaté sur un tenant sans clé, P5).
-    if (window.SendlyAiConfig && window.SendlyAiConfig.enabled) {
+    // La tuile apparaît aussi en TEASER (plan gratuit, décision 13/08) :
+    // le point d'entrée reste visible, le clic ouvre l'écran d'upsell
+    // (géré par ai-page-builder.js).
+    if (window.SendlyAiConfig && (window.SendlyAiConfig.enabled || window.SendlyAiConfig.teaser)) {
       // Le contenu n'est PAS vide : le dépôt d'un bloc vide ne crée AUCUN
       // composant, et le glisser-déposer ne savait pas OÙ ouvrir l'invite
       // (recette proprio 13/08 — le clic marchait, le drag ne faisait

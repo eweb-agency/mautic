@@ -6,6 +6,7 @@ namespace MauticPlugin\EwebAiBundle\EventSubscriber;
 
 use Mautic\CoreBundle\CoreEvents;
 use Mautic\CoreBundle\Event\CustomAssetsEvent;
+use Mautic\CoreBundle\Helper\CoreParametersHelper;
 use Mautic\InstallBundle\Install\InstallService;
 use MauticPlugin\EwebAiBundle\Service\AiCopilotService;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -36,6 +37,7 @@ class AiConfigAssetsSubscriber implements EventSubscriberInterface
         private InstallService $installer,
         private RequestStack $requestStack,
         private RouterInterface $router,
+        private CoreParametersHelper $params,
     ) {
     }
 
@@ -62,6 +64,23 @@ class AiConfigAssetsSubscriber implements EventSubscriberInterface
                 JSON_THROW_ON_ERROR
             ).';'
         );
+
+        // Plan GRATUIT (décision produit 13/08) : les points d'entrée IA
+        // restent VISIBLES mais verrouillés — chaque surface ouvre l'écran
+        // de passage au plan payant (ai-upsell.js). AUCUN endpoint IA ne
+        // transite dans ce régime.
+        if ($this->copilot->isTeaser()) {
+            $portail = rtrim((string) $this->params->get('saas_portal_url'), '/');
+            $assetsEvent->addScriptDeclaration(
+                'window.SendlyAiConfig = '.json_encode([
+                    'enabled'    => false,
+                    'teaser'     => true,
+                    'upgradeUrl' => '' !== $portail ? $portail.'/dashboard/organization' : '',
+                ], JSON_THROW_ON_ERROR).';'
+            );
+
+            return;
+        }
 
         if (!$this->copilot->isEnabled()) {
             return;

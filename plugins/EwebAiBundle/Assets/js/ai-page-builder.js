@@ -319,6 +319,9 @@
 
       /** Ajoute Améliorer (étincelle) et Traduire (langues) à la mini-barre. */
       function equiperMiniBarre(comp) {
+        // En teaser, la mini-barre reste NUE : la tuile est le point
+        // d'entrée du teaser, pas besoin de verrous partout.
+        if (window.SendlyAiConfig && window.SendlyAiConfig.teaser) { return; }
         if (!comp || 'text' !== comp.get('type')) { return; }
         var barre = comp.get('toolbar') || [];
         if (barre.some(function (b) { return 'sendly-ia-ameliorer' === b.command; })) { return; }
@@ -347,6 +350,10 @@
         );
         if (tuile) {
           tuile.addEventListener('click', function () {
+            if (window.SendlyAiConfig && window.SendlyAiConfig.teaser) {
+              if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir('page'); }
+              return;
+            }
             var sel = editor.getSelected();
             if (sel && sel.parent()) { ouvrirInvite(sel.parent(), sel.index() + 1, ''); }
             else { ouvrirInvite(editor.getWrapper(), editor.getWrapper().components().length, ''); }
@@ -361,6 +368,10 @@
           var parent = repere && repere.parent ? repere.parent() : null;
           var index = repere && repere.index ? repere.index() : 0;
           premiers.forEach(function (c) { if (c && c.remove) { c.remove(); } });
+          if (window.SendlyAiConfig && window.SendlyAiConfig.teaser) {
+            if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir('page'); }
+            return;
+          }
           if (parent) { ouvrirInvite(parent, index, ''); }
           else { ouvrirInvite(editor.getWrapper(), editor.getWrapper().components().length, ''); }
         });
