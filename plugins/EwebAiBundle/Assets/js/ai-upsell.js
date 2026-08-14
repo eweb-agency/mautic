@@ -78,7 +78,7 @@
       + '#sendly-ia-upsell.sortie { animation: sendlyUpsellSortieVoile .15s ease-in forwards; }'
       + '#sendly-ia-upsell.sortie .carte { animation: sendlyUpsellSortieCarte .15s ease-in forwards; }'
       /* Héros : la vague de la marque + voile navy (motif e-mails DA). */
-      + '#sendly-ia-upsell .heros { position: relative; border-radius: 24px 24px 0 0; padding: 26px 30px 28px; background-image: linear-gradient(180deg, rgba(0,18,72,.62), rgba(0,18,72,.18) 55%, rgba(0,79,255,.16)), url("' + CHEMIN_ASSETS + '/img/copilot-vague.jpg"); background-size: cover, cover; background-position: center, center 30%; text-align: center; }'
+      + '#sendly-ia-upsell .heros { position: relative; border-radius: 24px 24px 0 0; padding: 26px 30px 28px; background-image: linear-gradient(180deg, rgba(0,18,72,.62), rgba(0,18,72,.18) 55%, rgba(0,79,255,.16)), url("' + CHEMIN_ASSETS + '/img/copilot-vague.jpg"); background-size: cover, 621.34px 310.67px; background-position: center, center; text-align: center; }'
       /* Grain DA (fichier « noise » Figma, tuile 512 extraite de la
        * texture 4000px) : overlay 30 % à l'échelle Figma (×0,47 →
        * 240px), posé SOUS le texte — il casse le banding du dégradé et
@@ -102,8 +102,8 @@
       + '#sendly-ia-upsell .heros h2 { margin: 0 0 12px; font-size: 30px; line-height: 1.14; font-weight: 300; color: #fff; letter-spacing: -.015em; }'
       + '#sendly-ia-upsell .heros p { margin: 0 auto; max-width: 42ch; font-size: 14px; line-height: 1.55; font-weight: 500; color: #DFEAFF; }'
       /* Liste à icônes thématiques, rythme aéré. */
-      + '#sendly-ia-upsell ul { list-style: none; margin: 0; padding: 26px 36px 10px; display: grid; gap: 0; }'
-      + '#sendly-ia-upsell li { display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 500; color: #001248; padding: 9px 0; letter-spacing: .002em; animation: sendlyUpsellLigne .45s cubic-bezier(.22,.9,.3,1) both; }'
+      + '#sendly-ia-upsell ul { list-style: none; margin: 0; padding: 22px 30px 6px; display: grid; gap: 8px; }'
+      + '#sendly-ia-upsell li { display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 500; color: #001248; background: #F5F7F9; border-radius: 12px; padding: 10px 14px; letter-spacing: .002em; animation: sendlyUpsellLigne .45s cubic-bezier(.22,.9,.3,1) both; }'
       + '#sendly-ia-upsell li:nth-child(1) { animation-delay: .14s; }'
       + '#sendly-ia-upsell li:nth-child(2) { animation-delay: .21s; }'
       + '#sendly-ia-upsell li:nth-child(3) { animation-delay: .28s; }'
@@ -142,7 +142,8 @@
       + '#sendly-ia-upsell .heros { padding: 22px 22px 24px; border-radius: 22px 22px 0 0; }'
       + '#sendly-ia-upsell .heros h2 { font-size: 24px; }'
       + '#sendly-ia-upsell .heros p { font-size: 13px; }'
-      + '#sendly-ia-upsell ul { padding: 18px 24px 6px; }'
+      + '#sendly-ia-upsell ul { padding: 16px 20px 4px; }'
+      + '#sendly-ia-upsell li { padding: 10px 12px; }'
       + '#sendly-ia-upsell .filet { margin: 14px 24px; }'
       + '#sendly-ia-upsell .plan { padding: 0 24px; }'
       + '#sendly-ia-upsell .plan .det { white-space: normal; }'
