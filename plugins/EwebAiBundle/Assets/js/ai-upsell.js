@@ -78,7 +78,7 @@
       + '#sendly-ia-upsell.sortie { animation: sendlyUpsellSortieVoile .15s ease-in forwards; }'
       + '#sendly-ia-upsell.sortie .carte { animation: sendlyUpsellSortieCarte .15s ease-in forwards; }'
       /* Héros : la vague de la marque + voile navy (motif e-mails DA). */
-      + '#sendly-ia-upsell .heros { position: relative; border-radius: 24px 24px 0 0; padding: 26px 30px 28px; background-image: linear-gradient(180deg, rgba(0,18,72,.62), rgba(0,18,72,.18) 55%, rgba(0,79,255,.16)), url("' + CHEMIN_ASSETS + '/img/copilot-vague.jpg"); background-size: cover, 621.34px 310.67px; background-position: center, left bottom; text-align: center; }'
+      + '#sendly-ia-upsell .heros { position: relative; border-radius: 24px 24px 0 0; padding: 26px 30px 28px; background-image: linear-gradient(180deg, rgba(0,18,72,.62), rgba(0,18,72,.18) 55%, rgba(0,79,255,.16)), url("' + CHEMIN_ASSETS + '/img/copilot-vague.jpg"); background-size: cover, cover; background-position: center, center; text-align: center; }'
       /* Grain DA (fichier « noise » Figma, tuile 512 extraite de la
        * texture 4000px) : overlay 30 % à l'échelle Figma (×0,47 →
        * 240px), posé SOUS le texte — il casse le banding du dégradé et
@@ -119,13 +119,13 @@
       /* Rangée plan : la carte « Pro plain » de la DA (couronne + prix). */
       + '#sendly-ia-upsell .plan { display: flex; align-items: center; gap: 14px; padding: 0 34px; }'
       + '#sendly-ia-upsell .plan .txt { flex: 1; min-width: 0; }'
-      + '#sendly-ia-upsell .plan .nom { display: block; font-size: 15px; font-weight: 700; color: #000617; letter-spacing: -.005em; }'
+      + '#sendly-ia-upsell .plan .nom { display: block; font-size: 15px; font-weight: 500; color: #000617; letter-spacing: -.005em; }'
       + '#sendly-ia-upsell .plan .det { display: block; font-size: 12px; color: #7b8698; margin-top: 2px; }'
       + '#sendly-ia-upsell .plan .prix { flex: none; white-space: nowrap; color: #7b8698; font-size: 13px; letter-spacing: -.01em; }'
-      + '#sendly-ia-upsell .plan .prix b { font-size: 27px; font-weight: 700; color: #000617; letter-spacing: -.02em; margin: 0 1px; }'
+      + '#sendly-ia-upsell .plan .prix b { font-size: 27px; font-weight: 500; color: #000617; letter-spacing: -.02em; margin: 0 1px; }'
       /* CTA : pilule intégrale bleue, flèche ↗, élévation au survol. */
       + '#sendly-ia-upsell .actions { padding: 18px 34px 24px; }'
-      + '#sendly-ia-upsell a.cta { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; border-radius: 999px; background: #004FFF; color: #fff; font-size: 14.5px; font-weight: 700; padding: 14px 0; text-decoration: none; box-shadow: 0 2px 8px rgba(0,79,255,.18); transition: background .15s, transform .18s, box-shadow .18s; }'
+      + '#sendly-ia-upsell a.cta { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; border-radius: 999px; background: #004FFF; color: #fff; font-size: 14.5px; font-weight: 500; letter-spacing: .005em; padding: 14px 0; text-decoration: none; box-shadow: 0 2px 8px rgba(0,79,255,.18); transition: background .15s, transform .18s, box-shadow .18s; }'
       + '#sendly-ia-upsell a.cta:hover { background: #0033B8; color: #fff; text-decoration: none; transform: translateY(-1px); box-shadow: 0 12px 26px rgba(0,79,255,.34); }'
       + '#sendly-ia-upsell a.cta:active { transform: translateY(0); box-shadow: 0 4px 12px rgba(0,79,255,.24); }'
       + '#sendly-ia-upsell a.cta .fl { font-size: 13px; }'
