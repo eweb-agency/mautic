@@ -100,9 +100,22 @@
             /* Le bouton IA (z1035) recouvrait la feuille : le z interne du
                menu ne peut rien (contexte navbar z1030) — FAB effacé. */
             body:has(.sendly-softwares.open) #sendly-assist-fab { display: none !important; }
+            /* Entrée animée (demande proprio 14/08) : le voile fond, la
+               feuille GLISSE D'EN BAS — le langage des feuilles P8. Les
+               animations se réarment au basculement display du menu. */
+            @keyframes sendlySoftVoile { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes sendlySoftGlisse { from { transform: translateY(105%); } to { transform: none; } }
             .sendly-softwares.open::before {
                 content: ""; position: fixed; inset: 0; z-index: 1049;
                 background: rgba(22, 35, 59, .34);
+                animation: sendlySoftVoile .25s ease-out;
+            }
+            .sendly-softwares.open .dropdown-menu {
+                animation: sendlySoftGlisse .32s cubic-bezier(.22,.9,.3,1);
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .sendly-softwares.open::before,
+                .sendly-softwares.open .dropdown-menu { animation: none; }
             }
             /* !important : les feuilles du thème (couches) battent nos
                règles normales — constaté live 13/08, la feuille restait un

@@ -235,6 +235,11 @@ final class PortalMenuTest extends TestCase
         // téléphone le flou du header est retiré EN PERMANENCE, pas
         // seulement à l'ouverture.
         self::assertStringContainsString('.navbar { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }', $twig);
+        // La feuille GLISSE d'en bas et le voile fond (demande proprio
+        // 14/08), neutralisé sous prefers-reduced-motion.
+        self::assertStringContainsString('@keyframes sendlySoftGlisse', $twig);
+        self::assertStringContainsString('animation: sendlySoftGlisse .32s', $twig);
+        self::assertStringContainsString('prefers-reduced-motion', $twig);
         self::assertStringContainsString('env(safe-area-inset-bottom)', $twig);
         // L-c : sous-titres concrets, dans les deux langues.
         $fr = (string) file_get_contents(__DIR__.'/../../Translations/fr/messages.ini');
