@@ -240,6 +240,12 @@ final class PortalMenuTest extends TestCase
         self::assertStringContainsString('@keyframes sendlySoftGlisse', $twig);
         self::assertStringContainsString('animation: sendlySoftGlisse .32s', $twig);
         self::assertStringContainsString('prefers-reduced-motion', $twig);
+        // Sortie SYMÉTRIQUE (retour proprio 14/08) : la fermeture Bootstrap
+        // est retenue 230 ms (hide.bs.dropdown annulé) le temps que la
+        // feuille redescende et que le voile s'efface.
+        self::assertStringContainsString('@keyframes sendlySoftGlisseSortie', $twig);
+        self::assertStringContainsString("item.on('hide.bs.dropdown'", $twig);
+        self::assertStringContainsString('sendly-soft-fermeture', $twig);
         self::assertStringContainsString('env(safe-area-inset-bottom)', $twig);
         // L-c : sous-titres concrets, dans les deux langues.
         $fr = (string) file_get_contents(__DIR__.'/../../Translations/fr/messages.ini');
