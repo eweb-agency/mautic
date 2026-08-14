@@ -124,8 +124,18 @@ final class AiEntitlementTest extends TestCase
     {
         $upsell = (string) file_get_contents(__DIR__.'/../../Assets/js/ai-upsell.js');
         self::assertStringContainsString('window.SendlyAiUpsell = { ouvrir: ouvrir, fermer: fermer };', $upsell);
-        self::assertStringContainsString("L\\'Assistant IA fait partie des plans payants", $upsell);
         self::assertStringContainsString('upgradeUrl', $upsell);
+        // Le design DA validé le 14/08 : héros vague + pilule verre dépoli,
+        // typo Helvena servie même-origine, CTA « Essayez Pro » — des assets
+        // du plugin, jamais du portail (pas de CORS côté portail).
+        self::assertStringContainsString('Passez à la vitesse', $upsell);
+        self::assertStringContainsString('Essayez Pro pendant 14 jours', $upsell);
+        self::assertStringContainsString('/plugins/EwebAiBundle/Assets', $upsell);
+        self::assertStringContainsString('Helvena', $upsell);
+        self::assertStringContainsString('copilot-vague.jpg', $upsell);
+        foreach (['fonts/Helvena_Light.woff2', 'fonts/Helvena_Medium.woff2', 'fonts/Helvena_Bold.woff2', 'img/copilot-vague.jpg'] as $asset) {
+            self::assertFileExists(__DIR__.'/../../Assets/'.$asset, 'asset du design manquant : '.$asset);
+        }
 
         // Tuile du builder : visible en teaser, clic ET dépôt → upsell.
         $tuile = (string) file_get_contents(__DIR__.'/../../../EwebSaasBundle/Assets/js/builder-composants.js');
