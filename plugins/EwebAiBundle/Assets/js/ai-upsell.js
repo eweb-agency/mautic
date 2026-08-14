@@ -185,7 +185,7 @@
       ? '<div class="actions"><a class="cta" data-base="' + conf.upgradeUrl + '" href="' + conf.upgradeUrl + '" target="_blank" rel="noopener">Essayez Pro pendant 14 jours <span class="fl">↗</span></a><span class="rassure">14 jours d\'essai, sans engagement.</span></div>'
       : '';
     var lignes = [
-      'Sections de page générées à la demande',
+      'Sections de page à la demande',
       'Rédaction et traduction d\'e-mails',
       'Segments en langage naturel',
       'Aide personnalisée dans chaque écran'
