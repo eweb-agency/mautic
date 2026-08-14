@@ -78,7 +78,7 @@
       + '#sendly-ia-upsell.sortie { animation: sendlyUpsellSortieVoile .15s ease-in forwards; }'
       + '#sendly-ia-upsell.sortie .carte { animation: sendlyUpsellSortieCarte .15s ease-in forwards; }'
       /* Héros : la vague de la marque + voile navy (motif e-mails DA). */
-      + '#sendly-ia-upsell .heros { position: relative; border-radius: 24px 24px 0 0; padding: 26px 30px 28px; background-image: linear-gradient(180deg, rgba(0,18,72,.62), rgba(0,18,72,.18) 55%, rgba(0,79,255,.16)), url("' + CHEMIN_ASSETS + '/img/copilot-vague.jpg"); background-size: cover, 621.34px 310.67px; background-position: center, center; text-align: center; }'
+      + '#sendly-ia-upsell .heros { position: relative; border-radius: 24px 24px 0 0; padding: 26px 30px 28px; background-image: linear-gradient(180deg, rgba(0,18,72,.62), rgba(0,18,72,.18) 55%, rgba(0,79,255,.16)), url("' + CHEMIN_ASSETS + '/img/copilot-vague.jpg"); background-size: cover, 621.34px 310.67px; background-position: center, left bottom; text-align: center; }'
       /* Grain DA (fichier « noise » Figma, tuile 512 extraite de la
        * texture 4000px) : overlay 30 % à l'échelle Figma (×0,47 →
        * 240px), posé SOUS le texte — il casse le banding du dégradé et
