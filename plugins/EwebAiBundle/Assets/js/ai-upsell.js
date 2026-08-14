@@ -74,7 +74,7 @@
       + '@keyframes sendlyUpsellSortieCarte { to { opacity: 0; transform: translateY(8px) scale(.99); } }'
       /* Le voile est du verre : le fond se floute derrière l'écran. */
       + '#sendly-ia-upsell { position: fixed; inset: 0; z-index: 10050; display: flex; align-items: center; justify-content: center; background: rgba(0,6,23,.45); backdrop-filter: blur(7px); font-family: "Helvena", "Helvetica Neue", -apple-system, "Segoe UI", sans-serif; padding: 16px; animation: sendlyUpsellVoile .25s ease-out; }'
-      + '#sendly-ia-upsell .carte { background: #fff; border-radius: 24px; box-shadow: 0 40px 100px rgba(0,6,23,.5); width: min(500px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; outline: none; animation: sendlyUpsellCarte .5s cubic-bezier(.22,.9,.3,1); }'
+      + '#sendly-ia-upsell .carte { background: #fff; border-radius: 24px; box-shadow: 0 40px 100px rgba(0,6,23,.5); width: min(540px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; outline: none; animation: sendlyUpsellCarte .5s cubic-bezier(.22,.9,.3,1); }'
       + '#sendly-ia-upsell.sortie { animation: sendlyUpsellSortieVoile .15s ease-in forwards; }'
       + '#sendly-ia-upsell.sortie .carte { animation: sendlyUpsellSortieCarte .15s ease-in forwards; }'
       /* Héros : la vague de la marque + voile navy (motif e-mails DA). */
@@ -135,7 +135,7 @@
       + '#sendly-ia-upsell a.cta:focus-visible { outline: 3px solid rgba(0,79,255,.45); outline-offset: 3px; }'
       + '#sendly-ia-upsell .heros .fermer:focus-visible { outline: 3px solid rgba(255,255,255,.6); outline-offset: 3px; }'
       /* Tablette puis mobile : feuille du bas (langage P8). */
-      + '@media (max-width: 1024px) { #sendly-ia-upsell .carte { width: min(480px, 100%); } }'
+      + '@media (max-width: 1024px) { #sendly-ia-upsell .carte { width: min(500px, 100%); } }'
       + '@media (max-width: 640px) {'
       + '#sendly-ia-upsell { padding: 10px; align-items: flex-end; }'
       + '#sendly-ia-upsell .carte { width: 100%; border-radius: 22px 22px 0 0; max-height: calc(100vh - 20px); }'
@@ -150,8 +150,8 @@
       + '}'
       /* Fenêtres peu hautes (desktop) : on réduit l'ÉCHELLE de la carte,
        * jamais sa respiration (arbitrage proprio 14/08). */
-      + '@media (max-height: 719px) and (min-width: 641px) { #sendly-ia-upsell .carte { zoom: 0.84; max-height: none; } }'
-      + '@media (max-height: 619px) and (min-width: 641px) { #sendly-ia-upsell .carte { zoom: 0.78; } }'
+      + '@media (max-height: 719px) and (min-width: 641px) { #sendly-ia-upsell .carte { zoom: 0.88; max-height: none; } }'
+      + '@media (max-height: 619px) and (min-width: 641px) { #sendly-ia-upsell .carte { zoom: 0.80; } }'
       + '@media (prefers-reduced-motion: reduce) {'
       + '#sendly-ia-upsell, #sendly-ia-upsell .carte, #sendly-ia-upsell li, #sendly-ia-upsell .filet, #sendly-ia-upsell .plan, #sendly-ia-upsell .actions { animation: none; }'
       + '#sendly-ia-upsell.sortie, #sendly-ia-upsell.sortie .carte { animation-duration: .01s; }'
