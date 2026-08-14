@@ -95,7 +95,7 @@
       + '#sendly-ia-upsell .pilule-badge { position: relative; display: inline-flex; align-items: center; gap: 9px; background: linear-gradient(120deg, rgba(255,255,255,.10), rgba(255,255,255,.03) 40%, rgba(255,255,255,.08)); border: 0; backdrop-filter: blur(8px); border-radius: 999px; padding: 8px 18px; font-size: 13px; font-weight: 500; color: #fff; margin-bottom: 18px; box-shadow: 0 10px 26px rgba(0,6,23,.28), inset 0 1px 0 rgba(255,255,255,.18); }'
       + '#sendly-ia-upsell .pilule-badge::before { content: ""; position: absolute; inset: 0; border-radius: 999px; padding: 1px; background: linear-gradient(130deg, rgba(255,255,255,.75), rgba(255,255,255,.08) 35%, rgba(255,255,255,.06) 62%, rgba(255,255,255,.55)); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }'
       + '#sendly-ia-upsell .pilule-badge svg { flex: none; }'
-      + '#sendly-ia-upsell .pilule-badge .marque-r { font-size: 8px; align-self: flex-start; margin: 1px 0 0 -5px; opacity: .85; }'
+      + '#sendly-ia-upsell .pilule-badge .marque-r { font-size: 8px; align-self: flex-start; margin: 1px 0 0 -7px; opacity: .85; }'
       /* Titre GRAND et LÉGER sur deux lignes : la signature typographique
        * Sendly — à 26px sur une ligne il informe, à 30px sur deux il
        * s'impose (arbitrage proprio 14/08). */
@@ -111,11 +111,10 @@
       + '#sendly-ia-upsell li .ico { width: 30px; height: 30px; border-radius: 8px; background: #DFEAFF; display: inline-flex; align-items: center; justify-content: center; flex: none; }'
       + '#sendly-ia-upsell li .ico svg { width: 16px; height: 16px; stroke: #004FFF; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }'
       /* La cascade se prolonge jusqu'au pied de carte. */
-      + '#sendly-ia-upsell .filet, #sendly-ia-upsell .plan, #sendly-ia-upsell .actions, #sendly-ia-upsell .tard { animation: sendlyUpsellLigne .45s cubic-bezier(.22,.9,.3,1) both; }'
+      + '#sendly-ia-upsell .filet, #sendly-ia-upsell .plan, #sendly-ia-upsell .actions { animation: sendlyUpsellLigne .45s cubic-bezier(.22,.9,.3,1) both; }'
       + '#sendly-ia-upsell .filet { animation-delay: .42s; }'
       + '#sendly-ia-upsell .plan { animation-delay: .48s; }'
       + '#sendly-ia-upsell .actions { animation-delay: .54s; }'
-      + '#sendly-ia-upsell .tard { animation-delay: .60s; }'
       + '#sendly-ia-upsell .filet { height: 1px; background: #F5F7F9; margin: 18px 34px; }'
       /* Rangée plan : la carte « Pro plain » de la DA (couronne + prix). */
       + '#sendly-ia-upsell .plan { display: flex; align-items: center; gap: 14px; padding: 0 34px; }'
@@ -125,17 +124,15 @@
       + '#sendly-ia-upsell .plan .prix { flex: none; white-space: nowrap; color: #7b8698; font-size: 13px; letter-spacing: -.01em; }'
       + '#sendly-ia-upsell .plan .prix b { font-size: 27px; font-weight: 700; color: #000617; letter-spacing: -.02em; margin: 0 1px; }'
       /* CTA : pilule intégrale bleue, flèche ↗, élévation au survol. */
-      + '#sendly-ia-upsell .actions { padding: 18px 34px 12px; }'
+      + '#sendly-ia-upsell .actions { padding: 18px 34px 24px; }'
       + '#sendly-ia-upsell a.cta { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; border-radius: 999px; background: #004FFF; color: #fff; font-size: 14.5px; font-weight: 700; padding: 14px 0; text-decoration: none; box-shadow: 0 2px 8px rgba(0,79,255,.18); transition: background .15s, transform .18s, box-shadow .18s; }'
       + '#sendly-ia-upsell a.cta:hover { background: #0033B8; color: #fff; text-decoration: none; transform: translateY(-1px); box-shadow: 0 12px 26px rgba(0,79,255,.34); }'
       + '#sendly-ia-upsell a.cta:active { transform: translateY(0); box-shadow: 0 4px 12px rgba(0,79,255,.24); }'
       + '#sendly-ia-upsell a.cta .fl { font-size: 13px; }'
       /* Réassurance : la ligne qui lève la dernière hésitation. */
       + '#sendly-ia-upsell .rassure { display: block; text-align: center; font-size: 12px; color: #a6aebc; margin-top: 10px; }'
-      + '#sendly-ia-upsell .tard { display: block; margin: 0 auto; border: 0; background: none; color: #9aa3b2; font-size: 12.5px; font-weight: 500; cursor: pointer; padding: 6px 12px 18px; }'
-      + '#sendly-ia-upsell .tard:hover { color: #001248; text-decoration: underline; text-underline-offset: 3px; }'
       /* Clavier : anneau visible seulement à la navigation clavier. */
-      + '#sendly-ia-upsell a.cta:focus-visible, #sendly-ia-upsell .tard:focus-visible { outline: 3px solid rgba(0,79,255,.45); outline-offset: 3px; }'
+      + '#sendly-ia-upsell a.cta:focus-visible { outline: 3px solid rgba(0,79,255,.45); outline-offset: 3px; }'
       + '#sendly-ia-upsell .heros .fermer:focus-visible { outline: 3px solid rgba(255,255,255,.6); outline-offset: 3px; }'
       /* Tablette puis mobile : feuille du bas (langage P8). */
       + '@media (max-width: 1024px) { #sendly-ia-upsell .carte { width: min(480px, 100%); } }'
@@ -149,14 +146,14 @@
       + '#sendly-ia-upsell .filet { margin: 14px 24px; }'
       + '#sendly-ia-upsell .plan { padding: 0 24px; }'
       + '#sendly-ia-upsell .plan .det { white-space: normal; }'
-      + '#sendly-ia-upsell .actions { padding: 16px 24px 10px; }'
+      + '#sendly-ia-upsell .actions { padding: 16px 24px 20px; }'
       + '}'
       /* Fenêtres peu hautes (desktop) : on réduit l'ÉCHELLE de la carte,
        * jamais sa respiration (arbitrage proprio 14/08). */
       + '@media (max-height: 719px) and (min-width: 641px) { #sendly-ia-upsell .carte { zoom: 0.84; max-height: none; } }'
       + '@media (max-height: 619px) and (min-width: 641px) { #sendly-ia-upsell .carte { zoom: 0.78; } }'
       + '@media (prefers-reduced-motion: reduce) {'
-      + '#sendly-ia-upsell, #sendly-ia-upsell .carte, #sendly-ia-upsell li, #sendly-ia-upsell .filet, #sendly-ia-upsell .plan, #sendly-ia-upsell .actions, #sendly-ia-upsell .tard { animation: none; }'
+      + '#sendly-ia-upsell, #sendly-ia-upsell .carte, #sendly-ia-upsell li, #sendly-ia-upsell .filet, #sendly-ia-upsell .plan, #sendly-ia-upsell .actions { animation: none; }'
       + '#sendly-ia-upsell.sortie, #sendly-ia-upsell.sortie .carte { animation-duration: .01s; }'
       + '#sendly-ia-upsell a.cta, #sendly-ia-upsell a.cta:hover, #sendly-ia-upsell a.cta:active { transform: none; }'
       + '}';
@@ -208,10 +205,8 @@
       + '<div class="filet"></div>'
       + '<div class="plan">' + COURONNE + '<span class="txt"><span class="nom">Plan Pro</span><span class="det">Toutes les fonctionnalités avancées incluses</span></span><span class="prix">€<b>29</b>/mois</span></div>'
       + cta
-      + '<button type="button" class="tard">Plus tard</button>'
       + '</div>';
     voile.addEventListener('click', function (e) { if (e.target === voile) { fermer(); } });
-    voile.querySelector('.tard').addEventListener('click', fermer);
     voile.querySelector('.fermer').addEventListener('click', fermer);
     // Piège à clavier : Tab boucle dans le dialogue tant qu'il est ouvert.
     voile.addEventListener('keydown', function (e) {
