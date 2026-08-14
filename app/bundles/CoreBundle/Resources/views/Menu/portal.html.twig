@@ -105,6 +105,18 @@
                animations se réarment au basculement display du menu. */
             @keyframes sendlySoftVoile { from { opacity: 0; } to { opacity: 1; } }
             @keyframes sendlySoftGlisse { from { transform: translateY(105%); } to { transform: none; } }
+            /* Sortie SYMÉTRIQUE (retour proprio 14/08, iPhone) : Bootstrap
+               masque tout net à la fermeture — le script du partial la
+               RETIENT 230 ms sous la classe sendly-soft-fermeture, le
+               temps que la feuille redescende et que le voile s'efface. */
+            @keyframes sendlySoftVoileSortie { to { opacity: 0; } }
+            @keyframes sendlySoftGlisseSortie { to { transform: translateY(105%); } }
+            .sendly-softwares.open.sendly-soft-fermeture::before {
+                animation: sendlySoftVoileSortie .22s ease-in forwards;
+            }
+            .sendly-softwares.open.sendly-soft-fermeture .dropdown-menu {
+                animation: sendlySoftGlisseSortie .22s ease-in forwards;
+            }
             .sendly-softwares.open::before {
                 content: ""; position: fixed; inset: 0; z-index: 1049;
                 background: rgba(22, 35, 59, .34);
@@ -168,5 +180,25 @@
             </a>
         </li>
     </ul>
+    <script>
+        /* Sortie animée de la feuille mobile : on retient la fermeture
+           Bootstrap (hide.bs.dropdown annulable) le temps du glissement,
+           puis on retire les classes nous-mêmes. Desktop et
+           prefers-reduced-motion gardent la fermeture immédiate. */
+        mQuery(function () {
+            var item = mQuery('.sendly-softwares');
+            var mobile = window.matchMedia('(max-width: 767px)');
+            var calme  = window.matchMedia('(prefers-reduced-motion: reduce)');
+            item.on('hide.bs.dropdown', function (e) {
+                if (!mobile.matches || calme.matches) { return; }
+                if (item.hasClass('sendly-soft-fermeture')) { return; }
+                e.preventDefault();
+                item.addClass('sendly-soft-fermeture');
+                setTimeout(function () {
+                    item.removeClass('open sendly-soft-fermeture');
+                }, 230);
+            });
+        });
+    </script>
 </li>
 {% endif %}
