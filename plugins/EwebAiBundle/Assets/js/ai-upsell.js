@@ -79,6 +79,12 @@
       + '#sendly-ia-upsell.sortie .carte { animation: sendlyUpsellSortieCarte .15s ease-in forwards; }'
       /* Héros : la vague de la marque + voile navy (motif e-mails DA). */
       + '#sendly-ia-upsell .heros { position: relative; border-radius: 24px 24px 0 0; padding: 26px 30px 28px; background-image: linear-gradient(180deg, rgba(0,18,72,.62), rgba(0,18,72,.18) 55%, rgba(0,79,255,.16)), url("' + CHEMIN_ASSETS + '/img/copilot-vague.jpg"); background-size: cover, cover; background-position: center, center 30%; text-align: center; }'
+      /* Grain DA (fichier « noise » Figma, tuile 512 extraite de la
+       * texture 4000px) : overlay 30 % à l'échelle Figma (×0,47 →
+       * 240px), posé SOUS le texte — il casse le banding du dégradé et
+       * satine la vague. */
+      + '#sendly-ia-upsell .heros::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: url("' + CHEMIN_ASSETS + '/img/copilot-grain.jpg") repeat; background-size: 240px; mix-blend-mode: overlay; opacity: .3; pointer-events: none; z-index: 0; }'
+      + '#sendly-ia-upsell .heros > * { position: relative; z-index: 1; }'
       /* Le ✕ parle le même langage que la pilule : verre dépoli, liseré
        * dégradé par masque xor, ombre douce. */
       + '#sendly-ia-upsell .heros .fermer { position: absolute; top: 16px; right: 18px; border: 0; background: linear-gradient(120deg, rgba(255,255,255,.10), rgba(255,255,255,.04) 40%, rgba(255,255,255,.09)); border-radius: 99px; width: 30px; height: 30px; color: #fff; font-size: 14px; cursor: pointer; line-height: 1; backdrop-filter: blur(8px); box-shadow: 0 6px 16px rgba(0,6,23,.22), inset 0 1px 0 rgba(255,255,255,.16); }'

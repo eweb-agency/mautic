@@ -140,7 +140,7 @@ final class AiEntitlementTest extends TestCase
         self::assertStringContainsString('/plugins/EwebAiBundle/Assets', $upsell);
         self::assertStringContainsString('Helvena', $upsell);
         self::assertStringContainsString('copilot-vague.jpg', $upsell);
-        foreach (['fonts/Helvena_Light.woff2', 'fonts/Helvena_Medium.woff2', 'fonts/Helvena_Bold.woff2', 'img/copilot-vague.jpg'] as $asset) {
+        foreach (['fonts/Helvena_Light.woff2', 'fonts/Helvena_Medium.woff2', 'fonts/Helvena_Bold.woff2', 'img/copilot-vague.jpg', 'img/copilot-grain.jpg'] as $asset) {
             self::assertFileExists(__DIR__.'/../../Assets/'.$asset, 'asset du design manquant : '.$asset);
         }
 
