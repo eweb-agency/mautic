@@ -265,7 +265,7 @@ class AiCopilotService
             $messages
         );
 
-        return $this->enforceBrand($this->stripLightMarkdown(trim($text)));
+        return $this->enforceBrand($this->normalizeAssistMarkdown(trim($text)));
     }
 
     /**
@@ -732,9 +732,12 @@ class AiCopilotService
             '- web notifications, forms, landing pages with a visual builder, assets/resources, dynamic web content,',
             '- points, triggers and stages, tags, projects, reports and deliverability tools.',
             'RULES:',
-            '- Answer in '.$language.'.',
-            '- Be concise. When guiding, use short numbered steps and quote interface paths like « Segments → Nouveau ».',
-            '- Plain text only: no Markdown syntax (no #, no **, no backticks) — the panel renders raw text.',
+            '- Answer in '.$language.', addressing the user with the polite form.',
+            '- COACH, do not lecture: open with the direct answer or the single most useful action, in one or two short sentences.',
+            '- When guiding, use short numbered steps (5 at most, ONE action each) and quote interface paths like « Segments → Nouveau ».',
+            '- ONE topic per answer. If the question is broad, give only the two or three highest-impact points, then end with ONE short question offering to go deeper on a specific aspect.',
+            '- Keep the whole answer under roughly 120 words; only a step-by-step guide may run longer.',
+            '- Light Markdown only: **bold** for the few key terms, hyphen or numbered lists. Never headings, backticks, tables or links — the panel renders paragraphs, lists and bold.',
             '- The product is called Sendly and ONLY Sendly. Never mention any other product, engine or brand name.',
             '- If the question is not about using Sendly or marketing automation, politely say you can only help with Sendly.',
             '- Never invent a feature — and never DENY one from the capability list above. If you are unsure whether something exists, say where to look in the interface or suggest contacting support instead of denying.',
@@ -754,17 +757,14 @@ class AiCopilotService
     }
 
     /**
-     * Le filet de forme : le panneau rend du TEXTE BRUT (échappé, jamais
-     * interprété) — un « # Titre » ou des « **gras** » s'afficheraient tels
-     * quels (constaté à la première vérification en prod). La consigne
-     * interdit le Markdown ; ce filet retire ce qui échapperait : marqueurs
-     * de titre en tête de ligne, paires ** et backticks. Les tirets et les
-     * numéros de liste restent — ils se lisent naturellement en texte brut.
+     * Le filet de forme : le panneau COMPOSE désormais paragraphes, listes
+     * et **gras** (rendreAide, échappement d'abord — retour proprio 14/08 :
+     * les réponses en pavé). Ce filet ne retire que ce que le panneau ne
+     * rend PAS : les marqueurs de titre en tête de ligne et les backticks.
      */
-    private function stripLightMarkdown(string $text): string
+    private function normalizeAssistMarkdown(string $text): string
     {
         $text = preg_replace('/^#{1,6}\s+/m', '', $text) ?? $text;
-        $text = preg_replace('/\*\*(.+?)\*\*/s', '$1', $text) ?? $text;
 
         return str_replace('`', '', $text);
     }
