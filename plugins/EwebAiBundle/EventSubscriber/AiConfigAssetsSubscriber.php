@@ -75,7 +75,10 @@ class AiConfigAssetsSubscriber implements EventSubscriberInterface
                 'window.SendlyAiConfig = '.json_encode([
                     'enabled'    => false,
                     'teaser'     => true,
-                    'upgradeUrl' => '' !== $portail ? $portail.'/dashboard/organization' : '',
+                    // L'intention du clic est CHANGER DE PLAN : atterrir sur l'onglet
+                    // abonnement, pas sur la page organisation générique (retour
+                    // proprio 16/08 — chaque écran intermédiaire perd de l'intention).
+                    'upgradeUrl' => '' !== $portail ? $portail.'/dashboard/organization/settings?tab=subscription' : '',
                 ], JSON_THROW_ON_ERROR).';'
             );
 
