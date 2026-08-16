@@ -54,6 +54,49 @@
     });
   }
 
+  /** Rendu SÛR des réponses d'aide : tout est échappé d'abord, puis un
+   *  balisage LÉGER est reconstruit — paragraphes, listes ordonnées ou à
+   *  puces, **gras**, et les chemins d'interface « A → B » en pastilles.
+   *  Aucun HTML du modèle n'est jamais interprété. */
+  function rendreAide(texte) {
+    var brut = String(texte == null ? '' : texte).replace(/\r\n/g, '\n').trim();
+    var html = '';
+    var liste = null;
+    var para = [];
+    function enLigne(l) {
+      var s = esc(l);
+      s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      s = s.replace(/«\s*([^»]*?→[^»]*?)\s*»/g, function (tout, chemin) {
+        return '<span class="sendly-assist-chemin">' + chemin.trim() + '</span>';
+      });
+      return s;
+    }
+    function fermeListe() {
+      if (liste) { html += '</' + liste + '>'; liste = null; }
+    }
+    function videPara() {
+      if (para.length) { html += '<p>' + para.map(enLigne).join('<br>') + '</p>'; para = []; }
+    }
+    brut.split('\n').forEach(function (l) {
+      var ligne = l.trim();
+      if (!ligne) { videPara(); fermeListe(); return; }
+      var num = ligne.match(/^\d+[.)]\s+(.*)$/);
+      var puce = ligne.match(/^[-•]\s+(.*)$/);
+      if (num || puce) {
+        videPara();
+        var type = num ? 'ol' : 'ul';
+        if (liste !== type) { fermeListe(); html += '<' + type + '>'; liste = type; }
+        html += '<li>' + enLigne((num || puce)[1]) + '</li>';
+        return;
+      }
+      fermeListe();
+      para.push(ligne);
+    });
+    videPara();
+    fermeListe();
+    return html || '<p></p>';
+  }
+
   function ensureStyles() {
     if (document.getElementById('sendly-assist-style')) {
       return;
@@ -103,7 +146,17 @@
       '#sendly-assist-send[disabled]{opacity:.5;cursor:default}' +
       '.sendly-assist-meta{display:flex;justify-content:space-between;padding:0 14px 12px;color:#97a1b3;font-size:11.5px}' +
       '.sendly-assist-meta a{color:#97a1b3;cursor:pointer}' +
-      '.sendly-assist-meta a:hover{color:' + BRAND + '}';
+      '.sendly-assist-meta a:hover{color:' + BRAND + '}' +
+      // Réponses d'aide COMPOSÉES (retour proprio 14/08 : « un gros texte
+      // sans aucune propreté ») : paragraphes, listes, gras, et les chemins
+      // d'interface en pastilles.
+      '.sendly-assist-turn p{margin:0 0 8px}' +
+      '.sendly-assist-turn p:last-child{margin-bottom:0}' +
+      '.sendly-assist-turn ol,.sendly-assist-turn ul{margin:2px 0 8px;padding-left:18px;display:grid;gap:5px}' +
+      '.sendly-assist-turn ol:last-child,.sendly-assist-turn ul:last-child{margin-bottom:0}' +
+      '.sendly-assist-turn strong{color:#001248;font-weight:600}' +
+      '.sendly-assist-chemin{display:inline-block;background:#f0f5ff;color:' + BRAND + ';border-radius:6px;' +
+      'padding:0 6px;font-weight:600;font-size:12px;line-height:1.7;white-space:nowrap}';
     var style = document.createElement('style');
     style.id = 'sendly-assist-style';
     style.textContent = css;
@@ -461,7 +514,7 @@
         success: function (res) {
           if (res && res.answer) {
             var answer = String(res.answer);
-            conv().push({ role: 'ia', html: esc(answer), plain: answer });
+            conv().push({ role: 'ia', html: rendreAide(answer), plain: answer });
             busy = false;
             renderConv();
           } else {

@@ -129,19 +129,34 @@ final class AiCopilotAssistTest extends TestCase
         self::assertStringContainsString('called Sendly and ONLY Sendly', $system);
     }
 
-    public function testLeMarkdownResiduelEstAplatiEnTexteBrut(): void
+    public function testLeMarkdownLegerEstPreserveLesTitresEtBackticksRetires(): void
     {
-        // Constaté à la première vérification en prod : le panneau rend du
-        // texte brut, un « # Titre » et des « **gras** » s'affichaient tels
-        // quels malgré la consigne. Le filet aplatit ; les listes numérotées
-        // et les tirets, lisibles en brut, restent intacts.
-        $answer = $this->service("# Créer un segment\n\n1. Allez dans **Segments → Nouveau**\n2. Cliquez sur `Créer`\n- astuce : 2 ** seuls restent")
+        // Retour proprio 14/08 (« un gros texte sans aucune propreté ») : le
+        // panneau COMPOSE désormais paragraphes, listes et **gras** — le
+        // filet ne retire plus que ce qu'il ne rend pas : titres et backticks.
+        $answer = $this->service("# Créer un segment\n\n1. Allez dans **Segments → Nouveau**\n2. Cliquez sur `Créer`\n- astuce : gardée")
             ->assist(['question' => 'q']);
 
         self::assertSame(
-            "Créer un segment\n\n1. Allez dans Segments → Nouveau\n2. Cliquez sur Créer\n- astuce : 2 ** seuls restent",
+            "Créer un segment\n\n1. Allez dans **Segments → Nouveau**\n2. Cliquez sur Créer\n- astuce : gardée",
             $answer
         );
+    }
+
+    public function testLaConsigneCoacheEtBorneLaLongueur(): void
+    {
+        // Le but produit : ACCOMPAGNER l'utilisateur — réponse directe
+        // d'abord, étapes courtes, UN sujet à la fois, et une relance qui
+        // propose d'approfondir. La consigne porte ce contrat.
+        $service = $this->service('ok');
+        $service->assist(['question' => 'q', 'lang' => 'French']);
+
+        $system = (string) $this->sent['system'];
+        self::assertStringContainsString('COACH, do not lecture', $system);
+        self::assertStringContainsString('ONE topic per answer', $system);
+        self::assertStringContainsString('5 at most, ONE action each', $system);
+        self::assertStringContainsString('roughly 120 words', $system);
+        self::assertStringContainsString('Light Markdown only', $system);
     }
 
     public function testUneQuestionVideEstRefuseeAvantToutAppel(): void
