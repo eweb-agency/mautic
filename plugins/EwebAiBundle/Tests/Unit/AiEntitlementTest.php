@@ -150,6 +150,10 @@ final class AiEntitlementTest extends TestCase
             self::assertStringContainsString($contexte, $upsell, 'titre contextuel manquant : '.$contexte);
         }
         self::assertStringContainsString("14 jours d\\'essai, sans engagement.", $upsell);
+        // Prix du plan Pro — boussole tarifaire validée le 17/08/2026 :
+        // 290 €/mois (le 29 € historique est mort, il rendait la grille
+        // agence 199-129 € absurde).
+        self::assertStringContainsString('€<b>290</b>/mois', $upsell);
         self::assertStringContainsString('marque-r', $upsell);
         // Marquage de conversion par porte d'entrée (validé 14/08).
         self::assertStringContainsString("'utm_source', 'copilot-upsell'", $upsell);
