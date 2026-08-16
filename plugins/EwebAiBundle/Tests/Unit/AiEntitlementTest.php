@@ -58,7 +58,7 @@ final class AiEntitlementTest extends TestCase
 
         self::assertStringContainsString("'0' !== (\$this->env('SENDLY_AI_ENTITLED') ?? '1')", $service);
         self::assertStringContainsString('null !== $this->apiKey && $this->isEntitled()', $service);
-        self::assertStringContainsString('return !$this->isEntitled();', $service);
+        self::assertStringContainsString('return !$this->isEnabled();', $service);
     }
 
     public function testSansVariableLeDroitEstAcquisRetrocompatible(): void
@@ -84,15 +84,29 @@ final class AiEntitlementTest extends TestCase
         self::assertFalse($service->isEnabled(), 'une clé qui traîne ne doit JAMAIS ouvrir l IA à un plan gratuit');
     }
 
-    public function testNiCleNiVariableRestentMasques(): void
+    public function testSansCleLeTeaserSAffiche(): void
     {
+        // Décision proprio 16/08 : plus JAMAIS « aucune surface » — l'IA
+        // non active (clé absente, droit acquis ou non) affiche le teaser
+        // et l'écran Sendly Copilot. L'ancien état masqué disparaît.
         unset($_ENV['SENDLY_AI_ENTITLED'], $_SERVER['SENDLY_AI_ENTITLED'], $_ENV['SENDLY_ANTHROPIC_KEY'], $_SERVER['SENDLY_ANTHROPIC_KEY']);
         putenv('SENDLY_AI_ENTITLED');
         putenv('SENDLY_ANTHROPIC_KEY');
 
         $service = $this->service();
         self::assertFalse($service->isEnabled());
-        self::assertFalse($service->isTeaser(), 'sans directive du portail, le comportement actuel (surface ABSENTE) est préservé');
+        self::assertTrue($service->isTeaser(), 'IA non active = teaser, jamais une absence');
+    }
+
+    public function testDroitAcquisSansCleAfficheAussiLeTeaser(): void
+    {
+        $_ENV['SENDLY_AI_ENTITLED'] = '1';
+        unset($_ENV['SENDLY_ANTHROPIC_KEY'], $_SERVER['SENDLY_ANTHROPIC_KEY']);
+        putenv('SENDLY_ANTHROPIC_KEY');
+
+        $service = $this->service();
+        self::assertFalse($service->isEnabled());
+        self::assertTrue($service->isTeaser(), 'payant sans clé : proposer, pas cacher');
     }
 
     public function testLeControleurRefuseLeTeaserEn403(): void

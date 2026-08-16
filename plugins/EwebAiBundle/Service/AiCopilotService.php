@@ -163,12 +163,15 @@ class AiCopilotService
     }
 
     /**
-     * Teaser (plan gratuit) : les points d'entrée IA restent VISIBLES mais
-     * verrouillés — l'interface propose le passage au plan payant.
+     * Teaser : les points d'entrée IA restent VISIBLES mais verrouillés —
+     * l'interface ouvre l'écran Sendly Copilot. Décision proprio 16/08 :
+     * le teaser couvre TOUT état où l'IA n'est pas active (droit refusé
+     * OU clé absente) — « on a créé la modale justement pour ça ». L'état
+     * « aucune surface » disparaît : soit l'IA marche, soit on la propose.
      */
     public function isTeaser(): bool
     {
-        return !$this->isEntitled();
+        return !$this->isEnabled();
     }
 
     /**
