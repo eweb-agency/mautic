@@ -65,10 +65,11 @@ class AiConfigAssetsSubscriber implements EventSubscriberInterface
             ).';'
         );
 
-        // Plan GRATUIT (décision produit 13/08) : les points d'entrée IA
-        // restent VISIBLES mais verrouillés — chaque surface ouvre l'écran
-        // de passage au plan payant (ai-upsell.js). AUCUN endpoint IA ne
-        // transite dans ce régime.
+        // IA NON ACTIVE — droit refusé OU clé absente (décision proprio
+        // 16/08 : « on a créé la modale justement pour ça ») : les points
+        // d'entrée restent VISIBLES et chaque surface ouvre l'écran Sendly
+        // Copilot (ai-upsell.js). AUCUN endpoint IA ne transite dans ce
+        // régime. L'état « aucune surface » n'existe plus.
         if ($this->copilot->isTeaser()) {
             $portail = rtrim((string) $this->params->get('saas_portal_url'), '/');
             $assetsEvent->addScriptDeclaration(
@@ -85,10 +86,7 @@ class AiConfigAssetsSubscriber implements EventSubscriberInterface
             return;
         }
 
-        if (!$this->copilot->isEnabled()) {
-            return;
-        }
-
+        // Ici, isTeaser() faux ⇒ isEnabled() vrai : l'IA est active.
         $config = [
             'enabled'         => true,
             'endpoint'        => $this->router->generate('eweb_ai_generate', [], UrlGeneratorInterface::ABSOLUTE_PATH),
