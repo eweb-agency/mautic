@@ -14,7 +14,7 @@
  *  - typographie HELVENA embarquée en asset même-origine (le portail ne
  *    sert pas de CORS) ;
  *  - liste à ICÔNES THÉMATIQUES dans le langage de la couronne Plan Pro
- *    (carré arrondi #DFEAFF, trait #004FFF), rangée plan + €29/mois, CTA
+ *    (carré arrondi #DFEAFF, trait #004FFF), rangée plan + €290/mois, CTA
  *    pilule « Essayez Pro pendant 14 jours ↗ » et réassurance dessous ;
  *  - motion : fond flouté en verre, entrée orchestrée en cascade, sortie
  *    en fondu, le tout neutralisé sous prefers-reduced-motion ;
@@ -205,7 +205,7 @@
       }).join('')
       + '</ul>'
       + '<div class="filet"></div>'
-      + '<div class="plan">' + COURONNE + '<span class="txt"><span class="nom">Plan Pro</span><span class="det">Toutes les fonctionnalités avancées incluses</span></span><span class="prix">€<b>29</b>/mois</span></div>'
+      + '<div class="plan">' + COURONNE + '<span class="txt"><span class="nom">Plan Pro</span><span class="det">Toutes les fonctionnalités avancées incluses</span></span><span class="prix">€<b>290</b>/mois</span></div>'
       + cta
       + '</div>';
     voile.addEventListener('click', function (e) { if (e.target === voile) { fermer(); } });
