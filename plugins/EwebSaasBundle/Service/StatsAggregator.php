@@ -124,6 +124,7 @@ class StatsAggregator
                         'newLast30d'        => $this->countContactsNewLast30d(),
                         'identifiedLast30d' => $this->countContactsIdentifiedLast30d(),
                     ],
+                    'recentWork' => $this->getRecentWork(),
                 ];
             } catch (\Throwable $e) {
                 $this->logger->error('EwebSaasBundle: Failed to aggregate stats: {msg}', [
@@ -572,6 +573,57 @@ class StatsAggregator
              WHERE date_identified IS NOT NULL AND date_identified >= :since",
             ['since' => $since],
         );
+    }
+
+    /**
+     * Le dernier objet TOUCHÉ par type — la matière du bandeau « Reprendre »
+     * et des tuiles vivantes de l'espace marketing du portail (chantier
+     * atelier, 17/08/2026). Un échec sur un type rend null pour CE type,
+     * jamais d'exception : le bandeau se cache, l'écran vit — même
+     * philosophie que les compteurs null des campagnes.
+     *
+     * @return array<string, array{id: int, name: string, isPublished: bool, modifiedAt: string|null}|null>
+     */
+    public function getRecentWork(): array
+    {
+        $sources = [
+            'campaign' => [$this->prefix.'campaigns', 'name'],
+            'email'    => [$this->prefix.'emails', 'name'],
+            'segment'  => [$this->prefix.'lead_lists', 'name'],
+            'form'     => [$this->prefix.'forms', 'name'],
+            'page'     => [$this->prefix.'pages', 'title'],
+        ];
+
+        $work = [];
+        foreach ($sources as $type => [$table, $nameColumn]) {
+            try {
+                $row = $this->connection->fetchAssociative(
+                    "SELECT id, {$nameColumn} AS name, is_published,
+                            COALESCE(date_modified, date_added) AS touched_at
+                     FROM {$table}
+                     ORDER BY touched_at DESC
+                     LIMIT 1",
+                );
+
+                $touchedAt      = \is_array($row) && null !== $row['touched_at']
+                    ? strtotime((string) $row['touched_at'])
+                    : false;
+                $work[$type] = \is_array($row) ? [
+                    'id'          => (int) $row['id'],
+                    'name'        => (string) $row['name'],
+                    'isPublished' => (bool) $row['is_published'],
+                    'modifiedAt'  => false !== $touchedAt ? gmdate('c', $touchedAt) : null,
+                ] : null;
+            } catch (\Throwable $e) {
+                $this->logger->warning('EwebSaasBundle: recent work failed for {type}: {msg}', [
+                    'type' => $type,
+                    'msg'  => $e->getMessage(),
+                ]);
+                $work[$type] = null;
+            }
+        }
+
+        return $work;
     }
 
     private function countTable(string $table, ?string $whereClause = null): int

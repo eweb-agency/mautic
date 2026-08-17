@@ -102,6 +102,48 @@ class StatsAggregatorTest extends TestCase
         return new ContactLimitChecker($this->connection, new NullLogger(), $cache);
     }
 
+    /**
+     * Le contrat du bandeau « Reprendre » de l'espace marketing (17/08/2026) :
+     * un objet par type quand la table répond, null pour le type qui échoue —
+     * jamais d'exception qui priverait l'écran de TOUTES ses tuiles.
+     */
+    public function testRecentWorkRendUnObjetParTypeEtNullSurEchec(): void
+    {
+        $appels = 0;
+        $this->connection->method('fetchAssociative')->willReturnCallback(
+            function () use (&$appels): array|false {
+                ++$appels;
+                if (3 === $appels) {
+                    throw new \RuntimeException('table absente');
+                }
+                if (4 === $appels) {
+                    return false; // table vide : aucun formulaire
+                }
+
+                return [
+                    'id'           => 7,
+                    'name'         => 'Newsletter de septembre',
+                    'is_published' => '0',
+                    'touched_at'   => '2026-08-16 18:42:00',
+                ];
+            },
+        );
+
+        $work = $this->createAggregator(new ArrayAdapter())->getRecentWork();
+
+        $this->assertSame(
+            ['campaign', 'email', 'segment', 'form', 'page'],
+            array_keys($work),
+            'les cinq types, toujours, dans un ordre stable',
+        );
+        $this->assertNull($work['segment'], 'un échec SQL rend null pour CE type seulement');
+        $this->assertNull($work['form'], 'une table vide rend null, pas une exception');
+        $this->assertSame(7, $work['email']['id']);
+        $this->assertSame('Newsletter de septembre', $work['email']['name']);
+        $this->assertFalse($work['email']['isPublished']);
+        $this->assertSame('2026-08-16T18:42:00+00:00', $work['email']['modifiedAt']);
+    }
+
     public function testEmailSeriesFillsMissingDaysWithZeros(): void
     {
         $today     = (new \DateTimeImmutable('today'))->format('Y-m-d');
