@@ -430,4 +430,34 @@
       window.SendlyAssistant.reset('segment');
     }
   };
+
+  // ── Relais de l'assistant global (26/08) : quand l'utilisateur a demandé
+  //    un segment DEPUIS UN AUTRE ÉCRAN, l'assistant l'amène ici avec sa
+  //    description — on ouvre le panneau segment et on JOUE le tour, comme
+  //    s'il venait de le taper. Un seul essai, la clé est consommée.
+  mQuery(function () {
+    var brief = null;
+    try { brief = sessionStorage.getItem('sendlyAiSegmentBrief'); } catch (e) {}
+    if (!brief) { return; }
+    var tenter = function (restants) {
+      var ctx = (window.SendlyAssistantContexts || []).filter(function (c) {
+        return c.id === 'segment' && c.available();
+      })[0];
+      if (!ctx || !window.SendlyAssistant) {
+        if (restants > 0) { setTimeout(function () { tenter(restants - 1); }, 500); }
+        return;
+      }
+      try { sessionStorage.removeItem('sendlyAiSegmentBrief'); } catch (e) {}
+      window.SendlyAssistant.open('segment');
+      setTimeout(function () {
+        var input = document.getElementById('sendly-assist-input');
+        var send  = document.getElementById('sendly-assist-send');
+        if (input && send) {
+          input.value = brief;
+          send.click();
+        }
+      }, 400);
+    };
+    tenter(20);
+  });
 })();
