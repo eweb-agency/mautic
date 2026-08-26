@@ -175,7 +175,11 @@ final class AiCopilotAssistTest extends TestCase
         }
     }
 
-    /** Fabrique un service dont l'API répond par un BLOC D'OUTIL (mode agi). */
+    /**
+     * Fabrique un service dont l'API répond par un BLOC D'OUTIL (mode agi).
+     *
+     * @param array<string, mixed> $input
+     */
     private function serviceOutil(array $input): AiCopilotService
     {
         $this->sent = [];

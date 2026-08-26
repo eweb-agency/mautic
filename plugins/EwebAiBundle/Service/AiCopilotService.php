@@ -884,6 +884,9 @@ class AiCopilotService
      * marketing automation, rien d'autre) et la MARQUE (le produit s'appelle
      * Sendly, aucun autre nom de produit ou de moteur, jamais).
      */
+    /**
+     * @param list<string> $capabilities
+     */
     private function buildAssistSystem(string $lang, string $section = '', array $capabilities = []): string
     {
         $language = '' !== trim($lang) ? trim($lang) : 'French';
