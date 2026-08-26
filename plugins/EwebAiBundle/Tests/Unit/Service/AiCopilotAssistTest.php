@@ -274,4 +274,3 @@ final class AiCopilotAssistTest extends TestCase
         self::assertSame([], $result['actions']);
     }
 }
-
