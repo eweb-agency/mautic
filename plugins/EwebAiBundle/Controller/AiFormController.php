@@ -120,8 +120,8 @@ final class AiFormController
             'bundle'   => 'eweb_ai',
             'object'   => 'temps_gagne',
             'objectId' => $this->copilot->creditSeconds('create_form'),
-            'action'   => 'credit',
-            'details'  => ['type' => 'create_form'],
+            'action'   => 'create_form',
+            'details'  => [],
         ]);
 
         return new JsonResponse(['id' => $form->getId()]);

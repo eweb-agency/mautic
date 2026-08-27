@@ -61,8 +61,10 @@ final class AiCreditController
             'bundle'   => self::BUNDLE,
             'object'   => self::OBJET,
             'objectId' => $seconds,
-            'action'   => 'credit',
-            'details'  => ['type' => $type, 'quantite' => $quantite],
+            // Le TYPE dans `action` : c'est lui qui permet le détail par
+            // geste de la tuile du tableau de bord (GROUP BY en SQL).
+            'action'   => $type,
+            'details'  => ['quantite' => $quantite],
         ]);
 
         return new JsonResponse(['seconds' => $seconds]);

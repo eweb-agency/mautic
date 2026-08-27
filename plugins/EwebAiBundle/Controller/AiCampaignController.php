@@ -148,8 +148,8 @@ final class AiCampaignController
             'bundle'   => 'eweb_ai',
             'object'   => 'temps_gagne',
             'objectId' => $this->copilot->creditSeconds('create_campaign'),
-            'action'   => 'credit',
-            'details'  => ['type' => 'create_campaign'],
+            'action'   => 'create_campaign',
+            'details'  => [],
         ]);
 
         return new JsonResponse(['id' => $campaign->getId()]);
