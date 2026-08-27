@@ -82,7 +82,7 @@ class TempsGagneDashboardSubscriber extends MainDashboardSubscriber
         $mois  = (new \DateTimeImmutable('first day of this month midnight'))->format('Y-m-d H:i:s');
 
         $lignes = $this->connection->createQueryBuilder()
-            ->select('a.action AS geste, COALESCE(SUM(a.object_id), 0) AS total, COALESCE(SUM(CASE WHEN a.date_added >= :mois THEN a.object_id ELSE 0 END), 0) AS mois')
+            ->select('a.action AS geste, COALESCE(SUM(a.object_id), 0) AS total, COALESCE(SUM(CASE WHEN a.date_added >= :mois THEN a.object_id ELSE 0 END), 0) AS mois, COALESCE(SUM(CASE WHEN a.date_added >= :mois THEN 1 ELSE 0 END), 0) AS nb')
             ->from($table, 'a')
             ->where('a.bundle = :bundle')
             ->andWhere('a.object = :objet')
@@ -92,23 +92,27 @@ class TempsGagneDashboardSubscriber extends MainDashboardSubscriber
             ->setParameter('mois', $mois)
             ->executeQuery()->fetchAllAssociative();
 
-        $parGeste  = [];
-        $totalMois = 0;
-        $totalTout = 0;
+        $parGeste   = [];
+        $nbParGeste = [];
+        $totalMois  = 0;
+        $totalTout  = 0;
         foreach ($lignes as $ligne) {
             $totalMois += (int) $ligne['mois'];
             $totalTout += (int) $ligne['total'];
-            $parGeste[(string) $ligne['geste']] = (int) $ligne['mois'];
+            $parGeste[(string) $ligne['geste']]   = (int) $ligne['mois'];
+            $nbParGeste[(string) $ligne['geste']] = (int) $ligne['nb'];
         }
 
-        $max    = max(1, [] === $parGeste ? 1 : max($parGeste));
         $gestes = [];
         foreach (self::GESTES as $type => $cle) {
-            $s = $parGeste[$type] ?? 0;
-            if ($s < 60) {
+            $secondes = $parGeste[$type] ?? 0;
+            if ($secondes < 60) {
                 continue; // même seuil que le panneau : sous la minute, silence
             }
-            $gestes[] = ['cle' => $cle, 'seconds' => $s, 'pct' => (int) round(100 * $s / $max)];
+            // Des RÉALISATIONS, pas des barres (v4, retour proprio : « je ne
+            // comprends pas à quoi sert ce widget ») : « ✓ 3 e-mails rédigés ».
+            $nb       = max(1, $nbParGeste[$type] ?? 1);
+            $gestes[] = ['cle' => $cle.(1 === $nb ? '.un' : '.plusieurs'), 'nb' => $nb, 'seconds' => $secondes];
         }
 
         return [
