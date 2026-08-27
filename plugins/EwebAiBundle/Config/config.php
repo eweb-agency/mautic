@@ -52,6 +52,14 @@ return [
                 'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiFormController::createAction',
                 'method'     => 'POST',
             ],
+            // Lot 5 : campagne SIMPLE (un segment → un envoi d'e-mail).
+            // CRÉE une entité — garde campaign:campaigns:create, campagne
+            // DÉPUBLIÉE à la naissance, canvas canonique des tests du cœur.
+            'eweb_ai_campaign_create' => [
+                'path'       => '/ai/campaign/create',
+                'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiCampaignController::createAction',
+                'method'     => 'POST',
+            ],
             'eweb_ai_assist' => [
                 'path'       => '/ai/assist',
                 'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiController::assistAction',
