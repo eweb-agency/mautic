@@ -35,6 +35,7 @@ final class AiFormController
         private readonly AiCopilotService $copilot,
         private readonly FormModel $formModel,
         private readonly CorePermissions $security,
+        private readonly \Mautic\CoreBundle\Model\AuditLogModel $auditLog,
     ) {
     }
 
@@ -112,6 +113,16 @@ final class AiFormController
             // Le noyau a journalisé la cause ; jamais de détail interne au client.
             return new JsonResponse(['error' => 'save_failed'], Response::HTTP_BAD_GATEWAY);
         }
+
+        // Compteur de temps gagné : la création se crédite CÔTÉ SERVEUR
+        // (barème creditSeconds, secondes dans object_id — cf AiCreditController).
+        $this->auditLog->writeToLog([
+            'bundle'   => 'eweb_ai',
+            'object'   => 'temps_gagne',
+            'objectId' => $this->copilot->creditSeconds('create_form'),
+            'action'   => 'credit',
+            'details'  => ['type' => 'create_form'],
+        ]);
 
         return new JsonResponse(['id' => $form->getId()]);
     }

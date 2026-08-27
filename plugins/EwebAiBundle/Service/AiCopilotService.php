@@ -88,6 +88,23 @@ class AiCopilotService
     private const FORM_MESSAGE_MAX         = 200;
     private const FORM_URL_MAX             = 300;
 
+    /**
+     * Barème du temps gagné, en SECONDES par geste exécuté — les bornes
+     * BASSES des fourchettes de l'audit du 27/08 (on sous-vend, jamais
+     * l'inverse : le compteur est un argument commercial, il doit être
+     * indiscutable). fill_field se multiplie par le nombre de champs.
+     */
+    private const CREDIT_BAREME = [
+        'fill_field'          => 30,
+        'create_segment'      => 600,
+        'create_landing_page' => 2700,
+        'create_email'        => 1800,
+        'create_form'         => 900,
+        'create_campaign'     => 1200,
+        'create_report'       => 900,
+    ];
+    private const CREDIT_QUANTITE_MAX = 25;
+
     /** Sources de rapport autorisées (whitelist stricte — contexts Mautic). */
     private const REPORT_SOURCES = ['leads', 'email.stats', 'page.hits', 'form.submissions'];
 
@@ -1022,6 +1039,24 @@ class AiCopilotService
      * marketing automation, rien d'autre) et la MARQUE (le produit s'appelle
      * Sendly, aucun autre nom de produit ou de moteur, jamais).
      */
+    /**
+     * Le temps gagné d'un geste, en secondes — PURE : barème seul, type
+     * inconnu = 0 (jamais d'exception, le crédit est du bonus, pas du
+     * chemin critique). Seul fill_field se multiplie (borné).
+     */
+    public function creditSeconds(string $type, int $quantite = 1): int
+    {
+        $unitaire = self::CREDIT_BAREME[$type] ?? 0;
+        if (0 === $unitaire) {
+            return 0;
+        }
+        $quantite = 'fill_field' === $type
+            ? max(1, min($quantite, self::CREDIT_QUANTITE_MAX))
+            : 1;
+
+        return $unitaire * $quantite;
+    }
+
     /**
      * Valide une spécification de RAPPORT (create_report) — même doctrine :
      * PUBLIQUE, PURE, barrière unique action/endpoint. La source vient d'une

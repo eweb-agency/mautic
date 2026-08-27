@@ -490,6 +490,18 @@ final class AiCopilotAssistTest extends TestCase
         self::assertStringContainsString('never the label', $system);
     }
 
+    public function testLeBaremeDuTempsGagneEstServeurEtBorne(): void
+    {
+        $service = $this->serviceOutil(['answer' => 'ok', 'actions' => []]);
+
+        self::assertSame(600, $service->creditSeconds('create_segment'));
+        self::assertSame(2700, $service->creditSeconds('create_landing_page'));
+        self::assertSame(90, $service->creditSeconds('fill_field', 3), 'fill_field se multiplie');
+        self::assertSame(30 * 25, $service->creditSeconds('fill_field', 999), 'quantité bornée à 25');
+        self::assertSame(1200, $service->creditSeconds('create_campaign', 999), 'seuls les champs se multiplient');
+        self::assertSame(0, $service->creditSeconds('geste_inconnu'), 'type inconnu = 0, jamais une exception');
+    }
+
     public function testUnTypeNonDeclareParLEcranEstJeteMemeSilEstAuRegistre(): void
     {
         $result = $this->serviceOutil([

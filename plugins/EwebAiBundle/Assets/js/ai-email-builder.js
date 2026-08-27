@@ -146,6 +146,7 @@
               editor.DomComponents.getWrapper().set('content', '');
               editor.setComponents(corps);
               editor.setComponents(editor.getHtml());
+              if (window.SendlyAssistant) { window.SendlyAssistant.credit('create_email', 1); }
             } catch (e) {
               try { editor.setComponents(avant); } catch (e2) { /* squelette perdu — canvas vide */ }
             }

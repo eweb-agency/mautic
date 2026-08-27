@@ -32,6 +32,7 @@ final class AiReportController
         private readonly AiCopilotService $copilot,
         private readonly ReportModel $reportModel,
         private readonly CorePermissions $security,
+        private readonly \Mautic\CoreBundle\Model\AuditLogModel $auditLog,
     ) {
     }
 
@@ -75,6 +76,16 @@ final class AiReportController
         } catch (\Throwable) {
             return new JsonResponse(['error' => 'save_failed'], Response::HTTP_BAD_GATEWAY);
         }
+
+        // Compteur de temps gagné : la création se crédite CÔTÉ SERVEUR
+        // (barème creditSeconds, secondes dans object_id — cf AiCreditController).
+        $this->auditLog->writeToLog([
+            'bundle'   => 'eweb_ai',
+            'object'   => 'temps_gagne',
+            'objectId' => $this->copilot->creditSeconds('create_report'),
+            'action'   => 'credit',
+            'details'  => ['type' => 'create_report'],
+        ]);
 
         return new JsonResponse(['id' => $report->getId()]);
     }
