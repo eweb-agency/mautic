@@ -172,8 +172,8 @@ final class AiCopilotSegmentTest extends TestCase
             ['glue' => 'and', 'object' => 'lead', 'field' => 'city', 'operator' => '=', 'value' => 'Paris'],
         ]))->suggestSegmentFilters($this->params());
 
-        self::assertCount(1, $out);
-        self::assertSame('city', $out[0]['field']);
+        self::assertCount(1, $out['filters']);
+        self::assertSame('city', $out['filters'][0]['field']);
     }
 
     public function testFallsBackToFencedTextWhenTheModelIgnoresTheTool(): void
@@ -184,7 +184,7 @@ final class AiCopilotSegmentTest extends TestCase
 
         $out = $this->service($body)->suggestSegmentFilters($this->params());
 
-        self::assertCount(1, $out);
+        self::assertCount(1, $out['filters']);
     }
 
     public function testDropsNonObjectEntriesAndCapsAtTenFilters(): void
@@ -194,7 +194,7 @@ final class AiCopilotSegmentTest extends TestCase
 
         $out = $this->service($this->toolResponse($noise))->suggestSegmentFilters($this->params());
 
-        self::assertCount(10, $out);
+        self::assertCount(10, $out['filters']);
     }
 
     public function testRefusesAPayloadWithoutFilters(): void
@@ -227,25 +227,24 @@ final class AiCopilotSegmentTest extends TestCase
 
     public function testLesDemandesPrecedentesBorneesEntrentDansLePrompt(): void
     {
-        // L'assistant est devenu CONVERSATIONNEL : « et qui n'ont pas cliqué »
-        // n'a de sens qu'avec la demande d'avant. Les demandes précédentes
-        // partent donc dans le message utilisateur — bornées (5 dernières),
-        // avec la consigne de ne renvoyer QUE les filtres du nouveau tour.
+        // L'assistant est CONVERSATIONNEL : « et qui n'ont pas cliqué » n'a de
+        // sens qu'avec la demande d'avant. Mais l'historique n'est plus que du
+        // CONTEXTE : la vérité sur ce qui est appliqué, c'est l'écran (constat
+        // proprio 27/08 — après « Annuler les modifications », redemander la
+        // même audience ne redonnait rien).
         $params            = $this->params();
         $params['history'] = ['tour-0', 'tour-1', 'tour-2', 'tour-3', 'tour-4', 'tour-5', 'tour-6'];
 
         $this->service($this->toolResponse([]))->suggestSegmentFilters($params);
 
         $user = (string) $this->sent['messages'][0]['content'];
-        self::assertStringContainsString('already applied', $user);
+        self::assertStringContainsString('context only', $user);
+        self::assertStringNotContainsString('(already applied)', $user, "l'historique ne doit plus etre presente comme applique");
         self::assertStringContainsString('- tour-2', $user, 'les 5 dernieres demandes doivent etre presentes');
         self::assertStringContainsString('- tour-6', $user);
         self::assertStringNotContainsString('- tour-0', $user, 'les demandes au-dela de la borne doivent sortir');
         self::assertStringNotContainsString('- tour-1', $user);
         self::assertStringContainsString('New audience request: les clients VIP inactifs', $user);
-
-        $system = (string) $this->sent['system'];
-        self::assertStringContainsString('never repeat an earlier one', $system);
     }
 
     public function testSansHistoriqueLePromptResteAuTourUnique(): void
@@ -253,7 +252,60 @@ final class AiCopilotSegmentTest extends TestCase
         $this->service($this->toolResponse([]))->suggestSegmentFilters($this->params());
 
         $user = (string) $this->sent['messages'][0]['content'];
-        self::assertStringNotContainsString('already applied', $user);
+        self::assertStringNotContainsString('context only', $user);
         self::assertStringContainsString('New audience request:', $user);
+    }
+
+    public function testLEtatDeLEcranEstLaSourceDeVerite(): void
+    {
+        // Les lignes réellement posées dans le formulaire partent au modèle
+        // comme DONNÉES, et la consigne désigne cette liste comme seule vérité
+        // — jamais l'historique de conversation.
+        $params            = $this->params();
+        $params['current'] = ['company.companyname like mairie', 'company.companycountry in France'];
+
+        $this->service($this->toolResponse([]))->suggestSegmentFilters($params);
+
+        $user = (string) $this->sent['messages'][0]['content'];
+        self::assertStringContainsString('Filters currently on the screen', $user);
+        self::assertStringContainsString('- company.companyname like mairie', $user);
+
+        $system = (string) $this->sent['system'];
+        self::assertStringContainsString('ONLY source of truth', $system);
+        self::assertStringContainsString('If the screen shows no filters, propose the complete set', $system);
+    }
+
+    public function testEcranVideAnnonceAucunFiltre(): void
+    {
+        $this->service($this->toolResponse([]))->suggestSegmentFilters($this->params());
+
+        $user = (string) $this->sent['messages'][0]['content'];
+        self::assertStringContainsString('Filters currently on the screen: (none)', $user);
+    }
+
+    public function testLeNomEtLaDescriptionProposesSontRenvoyesBornes(): void
+    {
+        $body = json_encode([
+            'content' => [['type' => 'tool_use', 'name' => 'emit_segment_filters', 'input' => [
+                'filters'     => [['glue' => 'and', 'object' => 'company', 'field' => 'companyname', 'operator' => 'like', 'value' => 'mairie']],
+                'name'        => '  Mairies  de   France  ',
+                'description' => str_repeat('x', 300),
+            ]]],
+        ], JSON_THROW_ON_ERROR);
+
+        $out = $this->service($body)->suggestSegmentFilters($this->params());
+
+        self::assertSame('Mairies de France', $out['name']);
+        self::assertSame(240, mb_strlen((string) $out['description']));
+    }
+
+    public function testSansNomNiDescriptionLeRetourPorteDesNulls(): void
+    {
+        $out = $this->service($this->toolResponse([
+            ['glue' => 'and', 'object' => 'lead', 'field' => 'city', 'operator' => '=', 'value' => 'Paris'],
+        ]))->suggestSegmentFilters($this->params());
+
+        self::assertNull($out['name']);
+        self::assertNull($out['description']);
     }
 }
