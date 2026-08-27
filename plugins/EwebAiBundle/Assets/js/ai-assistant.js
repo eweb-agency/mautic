@@ -544,6 +544,17 @@
       } else if (a.type === 'create_segment' && a.description) {
         try { sessionStorage.setItem('sendlyAiSegmentBrief', a.description); } catch (e) {}
         differes.push(NAV_CIBLES.segments_new);
+      } else if (a.type === 'create_email' && a.description && a.name && a.subject) {
+        // Même patron que la landing page : le brief voyage jusqu'à l'écran
+        // « nouvel e-mail », qui choisit le type segment, remplit nom/objet,
+        // fait correspondre le segment et ouvre l'éditeur (ai-email-builder).
+        try {
+          sessionStorage.setItem('sendlyAiEmailBrief', JSON.stringify({
+            name: a.name, subject: a.subject, brief: a.description,
+            segment: a.segment || '', ts: Date.now()
+          }));
+        } catch (e) {}
+        differes.push(NAV_CIBLES.emails_new);
       } else if (a.type === 'create_landing_page' && a.description && a.name) {
         // Le brief voyage jusqu'à l'écran « nouvelle page », qui crée la
         // page, ouvre le builder et génère les sections (ai-page-builder).
@@ -638,7 +649,7 @@
         return !(i === arr.length - 1 && h.role === 'user' && h.content === q);
       });
       var etat = etatEcran();
-      var capacites = ['navigate', 'create_segment', 'create_landing_page'];
+      var capacites = ['navigate', 'create_segment', 'create_landing_page', 'create_email'];
       if (etat.champs > 0) { capacites.push('fill_field'); }
       mQuery.ajax({
         url: cfg().assistEndpoint,

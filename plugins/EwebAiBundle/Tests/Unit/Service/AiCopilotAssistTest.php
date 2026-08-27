@@ -283,6 +283,47 @@ final class AiCopilotAssistTest extends TestCase
         self::assertCount(6, $action['sections'], 'les vides sautent, la borne coupe à 6');
     }
 
+    public function testCreateEmailValideNomObjetBriefEtSegmentOptionnel(): void
+    {
+        $result = $this->serviceOutil([
+            'answer'  => 'Je crée l’e-mail.',
+            'actions' => [[
+                'type'        => 'create_email',
+                'name'        => '  Relance inactifs  ',
+                'subject'     => str_repeat('o', 200),
+                'description' => 'un e-mail de relance chaleureux',
+                'segment'     => '  les clients inactifs 90 jours  ',
+            ]],
+        ])->assist([
+            'question' => 'écris l’e-mail de relance pour les inactifs',
+            'actions'  => ['create_email'],
+        ]);
+
+        self::assertCount(1, $result['actions']);
+        $action = $result['actions'][0];
+        self::assertSame('create_email', $action['type']);
+        self::assertSame('Relance inactifs', $action['name']);
+        self::assertSame(150, mb_strlen($action['subject']));
+        self::assertSame('les clients inactifs 90 jours', $action['segment']);
+    }
+
+    public function testCreateEmailSansObjetEstJeteEtLeSegmentResteOptionnel(): void
+    {
+        $result = $this->serviceOutil([
+            'answer'  => 'ok',
+            'actions' => [
+                ['type' => 'create_email', 'name' => 'X', 'description' => 'brief'],
+                ['type' => 'create_email', 'name' => 'Y', 'subject' => 'Objet', 'description' => 'brief'],
+            ],
+        ])->assist([
+            'question' => 'e-mail',
+            'actions'  => ['create_email'],
+        ]);
+
+        self::assertCount(1, $result['actions'], 'sans objet → jeté ; sans segment → accepté');
+        self::assertArrayNotHasKey('segment', $result['actions'][0]);
+    }
+
     public function testCreateLandingPageSansNomOuSansPlanEstJete(): void
     {
         $result = $this->serviceOutil([
