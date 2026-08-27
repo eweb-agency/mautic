@@ -254,6 +254,52 @@ final class AiCopilotAssistTest extends TestCase
         ], $result['actions']);
     }
 
+    public function testCreateLandingPageValideNomBriefEtPlanBornes(): void
+    {
+        $result = $this->serviceOutil([
+            'answer'  => 'Je crée la page.',
+            'actions' => [[
+                'type'        => 'create_landing_page',
+                'name'        => '  Offre pare-feu  ',
+                'description' => str_repeat('b', 900),
+                'sections'    => [
+                    ' Un héros avec titre fort et bouton ',
+                    str_repeat('s', 300),
+                    '', 'S3', 'S4', 'S5', 'S6', 'S7-au-dela-de-la-borne',
+                ],
+            ]],
+        ])->assist([
+            'question' => 'crée-moi une landing page pour mon offre pare-feu',
+            'actions'  => ['create_landing_page'],
+        ]);
+
+        self::assertCount(1, $result['actions']);
+        $action = $result['actions'][0];
+        self::assertSame('create_landing_page', $action['type']);
+        self::assertSame('Offre pare-feu', $action['name']);
+        self::assertSame(600, mb_strlen($action['description']));
+        self::assertSame('Un héros avec titre fort et bouton', $action['sections'][0]);
+        self::assertSame(200, mb_strlen($action['sections'][1]));
+        self::assertCount(6, $action['sections'], 'les vides sautent, la borne coupe à 6');
+    }
+
+    public function testCreateLandingPageSansNomOuSansPlanEstJete(): void
+    {
+        $result = $this->serviceOutil([
+            'answer'  => 'ok',
+            'actions' => [
+                ['type' => 'create_landing_page', 'description' => 'brief', 'sections' => ['a']],
+                ['type' => 'create_landing_page', 'name' => 'Page', 'description' => 'brief', 'sections' => []],
+                ['type' => 'create_landing_page', 'name' => 'Page', 'description' => 'brief', 'sections' => 'pas une liste'],
+            ],
+        ])->assist([
+            'question' => 'landing page',
+            'actions'  => ['create_landing_page'],
+        ]);
+
+        self::assertSame([], $result['actions'], 'sans nom ou sans plan de sections, rien à exécuter — jeté');
+    }
+
     public function testUnTypeNonDeclareParLEcranEstJeteMemeSilEstAuRegistre(): void
     {
         $result = $this->serviceOutil([

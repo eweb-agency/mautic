@@ -544,6 +544,15 @@
       } else if (a.type === 'create_segment' && a.description) {
         try { sessionStorage.setItem('sendlyAiSegmentBrief', a.description); } catch (e) {}
         differes.push(NAV_CIBLES.segments_new);
+      } else if (a.type === 'create_landing_page' && a.description && a.name) {
+        // Le brief voyage jusqu'à l'écran « nouvelle page », qui crée la
+        // page, ouvre le builder et génère les sections (ai-page-builder).
+        try {
+          sessionStorage.setItem('sendlyAiPageBrief', JSON.stringify({
+            name: a.name, brief: a.description, sections: a.sections || [], ts: Date.now()
+          }));
+        } catch (e) {}
+        differes.push(NAV_CIBLES.pages_new);
       }
     });
     if (releve.length) { snapshots[turnId] = { champs: releve }; }
@@ -629,7 +638,7 @@
         return !(i === arr.length - 1 && h.role === 'user' && h.content === q);
       });
       var etat = etatEcran();
-      var capacites = ['navigate', 'create_segment'];
+      var capacites = ['navigate', 'create_segment', 'create_landing_page'];
       if (etat.champs > 0) { capacites.push('fill_field'); }
       mQuery.ajax({
         url: cfg().assistEndpoint,
