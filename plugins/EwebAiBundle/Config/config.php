@@ -44,6 +44,14 @@ return [
                 'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiAbTestController::createAction',
                 'method'     => 'POST',
             ],
+            // Lot 4 : création d'un FORMULAIRE depuis l'assistant. CRÉE une
+            // entité (précédent : abtest) — garde form:forms:create, et le
+            // formulaire naît DÉPUBLIÉ (relecture avant publication).
+            'eweb_ai_form_create' => [
+                'path'       => '/ai/form/create',
+                'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiFormController::createAction',
+                'method'     => 'POST',
+            ],
             'eweb_ai_assist' => [
                 'path'       => '/ai/assist',
                 'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiController::assistAction',
