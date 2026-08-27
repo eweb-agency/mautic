@@ -77,7 +77,7 @@ final class AiEmailBuilderTest extends TestCase
         // réponse se lit dans `text` — la clé réelle de generateAction.
         self::assertStringContainsString('mQuery.ajax', $js);
         self::assertStringContainsString("mode: 'generate'", $js);
-        self::assertStringContainsString("format: 'html'", $js);
+        self::assertStringContainsString("format: enMjml ? 'mjml' : 'html'", $js);
         self::assertStringContainsString('rep.text', $js);
         self::assertStringNotContainsString('fetch(', $js);
     }
