@@ -73,10 +73,10 @@ class AiCopilotService
         'reports', 'sms',
     ];
 
-    private const ASSIST_FIELD_MAX = 80;
-    private const ASSIST_VALUE_MAX = 2000;
-    private const ASSIST_BRIEF_MAX = 600;
-    private const ASSIST_PAGE_NAME_MAX    = 80;
+    private const ASSIST_FIELD_MAX         = 80;
+    private const ASSIST_VALUE_MAX         = 2000;
+    private const ASSIST_BRIEF_MAX         = 600;
+    private const ASSIST_PAGE_NAME_MAX     = 80;
     private const ASSIST_PAGE_SECTIONS_MAX = 6;
     private const ASSIST_PAGE_SECTION_MAX  = 200;
 
