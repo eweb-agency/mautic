@@ -535,7 +535,7 @@
   /** Joue les actions du serveur ; renvoie {note, undoable} pour le tour. */
   function executerActions(actions, turnId) {
     var form = formulaireTravail();
-    var remplis = 0, releve = [], differes = [];
+    var remplis = 0, releve = [], differes = [], creationsFormulaire = [];
     (actions || []).forEach(function (a) {
       if (a.type === 'fill_field' && form) {
         if (poserChamp(form, a.field, a.value, releve)) { remplis++; }
@@ -555,6 +555,11 @@
           }));
         } catch (e) {}
         differes.push(NAV_CIBLES.emails_new);
+      } else if (a.type === 'create_form' && a.name && a.fields) {
+        // La création passe par l'endpoint gardé (form:forms:create) : le
+        // formulaire naît DÉPUBLIÉ, puis on ouvre son écran d'édition pour
+        // la relecture. Même barrière de validation côté serveur.
+        creationsFormulaire.push(a);
       } else if (a.type === 'create_landing_page' && a.description && a.name) {
         // Le brief voyage jusqu'à l'écran « nouvelle page », qui crée la
         // page, ouvre le builder et génère les sections (ai-page-builder).
@@ -567,7 +572,22 @@
       }
     });
     if (releve.length) { snapshots[turnId] = { champs: releve }; }
-    if (differes.length) {
+    if (creationsFormulaire.length) {
+      // La création (endpoint gardé) prime sur toute autre navigation du
+      // tour : le formulaire naît dépublié, on ouvre son écran d'édition.
+      var spec = creationsFormulaire[0];
+      mQuery.ajax({
+        url: (cfg().formCreateEndpoint || '/s/ai/form/create'),
+        type: 'POST',
+        dataType: 'json',
+        data: JSON.stringify(spec),
+        contentType: 'application/json',
+        success: function (rep) {
+          if (rep && rep.id) { window.location.assign('/s/forms/edit/' + rep.id); }
+        },
+        error: function () { /* l'écran des formulaires reste la voie manuelle */ }
+      });
+    } else if (differes.length) {
       // Une seule navigation par tour, après un court instant de lecture.
       setTimeout(function () { window.location.assign(differes[0]); }, 1200);
     }
@@ -575,7 +595,9 @@
     if (remplis) {
       notes.push('✓ ' + remplis + ' ' + (remplis > 1 ? 'champs remplis' : 'champ rempli'));
     }
-    if (differes.length) {
+    if (creationsFormulaire.length) {
+      notes.push('✓ ' + t('mautic.core.ai.assistant.form_created', 'formulaire créé (dépublié) — relecture…'));
+    } else if (differes.length) {
       notes.push('→ ' + t('mautic.core.ai.assistant.opening', 'ouverture de l\'écran…'));
     }
     return { note: notes.join(' · '), undoable: releve.length > 0 };
@@ -649,7 +671,7 @@
         return !(i === arr.length - 1 && h.role === 'user' && h.content === q);
       });
       var etat = etatEcran();
-      var capacites = ['navigate', 'create_segment', 'create_landing_page', 'create_email'];
+      var capacites = ['navigate', 'create_segment', 'create_landing_page', 'create_email', 'create_form'];
       if (etat.champs > 0) { capacites.push('fill_field'); }
       mQuery.ajax({
         url: cfg().assistEndpoint,

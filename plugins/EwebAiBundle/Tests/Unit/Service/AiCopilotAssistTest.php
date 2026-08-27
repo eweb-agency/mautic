@@ -341,6 +341,70 @@ final class AiCopilotAssistTest extends TestCase
         self::assertSame([], $result['actions'], 'sans nom ou sans plan de sections, rien à exécuter — jeté');
     }
 
+    public function testCreateFormValideChampsOptionsEtApresEnvoi(): void
+    {
+        $result = $this->serviceOutil([
+            'answer'  => 'Je crée le formulaire.',
+            'actions' => [[
+                'type'   => 'create_form',
+                'name'   => '  Formulaire devis  ',
+                'fields' => [
+                    ['type' => 'text', 'label' => ' Nom complet ', 'required' => true],
+                    ['type' => 'email', 'label' => 'Adresse e-mail', 'required' => true],
+                    ['type' => 'select', 'label' => 'Sujet', 'options' => [' Devis ', 'Support', '']],
+                    ['type' => 'select', 'label' => 'Sans choix — jeté', 'options' => []],
+                    ['type' => 'motdepasse', 'label' => 'type hors liste — jeté'],
+                    ['type' => 'textarea', 'label' => str_repeat('l', 200)],
+                ],
+                'submit_kind'  => 'message',
+                'submit_value' => 'Merci, on vous rappelle vite !',
+            ]],
+        ])->assist([
+            'question' => 'un formulaire devis',
+            'actions'  => ['create_form'],
+        ]);
+
+        self::assertCount(1, $result['actions']);
+        $action = $result['actions'][0];
+        self::assertSame('Formulaire devis', $action['name']);
+        self::assertCount(4, $action['fields'], 'select sans choix et type hors liste sautent');
+        self::assertSame('Nom complet', $action['fields'][0]['label']);
+        self::assertTrue($action['fields'][1]['required']);
+        self::assertSame(['Devis', 'Support'], $action['fields'][2]['options']);
+        self::assertSame(80, mb_strlen($action['fields'][3]['label']));
+        self::assertSame(['kind' => 'message', 'value' => 'Merci, on vous rappelle vite !'], $action['submit']);
+    }
+
+    public function testCreateFormUrlDeRedirectionInvalideRetombeSurLeMessage(): void
+    {
+        $result = $this->serviceOutil([
+            'answer'  => 'ok',
+            'actions' => [[
+                'type'         => 'create_form',
+                'name'         => 'F',
+                'fields'       => [['type' => 'email', 'label' => 'E-mail']],
+                'submit_kind'  => 'redirect',
+                'submit_value' => 'javascript:alert(1)',
+            ]],
+        ])->assist(['question' => 'formulaire', 'actions' => ['create_form']]);
+
+        self::assertSame('message', $result['actions'][0]['submit']['kind'], 'jamais de redirection hors http(s)');
+        self::assertNotSame('', $result['actions'][0]['submit']['value'], 'le message par défaut prend le relais');
+    }
+
+    public function testCreateFormSansNomOuSansChampValideEstJete(): void
+    {
+        $result = $this->serviceOutil([
+            'answer'  => 'ok',
+            'actions' => [
+                ['type' => 'create_form', 'fields' => [['type' => 'text', 'label' => 'X']]],
+                ['type' => 'create_form', 'name' => 'F', 'fields' => [['type' => 'inconnu', 'label' => 'X']]],
+            ],
+        ])->assist(['question' => 'formulaire', 'actions' => ['create_form']]);
+
+        self::assertSame([], $result['actions']);
+    }
+
     public function testUnTypeNonDeclareParLEcranEstJeteMemeSilEstAuRegistre(): void
     {
         $result = $this->serviceOutil([
