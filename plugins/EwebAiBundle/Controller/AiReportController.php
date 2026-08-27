@@ -83,8 +83,8 @@ final class AiReportController
             'bundle'   => 'eweb_ai',
             'object'   => 'temps_gagne',
             'objectId' => $this->copilot->creditSeconds('create_report'),
-            'action'   => 'credit',
-            'details'  => ['type' => 'create_report'],
+            'action'   => 'create_report',
+            'details'  => [],
         ]);
 
         return new JsonResponse(['id' => $report->getId()]);
