@@ -65,11 +65,12 @@ final class AiCopilotAssistTest extends TestCase
 
     public function testLaMarqueDuMoteurEstReecriteQuelleQueSoitLaCasse(): void
     {
-        $answer = $this->service('Dans Mautic, ouvrez « Segments ». MAUTIC gère cela nativement.')
+        $result = $this->service('Dans Mautic, ouvrez « Segments ». MAUTIC gère cela nativement.')
             ->assist(['question' => 'Comment créer un segment ?']);
 
-        self::assertStringNotContainsStringIgnoringCase('mautic', $answer);
-        self::assertSame('Dans Sendly, ouvrez « Segments ». Sendly gère cela nativement.', $answer);
+        self::assertStringNotContainsStringIgnoringCase('mautic', $result['answer']);
+        self::assertSame('Dans Sendly, ouvrez « Segments ». Sendly gère cela nativement.', $result['answer']);
+        self::assertSame([], $result['actions'], 'sans capacités déclarées, jamais d’action');
     }
 
     public function testLHistoriqueEstBorneEtLaQuestionCouranteFermeLaConversation(): void
@@ -134,25 +135,27 @@ final class AiCopilotAssistTest extends TestCase
         // Retour proprio 14/08 (« un gros texte sans aucune propreté ») : le
         // panneau COMPOSE désormais paragraphes, listes et **gras** — le
         // filet ne retire plus que ce qu'il ne rend pas : titres et backticks.
-        $answer = $this->service("# Créer un segment\n\n1. Allez dans **Segments → Nouveau**\n2. Cliquez sur `Créer`\n- astuce : gardée")
+        $result = $this->service("# Créer un segment\n\n1. Allez dans **Segments → Nouveau**\n2. Cliquez sur `Créer`\n- astuce : gardée")
             ->assist(['question' => 'q']);
 
         self::assertSame(
             "Créer un segment\n\n1. Allez dans **Segments → Nouveau**\n2. Cliquez sur Créer\n- astuce : gardée",
-            $answer
+            $result['answer']
         );
     }
 
     public function testLaConsigneCoacheEtBorneLaLongueur(): void
     {
-        // Le but produit : ACCOMPAGNER l'utilisateur — réponse directe
-        // d'abord, étapes courtes, UN sujet à la fois, et une relance qui
-        // propose d'approfondir. La consigne porte ce contrat.
+        // SANS capacités déclarées (écran non migré), le contrat texte
+        // historique demeure : réponse directe d'abord, étapes courtes,
+        // UN sujet à la fois. Le mot d'ordre « coach » a disparu — la
+        // directive du 26/08 fait de l'assistant un EXÉCUTANT partout où
+        // l'écran le permet.
         $service = $this->service('ok');
         $service->assist(['question' => 'q', 'lang' => 'French']);
 
         $system = (string) $this->sent['system'];
-        self::assertStringContainsString('COACH, do not lecture', $system);
+        self::assertStringNotContainsString('COACH', $system);
         self::assertStringContainsString('ONE topic per answer', $system);
         self::assertStringContainsString('5 at most, ONE action each', $system);
         self::assertStringContainsString('roughly 120 words', $system);
@@ -170,5 +173,108 @@ final class AiCopilotAssistTest extends TestCase
         } finally {
             self::assertSame([], $this->sent, 'aucun appel réseau ne doit partir');
         }
+    }
+
+    /**
+     * Fabrique un service dont l'API répond par un BLOC D'OUTIL (mode agi).
+     *
+     * @param array<string, mixed> $input
+     */
+    private function serviceOutil(array $input): AiCopilotService
+    {
+        $this->sent = [];
+
+        $body = json_encode([
+            'content' => [['type' => 'tool_use', 'name' => 'repondre_et_agir', 'input' => $input]],
+        ], JSON_THROW_ON_ERROR);
+
+        $client = $this->createMock(Client::class);
+        $client->method('request')->willReturnCallback(
+            function (string $method, string $uri, array $options) use ($body): Response {
+                $this->sent = $options['json'] ?? [];
+
+                return new Response(200, [], $body);
+            }
+        );
+
+        return new AiCopilotService($client, new NullLogger());
+    }
+
+    public function testAvecCapacitesLeModeExecutantImposeLOutilEtLaConsigneOperator(): void
+    {
+        $this->serviceOutil(['answer' => 'fait', 'actions' => []])->assist([
+            'question' => 'remplis le nom',
+            'actions'  => ['fill_field', 'navigate'],
+            'context'  => 'Form fields: - name="leadlist[name]" (empty)',
+        ]);
+
+        self::assertSame('repondre_et_agir', $this->sent['tools'][0]['name'] ?? null);
+        self::assertSame(['type' => 'tool', 'name' => 'repondre_et_agir'], $this->sent['tool_choice'] ?? null);
+
+        $system = (string) $this->sent['system'];
+        self::assertStringContainsString('OPERATOR, not a guide', $system);
+        self::assertStringNotContainsString('COACH', $system);
+
+        // L'état de l'écran voyage en bloc de DONNÉES dans le tour utilisateur.
+        $dernier = end($this->sent['messages']);
+        self::assertStringContainsString('<screen_state>', (string) $dernier['content']);
+        self::assertStringContainsString('leadlist[name]', (string) $dernier['content']);
+    }
+
+    public function testSansCapacitesLaConsigneResteSansOutil(): void
+    {
+        $this->service('ok')->assist(['question' => 'q']);
+
+        self::assertArrayNotHasKey('tools', $this->sent);
+        self::assertStringNotContainsString('OPERATOR', (string) $this->sent['system']);
+    }
+
+    public function testLesActionsSontValideesTypesInconnusEtCiblesHorsListeJetes(): void
+    {
+        $result = $this->serviceOutil([
+            'answer'  => 'Je remplis le nom et j’ouvre les segments.',
+            'actions' => [
+                ['type' => 'fill_field', 'field' => 'leadlist[name]', 'value' => 'Clients actifs'],
+                ['type' => 'fill_field', 'field' => '', 'value' => 'sans champ → jeté'],
+                ['type' => 'navigate', 'target' => 'segments_new'],
+                ['type' => 'navigate', 'target' => 'https://evil.example'],
+                ['type' => 'delete_everything', 'field' => 'x'],
+                ['type' => 'create_segment', 'description' => str_repeat('a', 900)],
+                'pas un tableau',
+            ],
+        ])->assist([
+            'question' => 'crée-moi tout ça',
+            'actions'  => ['fill_field', 'navigate', 'create_segment'],
+        ]);
+
+        self::assertSame([
+            ['type' => 'fill_field', 'field' => 'leadlist[name]', 'value' => 'Clients actifs'],
+            ['type' => 'navigate', 'target' => 'segments_new'],
+            ['type' => 'create_segment', 'description' => str_repeat('a', 600)],
+        ], $result['actions']);
+    }
+
+    public function testUnTypeNonDeclareParLEcranEstJeteMemeSilEstAuRegistre(): void
+    {
+        $result = $this->serviceOutil([
+            'answer'  => 'ok',
+            'actions' => [['type' => 'navigate', 'target' => 'segments']],
+        ])->assist([
+            'question' => 'va aux segments',
+            'actions'  => ['fill_field'],
+        ]);
+
+        self::assertSame([], $result['actions'], 'navigate non déclaré par cet écran → jeté');
+    }
+
+    public function testLeModeleRepondEnClairMalgreLOutilLeTexteEstServiSansAction(): void
+    {
+        $result = $this->service('Réponse en clair de Mautic.')->assist([
+            'question' => 'q',
+            'actions'  => ['fill_field'],
+        ]);
+
+        self::assertSame('Réponse en clair de Sendly.', $result['answer']);
+        self::assertSame([], $result['actions']);
     }
 }

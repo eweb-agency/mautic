@@ -139,6 +139,7 @@
       'padding:3px 10px;border-radius:999px;cursor:pointer}' +
       '.sendly-assist-ex button:hover{background:#f0f5ff}' +
       '.sendly-assist-foot{display:flex;gap:8px;padding:0 14px 8px}' +
+      '.sendly-assist-fait{margin-top:8px;font-size:12px;font-weight:600;color:#0a7d43}' +
       '#sendly-assist-input{flex:1;border:1px solid #d5dced;border-radius:999px;padding:8px 14px;font-size:13px;background:#f7f8fa}' +
       '#sendly-assist-input:focus{outline:none;border-color:' + BRAND + ';background:#fff}' +
       '#sendly-assist-send{border:0;border-radius:50%;width:34px;height:34px;flex:none;background:' + BRAND + ';' +
@@ -454,6 +455,127 @@
     return null;
   }
 
+  // ── MODE EXÉCUTANT (directive proprio 26/08 : « un assistant qui FAIT
+  //    gagner du temps, pas un guide ») ────────────────────────────────────
+  // Le panneau décrit l'écran au serveur (screen_state) et déclare ce qu'il
+  // sait EXÉCUTER ; le serveur renvoie des actions validées ; on les joue
+  // ici, avec instantané par tour pour « Annuler les modifications ».
+
+  /** Cible → chemin (le serveur porte la même liste blanche). */
+  var NAV_CIBLES = {
+    segments: '/s/segments', segments_new: '/s/segments/new',
+    emails: '/s/emails', emails_new: '/s/emails/new',
+    campaigns: '/s/campaigns', campaigns_new: '/s/campaigns/new',
+    contacts: '/s/contacts', contacts_import: '/s/contacts/import/new',
+    companies: '/s/companies',
+    forms: '/s/forms', forms_new: '/s/forms/new',
+    pages: '/s/pages', pages_new: '/s/pages/new',
+    assets: '/s/assets', points: '/s/points', stages: '/s/stages',
+    reports: '/s/reports', sms: '/s/sms'
+  };
+
+  /** Le formulaire de TRAVAIL de l'écran : le plus riche en champs visibles,
+   *  hors panneau assistant et hors recherche. */
+  function formulaireTravail() {
+    var meilleur = null, score = 0;
+    mQuery('form').each(function () {
+      if (mQuery(this).closest('#sendly-assist-panel').length) { return; }
+      var n = mQuery(this).find('input[name], select[name], textarea[name]')
+        .filter(':not([type=hidden]):not([type=submit]):not([type=button]):not([name*="csrf"]):not([name*="_token"])')
+        .filter(':visible').length;
+      if (n > score) { score = n; meilleur = this; }
+    });
+    return meilleur;
+  }
+
+  function libelleChamp(el) {
+    var id = el.getAttribute('id');
+    if (id) {
+      var lab = document.querySelector('label[for="' + id + '"]');
+      if (lab) { return lab.textContent.trim().slice(0, 60); }
+    }
+    return '';
+  }
+
+  /** L'état de l'écran, en texte sobre : un champ par ligne. */
+  function etatEcran() {
+    var form = formulaireTravail();
+    if (!form) { return { texte: '', champs: 0 }; }
+    var lignes = [], count = 0;
+    mQuery(form).find('input[name], select[name], textarea[name]')
+      .filter(':not([type=hidden]):not([type=submit]):not([type=button]):not([type=password]):not([name*="csrf"]):not([name*="_token"])')
+      .filter(':visible')
+      .each(function () {
+        if (count >= 25) { return false; }
+        var v = String(mQuery(this).val() == null ? '' : mQuery(this).val()).slice(0, 160);
+        var lab = libelleChamp(this);
+        lignes.push('- name="' + this.name + '"' + (lab ? ' label="' + lab + '"' : '') +
+          (v ? ' value="' + v + '"' : ' (empty)'));
+        count++;
+      });
+    return {
+      texte: count ? 'Screen: ' + window.location.pathname + '\nForm fields:\n' + lignes.join('\n') : '',
+      champs: count
+    };
+  }
+
+  /** snapshots[turnId] = [{name, old}] pour l'annulation. */
+  var snapshots = {};
+
+  function poserChamp(form, name, value, releve) {
+    var el = mQuery(form).find('[name="' + name + '"]').filter(':not([type=hidden])').first();
+    if (!el.length) { return false; }
+    releve.push({ name: name, old: el.val() });
+    el.val(value).trigger('change').trigger('keyup');
+    // Chosen (selects Mautic) : rafraîchir le rendu.
+    if (el.is('select')) { el.trigger('chosen:updated'); }
+    return true;
+  }
+
+  /** Joue les actions du serveur ; renvoie {note, undoable} pour le tour. */
+  function executerActions(actions, turnId) {
+    var form = formulaireTravail();
+    var remplis = 0, releve = [], differes = [];
+    (actions || []).forEach(function (a) {
+      if (a.type === 'fill_field' && form) {
+        if (poserChamp(form, a.field, a.value, releve)) { remplis++; }
+      } else if (a.type === 'navigate' && NAV_CIBLES[a.target]) {
+        differes.push(NAV_CIBLES[a.target]);
+      } else if (a.type === 'create_segment' && a.description) {
+        try { sessionStorage.setItem('sendlyAiSegmentBrief', a.description); } catch (e) {}
+        differes.push(NAV_CIBLES.segments_new);
+      }
+    });
+    if (releve.length) { snapshots[turnId] = { champs: releve }; }
+    if (differes.length) {
+      // Une seule navigation par tour, après un court instant de lecture.
+      setTimeout(function () { window.location.assign(differes[0]); }, 1200);
+    }
+    var notes = [];
+    if (remplis) {
+      notes.push('✓ ' + remplis + ' ' + (remplis > 1 ? 'champs remplis' : 'champ rempli'));
+    }
+    if (differes.length) {
+      notes.push('→ ' + t('mautic.core.ai.assistant.opening', 'ouverture de l\'écran…'));
+    }
+    return { note: notes.join(' · '), undoable: releve.length > 0 };
+  }
+
+  function annulerTour(turnId) {
+    var snap = snapshots[turnId];
+    if (!snap) { return false; }
+    var form = formulaireTravail();
+    (snap.champs || []).forEach(function (c) {
+      var el = mQuery(form || document).find('[name="' + c.name + '"]').first();
+      if (el.length) {
+        el.val(c.old).trigger('change');
+        if (el.is('select')) { el.trigger('chosen:updated'); }
+      }
+    });
+    delete snapshots[turnId];
+    return true;
+  }
+
   window.SendlyAssistantContexts = window.SendlyAssistantContexts || [];
   window.SendlyAssistantContexts.push({
     id: 'help',
@@ -506,15 +628,34 @@
       history = history.filter(function (h, i, arr) {
         return !(i === arr.length - 1 && h.role === 'user' && h.content === q);
       });
+      var etat = etatEcran();
+      var capacites = ['navigate', 'create_segment'];
+      if (etat.champs > 0) { capacites.push('fill_field'); }
       mQuery.ajax({
         url: cfg().assistEndpoint,
         type: 'POST',
         dataType: 'json',
-        data: { question: q, history: history, lang: document.documentElement.lang || 'fr', section: (sectionCourante() || {}).nom || '' },
+        data: {
+          question: q, history: history,
+          lang: document.documentElement.lang || 'fr',
+          section: (sectionCourante() || {}).nom || '',
+          context: etat.texte,
+          actions: capacites
+        },
         success: function (res) {
           if (res && res.answer) {
             var answer = String(res.answer);
-            conv().push({ role: 'ia', html: rendreAide(answer), plain: answer });
+            var turnId = res.turnId || null;
+            var resultat = executerActions(res.actions, turnId);
+            var html = rendreAide(answer);
+            if (resultat.note) {
+              html += '<div class="sendly-assist-fait">' + esc(resultat.note) + '</div>';
+            }
+            conv().push({
+              role: 'ia', html: html, plain: answer,
+              turnId: resultat.undoable ? turnId : null,
+              undoable: resultat.undoable
+            });
             busy = false;
             renderConv();
           } else {
@@ -525,6 +666,11 @@
           api.fail(t('mautic.core.ai.assistant.error', 'La requête a échoué. Réessayez.'));
         }
       });
+    },
+    onUndo: function (turnId, api) {
+      if (annulerTour(turnId)) {
+        api.markUndone(esc(t('mautic.core.ai.assistant.undone', 'Modifications annulées.')));
+      }
     }
   });
 

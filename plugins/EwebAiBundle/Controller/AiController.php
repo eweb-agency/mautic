@@ -124,16 +124,35 @@ final class AiController
         $payload = $this->decode($request);
 
         try {
-            $answer = $this->copilot->assist([
+            $result = $this->copilot->assist([
                 'question' => mb_substr((string) ($payload['question'] ?? ''), 0, self::MAX_INSTRUCTION),
                 'history'  => $payload['history'] ?? [],
                 'lang'     => mb_substr((string) ($payload['lang'] ?? ''), 0, 60),
                 // La section où se trouve l'utilisateur : l'accompagnement
                 // suit l'écran (le prompt contextualise la réponse).
                 'section'  => mb_substr((string) ($payload['section'] ?? ''), 0, 60),
+                // Mode EXÉCUTANT (directive proprio 26/08) : l'état de
+                // l'écran et les actions que le panneau sait exécuter. Le
+                // service borne et valide — ici on transmet, c'est tout.
+                'context'  => (string) ($payload['context'] ?? ''),
+                'actions'  => $payload['actions'] ?? [],
             ]);
 
-            return new JsonResponse(['answer' => $answer]);
+            // turnId identifie le tour pour le bouton « Annuler les
+            // modifications » du panneau ; undoable = au moins une action
+            // réversible côté écran (l'écriture de champ l'est, pas la
+            // navigation ni la création déléguée).
+            $undoable = [] !== array_filter(
+                $result['actions'],
+                static fn (array $a): bool => 'fill_field' === $a['type'],
+            );
+
+            return new JsonResponse([
+                'answer'   => $result['answer'],
+                'actions'  => $result['actions'],
+                'turnId'   => bin2hex(random_bytes(8)),
+                'undoable' => $undoable,
+            ]);
         } catch (\InvalidArgumentException) {
             return new JsonResponse(['error' => 'bad_request'], Response::HTTP_BAD_REQUEST);
         } catch (\Throwable) {
