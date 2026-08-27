@@ -463,6 +463,33 @@ final class AiCopilotAssistTest extends TestCase
         self::assertStringContainsString('copy it VERBATIM', (string) $this->sent['system']);
     }
 
+    public function testCreateReportValideNomEtSourceEnListeBlanche(): void
+    {
+        $result = $this->serviceOutil([
+            'answer'  => 'Je crée le rapport.',
+            'actions' => [
+                ['type' => 'create_report', 'name' => '  Ouvertures de la semaine  ', 'source' => 'email.stats'],
+                ['type' => 'create_report', 'name' => 'X', 'source' => 'sql_libre — hors liste'],
+                ['type' => 'create_report', 'source' => 'leads'],
+            ],
+        ])->assist(['question' => 'les ouvertures de la semaine', 'actions' => ['create_report']]);
+
+        self::assertSame([
+            ['type' => 'create_report', 'name' => 'Ouvertures de la semaine', 'source' => 'email.stats'],
+        ], $result['actions'], 'source hors liste blanche ou nom manquant → jetés');
+    }
+
+    public function testLaConsigneImposeLesValeursDOptionPourLesSelects(): void
+    {
+        $this->serviceOutil(['answer' => 'ok', 'actions' => []])->assist([
+            'question' => 'q', 'actions' => ['fill_field'],
+        ]);
+
+        $system = (string) $this->sent['system'];
+        self::assertStringContainsString('options=@Ln', $system);
+        self::assertStringContainsString('never the label', $system);
+    }
+
     public function testUnTypeNonDeclareParLEcranEstJeteMemeSilEstAuRegistre(): void
     {
         $result = $this->serviceOutil([
