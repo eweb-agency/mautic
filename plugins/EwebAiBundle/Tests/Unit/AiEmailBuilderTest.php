@@ -20,17 +20,23 @@ final class AiEmailBuilderTest extends TestCase
         return (string) file_get_contents($path);
     }
 
-    public function testLEtageEditeurNeVitQuEnEmailHtml(): void
+    public function testLEtageEditeurCouvreHtmlEtMjmlAvecLaDiscipline(): void
     {
         $js = $this->source('ai-email-builder.js');
 
-        // Le filtre de contexte du hook plugins nous gate hors MJML : aucune
-        // discipline MJML à recoder ici, et surtout aucune insertion brute
-        // dans un canvas MJML.
-        self::assertStringContainsString("context: ['email-html']", $js);
+        // Recette 27/08 : un NOUVEL e-mail naît toujours en MJML (squelette
+        // <mjml> pré-rempli), le gating « email-html seulement » ne tournait
+        // jamais. Les deux contextes sont couverts, le format suit le
+        // squelette, et l'insertion respecte la discipline writeContent sans
+        // MjmlService : instantané avant, re-parse par resérialisation,
+        // restauration au moindre échec.
+        self::assertStringContainsString("context: ['email-html', 'email-mjml']", $js);
         self::assertStringContainsString("name: 'sendly-ai-email'", $js);
+        self::assertStringContainsString("enMjml ? 'mjml' : 'html'", $js);
+        self::assertStringContainsString('var avant = editor.getHtml();', $js);
+        self::assertStringContainsString('editor.setComponents(editor.getHtml());', $js);
+        self::assertStringContainsString('editor.setComponents(avant);', $js);
         self::assertStringNotContainsString('mjmlToHtml', $js);
-        self::assertStringNotContainsString("'email-mjml'", $js);
     }
 
     public function testLeBriefEstHorodateEtPerime(): void
