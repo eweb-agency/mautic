@@ -455,6 +455,12 @@
           }
           var turnId = ++turnSeq;
           applyTurn(filters, turnId, function (result) {
+            // Compteur de temps gagné : UNE fois par écran (les tours
+            // suivants raffinent le même segment, ils ne recréditent pas).
+            if (result.applied.length && !window.__sendlySegmentCredite && window.SendlyAssistant) {
+              window.__sendlySegmentCredite = true;
+              window.SendlyAssistant.credit('create_segment', 1);
+            }
             var resume = turnSummary(result, dropped);
             var nommes = remplirDetails(res);
             if (nommes.length) {

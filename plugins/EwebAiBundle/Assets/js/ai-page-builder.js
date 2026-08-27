@@ -372,6 +372,10 @@
               return generer(inv, String(consigneSection));
             }).catch(function () { /* l'invite en échec reste en place — on continue */ });
           });
+          // Compteur de temps gagné : à la FIN de la composition.
+          suite = suite.then(function () {
+            if (window.SendlyAssistant) { window.SendlyAssistant.credit('create_landing_page', 1); }
+          });
         }
 
         // La TUILE au CLIC : invite après la sélection, sinon en fin de page.

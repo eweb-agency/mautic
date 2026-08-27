@@ -125,6 +125,7 @@
       '@media (prefers-reduced-motion: reduce){#sendly-assist-panel{transition:none}}' +
       '.sendly-assist-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #eef1f5}' +
       '.sendly-assist-title{margin:0;font-size:15px;font-weight:700;color:' + BRAND + ';flex:1}' +
+      '.sendly-assist-temps{font-size:10.5px;font-weight:500;color:#8b95a7;margin-top:1px}' +
       '.sendly-assist-iconbtn{background:none;border:0;cursor:pointer;color:#97a1b3;font-size:15px;padding:2px 5px}' +
       '.sendly-assist-iconbtn:hover{color:#24303f}' +
       '.sendly-assist-conv{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}' +
@@ -347,6 +348,23 @@
       requestAnimationFrame(function () { el.classList.remove('sendly-assist-surgit'); });
     });
 
+    // Le temps rendu ce mois-ci — l'argument du plan rendu visible. Ligne
+    // discrète sous le titre, seulement s'il y a quelque chose à dire.
+    mQuery.ajax({ url: '/s/ai/credit/stats', type: 'GET', dataType: 'json' })
+      .done(function (rep) {
+        var s = rep && rep.seconds_month;
+        if (!s || s < 60) { return; }
+        var tete = el.querySelector('.sendly-assist-head');
+        var titre = el.querySelector('#sendly-assist-title');
+        if (!tete || !titre) { return; }
+        var h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+        var texte = h > 0 ? ('~' + h + ' h' + (m ? ' ' + (m < 10 ? '0' : '') + m : '')) : ('~' + m + ' min');
+        var ligne = document.createElement('div');
+        ligne.className = 'sendly-assist-temps';
+        ligne.textContent = '⏱ ' + texte + ' rendues ce mois-ci';
+        titre.appendChild(ligne);
+      });
+
     el.querySelector('#sendly-assist-close').addEventListener('click', closePanel);
     el.querySelector('#sendly-assist-clear').addEventListener('click', function () {
       convStore[openCtx.id] = [];
@@ -420,6 +438,17 @@
 
   /** Petite façade publique pour les contextes (reset après navigation…). */
   window.SendlyAssistant = {
+    /** Crédite le compteur de temps gagné (barème CÔTÉ SERVEUR — le client
+     *  dit ce qui s'est passé, jamais combien ça vaut). Feu-et-oublie. */
+    credit: function (type, quantite) {
+      try {
+        mQuery.ajax({
+          url: '/s/ai/credit', type: 'POST', dataType: 'json',
+          data: JSON.stringify({ type: type, quantite: quantite || 1 }),
+          contentType: 'application/json'
+        });
+      } catch (e) { /* le crédit est du bonus, jamais du chemin critique */ }
+    },
     /** Une ligne d'état dans la conversation ouverte (échecs de création :
      *  la raison est DITE — référence introuvable, horaire invalide…). */
     note: function (texte) {
@@ -628,6 +657,7 @@
       }
     });
     if (releve.length) { snapshots[turnId] = { champs: releve }; }
+    if (remplis && window.SendlyAssistant) { window.SendlyAssistant.credit('fill_field', remplis); }
     if (creationsEntite.length) {
       // La création (endpoint gardé) prime sur toute autre navigation du
       // tour : l'entité naît dépubliée, on ouvre son écran d'édition. En

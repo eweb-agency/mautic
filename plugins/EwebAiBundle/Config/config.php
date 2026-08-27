@@ -67,6 +67,18 @@ return [
                 'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiReportController::createAction',
                 'method'     => 'POST',
             ],
+            // Compteur de temps gagné (lot transverse) : crédit au barème
+            // SERVEUR + lecture des cumuls — stockés dans le journal d'audit.
+            'eweb_ai_credit' => [
+                'path'       => '/ai/credit',
+                'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiCreditController::creditAction',
+                'method'     => 'POST',
+            ],
+            'eweb_ai_credit_stats' => [
+                'path'       => '/ai/credit/stats',
+                'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiCreditController::statsAction',
+                'method'     => 'GET',
+            ],
             'eweb_ai_assist' => [
                 'path'       => '/ai/assist',
                 'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiController::assistAction',

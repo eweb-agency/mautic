@@ -47,6 +47,7 @@ final class AiCampaignController
         private readonly EmailModel $emailModel,
         private readonly ListModel $listModel,
         private readonly CorePermissions $security,
+        private readonly \Mautic\CoreBundle\Model\AuditLogModel $auditLog,
         private readonly CoreParametersHelper $params,
     ) {
     }
@@ -140,6 +141,16 @@ final class AiCampaignController
         } catch (\Throwable) {
             return new JsonResponse(['error' => 'save_failed'], Response::HTTP_BAD_GATEWAY);
         }
+
+        // Compteur de temps gagné : la création se crédite CÔTÉ SERVEUR
+        // (barème creditSeconds, secondes dans object_id — cf AiCreditController).
+        $this->auditLog->writeToLog([
+            'bundle'   => 'eweb_ai',
+            'object'   => 'temps_gagne',
+            'objectId' => $this->copilot->creditSeconds('create_campaign'),
+            'action'   => 'credit',
+            'details'  => ['type' => 'create_campaign'],
+        ]);
 
         return new JsonResponse(['id' => $campaign->getId()]);
     }
