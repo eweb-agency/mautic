@@ -12,16 +12,21 @@
  *   - fait correspondre le segment destinataire NOMMÉ PAR L'UTILISATEUR
  *     avec les vraies listes de l'écran (jamais inventé : sans
  *     correspondance, le champ reste vide et l'utilisateur choisit) ;
- *   - choisit le thème blank (e-mail HTML — pas de discipline MJML) et
- *     ouvre l'éditeur.
+ *   - choisit le thème blank et ouvre l'éditeur.
  *
- * ÉTAGE ÉDITEUR (contexte email-html UNIQUEMENT — le filtre de contexte
- * de MauticGrapesJsPlugins nous gate hors MJML) :
+ * ÉTAGE ÉDITEUR (contextes email-html ET email-mjml — recette du 27/08 :
+ * un NOUVEL e-mail naît toujours avec un squelette <mjml> pré-rempli,
+ * quel que soit le thème ; l'hypothèse « blank = HTML » était fausse à
+ * l'exécution et le premier gating email-html ne tournait jamais) :
  *   - consomme le brief et génère le CORPS via /s/ai/generate
- *     (mode generate, format html) ;
- *   - insère le résultat dans le canvas vide. L'itération (Régénérer,
- *     Améliorer, TRADUIRE) passe par la modale IA existante de
- *     l'éditeur — pas de machinerie doublée.
+ *     (mode generate, format mjml ou html selon le squelette présent) ;
+ *   - insère avec la discipline du writeContent de la modale, SANS
+ *     MjmlService (non exposé hors du dist) : instantané AVANT, pose,
+ *     re-parse par resérialisation (balises auto-fermantes, bug #149),
+ *     restauration de l'instantané au moindre échec — prototypé en
+ *     conditions réelles dans l'éditeur du proprio avant d'être codé ;
+ *   - l'itération (Régénérer, Améliorer, TRADUIRE) passe par la modale
+ *     IA existante de l'éditeur — pas de machinerie doublée.
  *
  * Gated par la clé de l'instance : sans SendlyAiConfig.enabled, tout
  * reste dormant et le brief périmé est purgé.
@@ -91,7 +96,7 @@
         }
       }
 
-      // Thème blank (e-mail HTML) — le bouton éditeur est inerte sans thème.
+      // Thème blank de préférence — le bouton éditeur est inerte sans thème.
       var $theme = mQuery('#emailform_template');
       if ($theme.length && !$theme.val()) {
         var v = $theme.find('option[value="blank"]').length ? 'blank'
@@ -103,13 +108,13 @@
     }, 500);
   });
 
-  /* ─── Étage ÉDITEUR : génération du corps (email-html seulement) ───── */
+  /* ─── Étage ÉDITEUR : génération du corps (html ET mjml) ───────────── */
   if (!window.MauticGrapesJsPlugins) {
     window.MauticGrapesJsPlugins = [];
   }
   window.MauticGrapesJsPlugins.push({
     name: 'sendly-ai-email',
-    context: ['email-html'],
+    context: ['email-html', 'email-mjml'],
     plugin: function (editor) {
       editor.on('load', function () {
         var brief = lireBrief();
@@ -117,22 +122,35 @@
         try { sessionStorage.removeItem(CLE); } catch (e) {}
         if (!(cfg() && cfg().enabled) || (cfg() && cfg().teaser)) { return; }
 
+        // Le mode se lit sur le champ du formulaire : un nouvel e-mail
+        // porte toujours un squelette <mjml> (constat de recette 27/08).
+        var champMjml = document.querySelector('#emailform_customMjml');
+        var enMjml = !!(champMjml && /<mjml/i.test(champMjml.value || ''));
+
         var consigne = 'Objet de l’e-mail : « ' + (brief.subject || '') + ' ». ' + (brief.brief || '');
         mQuery.ajax({
           url: cfg().endpoint,
           type: 'POST',
           dataType: 'json',
-          data: { mode: 'generate', instruction: consigne, format: 'html' },
+          data: { mode: 'generate', instruction: consigne, format: enMjml ? 'mjml' : 'html' },
           success: function (rep) {
-            var html = rep && rep.text;
-            if (!html) { return; }
-            // Canvas neuf (thème blank) : on remplace, l'utilisateur itère
-            // ensuite avec la modale IA (Régénérer / Améliorer / Traduire)
-            // ou revient en arrière par l'annulation native de l'éditeur.
-            editor.DomComponents.getWrapper().set('content', '');
-            editor.setComponents(html);
+            var corps = rep && rep.text;
+            if (!corps) { return; }
+            // Discipline writeContent sans MjmlService : instantané AVANT,
+            // pose, re-parse par resérialisation, restauration si échec —
+            // le canvas de départ n'est qu'un squelette, mais on ne laisse
+            // JAMAIS un canvas cassé. L'utilisateur itère ensuite avec la
+            // modale IA (Régénérer / Améliorer / Traduire).
+            var avant = editor.getHtml();
+            try {
+              editor.DomComponents.getWrapper().set('content', '');
+              editor.setComponents(corps);
+              editor.setComponents(editor.getHtml());
+            } catch (e) {
+              try { editor.setComponents(avant); } catch (e2) { /* squelette perdu — canvas vide */ }
+            }
           },
-          error: function () { /* l'éditeur reste vide — la modale IA existante prend le relais */ }
+          error: function () { /* l'éditeur garde son squelette — la modale IA existante prend le relais */ }
         });
       });
     },
