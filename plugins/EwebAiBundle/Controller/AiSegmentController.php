@@ -106,6 +106,11 @@ final class AiSegmentController
                 // Contexte conversationnel : les demandes précédentes du même
                 // panneau (le service borne nombre et longueur lui-même).
                 'history'     => is_array($payload['history'] ?? null) ? $payload['history'] : [],
+                // L'état RÉEL du formulaire : la seule vérité sur ce qui est
+                // appliqué — l'utilisateur peut avoir annulé ou supprimé des
+                // critères depuis les tours précédents (constat proprio 27/08 :
+                // « mairies de France » après annulation ne redonnait rien).
+                'current'     => is_array($payload['current'] ?? null) ? $payload['current'] : [],
                 'catalog'     => $this->schema->toPromptDigest(),
                 'date_tokens' => array_keys($this->schema->relativeDateMap()),
                 'lang'        => $this->clientLanguage($request),
@@ -117,7 +122,7 @@ final class AiSegmentController
 
         // ÉTAPE 4 — la barrière. Tout ce qui sort d'ici est exploitable, et rien
         // d'autre ne l'est.
-        $sanitized = $this->validator->sanitize($raw);
+        $sanitized = $this->validator->sanitize($raw['filters']);
         $filters   = $sanitized['filters'];
 
         // ÉTAPE 5 — le nombre. Une proposition sans nombre laisse le client
@@ -144,6 +149,11 @@ final class AiSegmentController
             'ignored' => $preview['ignored'],
             'failed'  => $preview['failed'],
             'dropped' => $this->describeDropped($sanitized['dropped']),
+            // Le geste complet : nom et description proposés pour les champs
+            // Détails (le formulaire ne reste plus muet — constat 27/08).
+            // Des VALEURS de champ, jamais du HTML : le service les a bornées.
+            'name'        => $raw['name'],
+            'description' => $raw['description'],
         ]);
     }
 

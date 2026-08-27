@@ -119,6 +119,63 @@
     return found;
   }
 
+  /**
+   * L'état RÉEL des critères du formulaire, envoyé au serveur à chaque tour :
+   * c'est LA source de vérité (l'utilisateur annule ou supprime des lignes
+   * entre deux tours — l'historique de conversation ne prouve rien, constat
+   * proprio 27/08 : « mairies de France » après annulation ne redonnait rien).
+   */
+  function etatFiltres() {
+    var lignes = [];
+    mQuery('#leadlist_filters').find('.filter--row').each(function () {
+      var $r = mQuery(this);
+      var obj = $r.find('input[id$="_object"]').val();
+      var champ = $r.find('input[id$="_field"]').val();
+      var op = $r.find('select[id$="_operator"]').val();
+      if (!champ) { return; }
+      var v = $r.find('[id$="_properties_filter"]').val();
+      v = Array.isArray(v) ? v.join(',') : String(v == null ? '' : v);
+      lignes.push((obj ? obj + '.' : '') + champ + ' ' + (op || '') + (v ? ' ' + v : ''));
+    });
+    return lignes;
+  }
+
+  /**
+   * Remplit Nom et Description avec la proposition du serveur — sans jamais
+   * écraser une saisie de l'utilisateur : un champ n'est réécrit que s'il est
+   * vide ou s'il porte encore NOTRE dernière valeur.
+   */
+  var dernierNomIA = null;
+  var derniereDescIA = null;
+  function remplirDetails(res) {
+    var faits = [];
+    if (res && res.name) {
+      var $nom = mQuery('#leadlist_name');
+      if ($nom.length && (!$nom.val() || $nom.val() === dernierNomIA)) {
+        $nom.val(res.name).trigger('change').trigger('keyup');
+        dernierNomIA = res.name;
+        faits.push(res.name);
+      }
+    }
+    if (res && res.description) {
+      var $desc = mQuery('#leadlist_description');
+      var actuel = $desc.length ? String($desc.val() || '') : '';
+      if ($desc.length && (!actuel || actuel === derniereDescIA)) {
+        $desc.val(res.description).trigger('change');
+        derniereDescIA = res.description;
+        // L'éditeur riche (s'il est monté) a sa propre copie du texte.
+        try {
+          if (window.CKEDITOR && window.CKEDITOR.instances && window.CKEDITOR.instances.leadlist_description) {
+            window.CKEDITOR.instances.leadlist_description.setData(res.description);
+          } else if ($desc[0] && $desc[0].ckeditorInstance) {
+            $desc[0].ckeditorInstance.setData(res.description);
+          }
+        } catch (e) { /* le textarea porte déjà la valeur soumise */ }
+      }
+    }
+    return faits;
+  }
+
   function operatorLabel(f) {
     var $o = option(f);
     var ops = $o.length ? $o.data('field-operators') : null;
@@ -386,7 +443,7 @@
         url: cfg().segmentEndpoint,
         type: 'POST',
         dataType: 'json',
-        data: { description: q, history: history },
+        data: { description: q, history: history, current: etatFiltres() },
         success: function (res) {
           var filters = (res && res.filters) || [];
           var dropped = (res && res.dropped) || [];
@@ -398,7 +455,13 @@
           }
           var turnId = ++turnSeq;
           applyTurn(filters, turnId, function (result) {
-            api.ia(turnSummary(result, dropped),
+            var resume = turnSummary(result, dropped);
+            var nommes = remplirDetails(res);
+            if (nommes.length) {
+              resume += '<div class="sendly-assist-fait">' +
+                esc(t('mautic.lead_list.ai.named', 'Nom du segment rempli :')) + ' <b>' + esc(nommes[0]) + '</b></div>';
+            }
+            api.ia(resume,
               result.applied.length ? { turnId: turnId, undoable: true } : null);
             api.finish();
           });
