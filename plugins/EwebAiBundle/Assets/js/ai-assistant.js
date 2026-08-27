@@ -407,6 +407,17 @@
 
   /** Petite façade publique pour les contextes (reset après navigation…). */
   window.SendlyAssistant = {
+    /** Une ligne d'état dans la conversation ouverte (échecs de création :
+     *  la raison est DITE — référence introuvable, horaire invalide…). */
+    note: function (texte) {
+      var conv = document.getElementById('sendly-assist-conv');
+      if (!conv) { return; }
+      var div = document.createElement('div');
+      div.className = 'sendly-assist-mut';
+      div.textContent = texte;
+      conv.appendChild(div);
+      conv.scrollTop = conv.scrollHeight;
+    },
     /** Vide la conversation d'un contexte ; ferme le panneau s'il l'affiche. */
     reset: function (ctxId) {
       delete convStore[ctxId];
@@ -535,7 +546,7 @@
   /** Joue les actions du serveur ; renvoie {note, undoable} pour le tour. */
   function executerActions(actions, turnId) {
     var form = formulaireTravail();
-    var remplis = 0, releve = [], differes = [], creationsFormulaire = [];
+    var remplis = 0, releve = [], differes = [], creationsEntite = [];
     (actions || []).forEach(function (a) {
       if (a.type === 'fill_field' && form) {
         if (poserChamp(form, a.field, a.value, releve)) { remplis++; }
@@ -555,11 +566,15 @@
           }));
         } catch (e) {}
         differes.push(NAV_CIBLES.emails_new);
+      } else if (a.type === 'create_campaign' && a.name && a.email && a.segment) {
+        // Même voie que create_form : endpoint gardé, entité DÉPUBLIÉE,
+        // écran d'édition ouvert pour relecture du canvas.
+        creationsEntite.push({ url: '/s/ai/campaign/create', spec: a, edition: '/s/campaigns/edit/' });
       } else if (a.type === 'create_form' && a.name && a.fields) {
         // La création passe par l'endpoint gardé (form:forms:create) : le
         // formulaire naît DÉPUBLIÉ, puis on ouvre son écran d'édition pour
         // la relecture. Même barrière de validation côté serveur.
-        creationsFormulaire.push(a);
+        creationsEntite.push({ url: (cfg().formCreateEndpoint || '/s/ai/form/create'), spec: a, edition: '/s/forms/edit/' });
       } else if (a.type === 'create_landing_page' && a.description && a.name) {
         // Le brief voyage jusqu'à l'écran « nouvelle page », qui crée la
         // page, ouvre le builder et génère les sections (ai-page-builder).
@@ -572,20 +587,35 @@
       }
     });
     if (releve.length) { snapshots[turnId] = { champs: releve }; }
-    if (creationsFormulaire.length) {
+    if (creationsEntite.length) {
       // La création (endpoint gardé) prime sur toute autre navigation du
-      // tour : le formulaire naît dépublié, on ouvre son écran d'édition.
-      var spec = creationsFormulaire[0];
+      // tour : l'entité naît dépubliée, on ouvre son écran d'édition. En
+      // échec de résolution (référence introuvable/ambiguë), la raison est
+      // DITE dans le panneau — jamais d'invention.
+      var creation = creationsEntite[0];
       mQuery.ajax({
-        url: (cfg().formCreateEndpoint || '/s/ai/form/create'),
+        url: creation.url,
         type: 'POST',
         dataType: 'json',
-        data: JSON.stringify(spec),
+        data: JSON.stringify(creation.spec),
         contentType: 'application/json',
         success: function (rep) {
-          if (rep && rep.id) { window.location.assign('/s/forms/edit/' + rep.id); }
+          if (rep && rep.id) { window.location.assign(creation.edition + rep.id); }
         },
-        error: function () { /* l'écran des formulaires reste la voie manuelle */ }
+        error: function (xhr) {
+          var rep = xhr && xhr.responseJSON;
+          var raisons = {
+            email_not_found: 'e-mail introuvable',
+            email_ambiguous: 'plusieurs e-mails portent ce nom',
+            segment_not_found: 'segment introuvable',
+            segment_ambiguous: 'plusieurs segments portent ce nom',
+            bad_send_at: 'horaire invalide (passé ou trop lointain)'
+          };
+          var motif = rep && raisons[rep.error];
+          if (motif && window.SendlyAssistant && window.SendlyAssistant.note) {
+            window.SendlyAssistant.note('✗ ' + motif + (rep.ref ? ' : « ' + rep.ref + ' »' : ''));
+          }
+        }
       });
     } else if (differes.length) {
       // Une seule navigation par tour, après un court instant de lecture.
@@ -595,8 +625,8 @@
     if (remplis) {
       notes.push('✓ ' + remplis + ' ' + (remplis > 1 ? 'champs remplis' : 'champ rempli'));
     }
-    if (creationsFormulaire.length) {
-      notes.push('✓ ' + t('mautic.core.ai.assistant.form_created', 'formulaire créé (dépublié) — relecture…'));
+    if (creationsEntite.length) {
+      notes.push('✓ ' + t('mautic.core.ai.assistant.entity_created', 'création en cours (dépubliée) — relecture…'));
     } else if (differes.length) {
       notes.push('→ ' + t('mautic.core.ai.assistant.opening', 'ouverture de l\'écran…'));
     }
@@ -671,7 +701,7 @@
         return !(i === arr.length - 1 && h.role === 'user' && h.content === q);
       });
       var etat = etatEcran();
-      var capacites = ['navigate', 'create_segment', 'create_landing_page', 'create_email', 'create_form'];
+      var capacites = ['navigate', 'create_segment', 'create_landing_page', 'create_email', 'create_form', 'create_campaign'];
       if (etat.champs > 0) { capacites.push('fill_field'); }
       mQuery.ajax({
         url: cfg().assistEndpoint,

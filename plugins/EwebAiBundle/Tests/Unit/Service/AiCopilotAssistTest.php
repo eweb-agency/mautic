@@ -405,6 +405,64 @@ final class AiCopilotAssistTest extends TestCase
         self::assertSame([], $result['actions']);
     }
 
+    public function testCreateCampaignValideReferencesEtHoraire(): void
+    {
+        $result = $this->serviceOutil([
+            'answer'  => 'Je crée la campagne.',
+            'actions' => [[
+                'type'    => 'create_campaign',
+                'name'    => '  Relance de septembre  ',
+                'email'   => ' Bienvenue supervision pare-feu ',
+                'segment' => 'Contacts avec adresse e-mail',
+                'send_at' => '2026-09-03T09:00',
+            ]],
+        ])->assist(['question' => 'envoie…', 'actions' => ['create_campaign']]);
+
+        self::assertSame([
+            'type'    => 'create_campaign',
+            'name'    => 'Relance de septembre',
+            'email'   => 'Bienvenue supervision pare-feu',
+            'segment' => 'Contacts avec adresse e-mail',
+            'send_at' => '2026-09-03T09:00',
+        ], $result['actions'][0]);
+    }
+
+    public function testCreateCampaignHoraireDeFormeInvalideTombeSansJeterLAction(): void
+    {
+        $result = $this->serviceOutil([
+            'answer'  => 'ok',
+            'actions' => [[
+                'type'  => 'create_campaign', 'name' => 'C',
+                'email' => 'E', 'segment' => 'S', 'send_at' => 'jeudi 9h',
+            ]],
+        ])->assist(['question' => 'envoie', 'actions' => ['create_campaign']]);
+
+        self::assertCount(1, $result['actions']);
+        self::assertArrayNotHasKey('send_at', $result['actions'][0], "l'horaire invalide tombe, la campagne reste en déclenchement immédiat");
+    }
+
+    public function testCreateCampaignSansReferenceEstJete(): void
+    {
+        $result = $this->serviceOutil([
+            'answer'  => 'ok',
+            'actions' => [
+                ['type' => 'create_campaign', 'name' => 'C', 'email' => 'E'],
+                ['type' => 'create_campaign', 'name' => 'C', 'segment' => 'S'],
+            ],
+        ])->assist(['question' => 'envoie', 'actions' => ['create_campaign']]);
+
+        self::assertSame([], $result['actions'], 'sans e-mail OU sans segment, rien à résoudre — jeté');
+    }
+
+    public function testLaConsigneExigeLeVerbatimDesFormulationsDictees(): void
+    {
+        $this->serviceOutil(['answer' => 'ok', 'actions' => []])->assist([
+            'question' => 'q', 'actions' => ['create_form'],
+        ]);
+
+        self::assertStringContainsString('copy it VERBATIM', (string) $this->sent['system']);
+    }
+
     public function testUnTypeNonDeclareParLEcranEstJeteMemeSilEstAuRegistre(): void
     {
         $result = $this->serviceOutil([
