@@ -188,7 +188,7 @@
             + '<div class="os" style="width:70%"></div><div class="os" style="width:50%"></div><div class="os" style="width:35%; margin-bottom:0"></div>';
           el.appendChild(sq);
         }
-        appelIa({ mode: 'generate', instruction: consigne }).then(function (html) {
+        return appelIa({ mode: 'generate', instruction: consigne }).then(function (html) {
           var parent = compInvite.parent();
           var index = compInvite.index();
           if (!parent) { return; }
@@ -198,6 +198,7 @@
         }).catch(function (err) {
           var elv = compInvite.view && compInvite.view.el;
           if (elv) { monterSaisie(compInvite, elv, consigne); var e2 = idoc.createElement('div'); e2.className = 'erreur'; e2.textContent = messageErreur(err); elv.querySelector('.sendly-ia-invite').appendChild(e2); }
+          throw err;
         });
       }
 
@@ -343,6 +344,36 @@
       editor.on('load', function () {
         injecterStyles();
 
+        // ── Relais de l'assistant global (lot 2, 27/08) : « Crée-moi une
+        //    landing page » — l'écran formulaire a nommé la page, choisi le
+        //    thème et ouvert le builder ; ICI on consomme le brief et on
+        //    génère les sections du plan, l'une après l'autre, chacune avec
+        //    sa barre Régénérer / Ajuster / Garder. Une section en échec
+        //    remonte son invite pré-remplie et la suite continue.
+        var briefPage = null;
+        try {
+          var brutPage = sessionStorage.getItem('sendlyAiPageBrief');
+          if (brutPage) {
+            sessionStorage.removeItem('sendlyAiPageBrief');
+            briefPage = JSON.parse(brutPage);
+          }
+        } catch (e) { briefPage = null; }
+        if (briefPage && (!briefPage.ts || Date.now() - briefPage.ts > 180000)) { briefPage = null; }
+        if (briefPage && Array.isArray(briefPage.sections) && briefPage.sections.length
+            && !(window.SendlyAiConfig && window.SendlyAiConfig.teaser)) {
+          var suite = Promise.resolve();
+          briefPage.sections.slice(0, 6).forEach(function (consigneSection) {
+            suite = suite.then(function () {
+              var w = editor.getWrapper();
+              var ajout = w.append('<div data-sendly-invite="1"></div>', { at: w.components().length });
+              var inv = ajout && ajout[0];
+              if (!inv) { return; }
+              inv.set({ editable: false, droppable: false, copyable: false, selectable: false, hoverable: false });
+              return generer(inv, String(consigneSection));
+            }).catch(function () { /* l'invite en échec reste en place — on continue */ });
+          });
+        }
+
         // La TUILE au CLIC : invite après la sélection, sinon en fin de page.
         var tuile = Array.prototype.find.call(
           document.querySelectorAll('.builder-panel .gjs-block'),
@@ -385,5 +416,44 @@
         };
       });
     },
+  });
+
+  /* ─── Relais côté FORMULAIRE : /s/pages/new ────────────────────────────
+   * L'assistant global a déposé un brief : on nomme la page, on choisit un
+   * thème (« blank » de préférence — le bouton Builder est désactivé tant
+   * qu'aucun thème n'est choisi) et on ouvre le builder. Le brief n'est
+   * consommé QUE dans le builder (étage ci-dessus) ; ici on ne fait que le
+   * lire — et on le purge s'il est périmé (3 minutes). */
+  mQuery(function () {
+    var brut = null;
+    try { brut = sessionStorage.getItem('sendlyAiPageBrief'); } catch (e) {}
+    if (!brut) { return; }
+    var brief = null;
+    try { brief = JSON.parse(brut); } catch (e) {}
+    if (!brief || !brief.ts || Date.now() - brief.ts > 180000
+        || !(window.SendlyAiConfig && window.SendlyAiConfig.enabled)) {
+      try { sessionStorage.removeItem('sendlyAiPageBrief'); } catch (e) {}
+      return;
+    }
+    var essais = 0;
+    var minuterie = setInterval(function () {
+      essais += 1;
+      if (essais > 20) { clearInterval(minuterie); return; }
+      if (!/\/s\/pages\/new/.test(window.location.pathname)) { return; }
+      var $titre = mQuery('#page_title');
+      var $theme = mQuery('#page_template');
+      if (!$titre.length || !$theme.length || 'function' !== typeof window.Mautic.launchBuilder) { return; }
+      clearInterval(minuterie);
+      if (!$titre.val()) {
+        $titre.val(brief.name || '').trigger('change').trigger('keyup');
+      }
+      if (!$theme.val()) {
+        var v = $theme.find('option[value="blank"]').length ? 'blank'
+          : $theme.find('option').filter(function () { return '' !== this.value; }).first().val();
+        if (v) { $theme.val(v).trigger('change').trigger('chosen:updated'); }
+      }
+      // Petit délai : laisser le formulaire digérer le thème avant le builder.
+      setTimeout(function () { window.Mautic.launchBuilder('page'); }, 500);
+    }, 500);
   });
 })();
