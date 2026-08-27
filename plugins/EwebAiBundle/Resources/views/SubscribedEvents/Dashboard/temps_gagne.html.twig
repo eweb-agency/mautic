@@ -1,11 +1,12 @@
 {#
-  Tuile « Temps gagné avec l'assistant » — v4, prototypée en direct dans
-  la tuile réelle (28/08). Le retour proprio qui l'a façonnée : « en tant
-  qu'utilisateur, je ne comprends pas à quoi sert ce widget » — la v4
-  RACONTE au lieu d'afficher : une phrase (« L'assistant vous a fait
-  gagner »), le chiffre en héros, des RÉALISATIONS comptées (« ✓ 3
-  e-mails rédigés ») au lieu de barres abstraites, et l'explication en
-  français en pied. La composition possède la hauteur du widget.
+  Tuile « Temps gagné avec l'assistant » — v5 « signature de marque »,
+  prototypée en direct dans la tuile réelle (28/08, itérations proprio :
+  v3 « à revoir », v4 « je ne comprends pas », v5 « pousser le curseur
+  visuel »). C'est LA vitrine du produit IA dans le dashboard : panneau
+  NAVY au dégradé de marque (la famille du bouton flottant et de l'écran
+  Copilot), halo bleu, chiffre héros en blanc, « ce mois-ci » en PILULE
+  VERRE, les réalisations en lignes de verre, l'explication humaine en
+  pied. La composition possède la hauteur du widget.
 #}
 {% macro duree(seconds) -%}
   {%- set h = (seconds // 3600) -%}
@@ -18,30 +19,32 @@
 {% elseif secondsMonth < 60 and secondsTotal < 60 %}
   <div style="padding:18px 8px"><p style="color:#8b95a7;font-size:13px;margin:0">{{ 'mautic.eweb.ai.temps.vide'|trans }}</p></div>
 {% else %}
-  <div style="display:flex;flex-direction:column;flex:1;min-height:0;padding:2px 8px">
-    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0">
-      <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
-        <span style="width:26px;height:26px;border-radius:8px;background:radial-gradient(circle at 50% 25%, #0a52d8, #05215c);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:12px">✦</span>
-        <span style="font-size:13px;color:#5b6472">{{ 'mautic.eweb.ai.temps.phrase'|trans }}</span>
-      </div>
-      <div style="font-size:52px;font-weight:700;letter-spacing:-.025em;color:#001248;line-height:1;font-variant-numeric:tabular-nums">{{ _self.duree(secondsMonth) }}</div>
-      <div style="font-size:12.5px;color:#8b95a7;margin-top:7px">{{ 'mautic.eweb.ai.temps.ce.mois'|trans }} · {{ _self.duree(secondsTotal) }} {{ 'mautic.eweb.ai.temps.depuis.activation'|trans }}</div>
+  <div style="flex:1;min-height:0;display:flex;border-radius:14px;position:relative;overflow:hidden;background:radial-gradient(circle at 18% 0%, #0a52d8 0%, #0640a8 38%, #05215c 72%, #021030 100%);color:#fff;padding:18px 20px;flex-direction:column">
+    <div style="position:absolute;inset:0;background:radial-gradient(circle at 75% 30%, rgba(46,107,255,.35), transparent 55%);pointer-events:none"></div>
+    <div style="position:relative;display:flex;align-items:center;gap:9px">
+      <span style="width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.10);box-shadow:inset 0 1px 0 rgba(255,255,255,.28);display:inline-flex;align-items:center;justify-content:center;font-size:12px">✦</span>
+      <span style="font-size:13px;color:rgba(255,255,255,.85)">{{ 'mautic.eweb.ai.temps.phrase'|trans }}</span>
     </div>
-    {% if gestes|length %}
-      <div style="display:flex;flex-direction:column;gap:7px;padding-top:12px;border-top:1px solid #eef1f6">
-        {% for g in gestes|slice(0, 4) %}
-          <div style="display:flex;justify-content:space-between;gap:12px;font-size:12.5px;color:#374151">
-            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#0a7d43;font-weight:700">✓</span> {{ g.cle|trans({'%nb%': g.nb}) }}</span>
-            <span style="font-variant-numeric:tabular-nums;font-weight:600;flex-shrink:0">{{ _self.duree(g.seconds) }}</span>
-          </div>
-        {% endfor %}
-        {% if gestes|length > 4 %}
-          {% set reste = 0 %}
-          {% for g in gestes|slice(4) %}{% set reste = reste + g.seconds %}{% endfor %}
-          <div style="font-size:11.5px;color:#8b95a7">+ {{ gestes|length - 4 }} {{ 'mautic.eweb.ai.temps.autres'|trans }} · {{ _self.duree(reste) }}</div>
-        {% endif %}
-        <div style="font-size:11px;color:#aab3c2;margin-top:3px">{{ 'mautic.eweb.ai.temps.explication'|trans }}</div>
+    <div style="position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0">
+      <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+        <span style="font-size:54px;font-weight:700;letter-spacing:-.025em;line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 2px 18px rgba(0,18,72,.45)">{{ _self.duree(secondsMonth) }}</span>
+        <span style="display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:5px 12px;background:rgba(255,255,255,.06);box-shadow:inset 0 1px 0 rgba(255,255,255,.30), 0 6px 16px rgba(0,6,23,.25);font-size:11.5px;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:#4d82ff"></span>{{ 'mautic.eweb.ai.temps.ce.mois'|trans }}</span>
       </div>
-    {% endif %}
+      <div style="font-size:12px;color:rgba(255,255,255,.62);margin-top:8px">{{ _self.duree(secondsTotal) }} {{ 'mautic.eweb.ai.temps.depuis.activation'|trans }}</div>
+    </div>
+    <div style="position:relative;display:flex;flex-direction:column;gap:6px">
+      {% for g in gestes|slice(0, 3) %}
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;background:rgba(255,255,255,.07);border-radius:9px;padding:7px 12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.16);font-size:12.5px">
+          <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#9db9ff;font-weight:700">✓</span> {{ g.cle|trans({'%nb%': g.nb}) }}</span>
+          <span style="font-variant-numeric:tabular-nums;font-weight:600;flex-shrink:0">{{ _self.duree(g.seconds) }}</span>
+        </div>
+      {% endfor %}
+      {% if gestes|length > 3 %}
+        {% set reste = 0 %}
+        {% for g in gestes|slice(3) %}{% set reste = reste + g.seconds %}{% endfor %}
+        <div style="font-size:11px;color:rgba(255,255,255,.55)">+ {{ gestes|length - 3 }} {{ 'mautic.eweb.ai.temps.autres'|trans }} · {{ _self.duree(reste) }}</div>
+      {% endif %}
+      <div style="font-size:10.5px;color:rgba(255,255,255,.55);margin-top:4px">{{ 'mautic.eweb.ai.temps.explication'|trans }}</div>
+    </div>
   </div>
 {% endif %}
