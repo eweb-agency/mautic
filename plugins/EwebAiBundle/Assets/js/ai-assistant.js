@@ -116,7 +116,13 @@
       '#sendly-assist-fab:hover{transform:scale(1.06)}' +
       '#sendly-assist-panel{position:fixed;right:14px;width:355px;max-width:92vw;background:#fff;' +
       'border:1px solid #e5e7eb;border-radius:12px;z-index:1040;display:flex;flex-direction:column;' +
-      'box-shadow:0 16px 40px rgba(22,35,59,.16);overflow:hidden}' +
+      'box-shadow:0 16px 40px rgba(22,35,59,.16);overflow:hidden;' +
+      /* Surgissement depuis le bouton (directive proprio 27/08) : le panneau
+         naît en bas à droite, léger scale + translation + fondu. */
+      'transform-origin:bottom right;transition:transform .18s cubic-bezier(.2,.8,.3,1),opacity .16s ease}' +
+      '#sendly-assist-panel.sendly-assist-surgit{transform:translateY(10px) scale(.94);opacity:0}' +
+      '#sendly-assist-fab:active{transform:scale(.94)}' +
+      '@media (prefers-reduced-motion: reduce){#sendly-assist-panel{transition:none}}' +
       '.sendly-assist-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #eef1f5}' +
       '.sendly-assist-title{margin:0;font-size:15px;font-weight:700;color:' + BRAND + ';flex:1}' +
       '.sendly-assist-iconbtn{background:none;border:0;cursor:pointer;color:#97a1b3;font-size:15px;padding:2px 5px}' +
@@ -287,7 +293,9 @@
   function closePanel() {
     var p = panel();
     if (p) {
-      p.parentNode.removeChild(p);
+      p.classList.add('sendly-assist-surgit');
+      p.id = ''; // le mourant ne répond plus aux sélecteurs (réouverture immédiate)
+      setTimeout(function () { if (p.parentNode) { p.parentNode.removeChild(p); } }, 160);
     }
     openCtx = null;
     busy = false;
@@ -303,6 +311,7 @@
     var el = document.createElement('div');
     el.id = 'sendly-assist-panel';
     el.setAttribute('role', 'dialog');
+    el.className = 'sendly-assist-surgit';
     el.innerHTML =
       '<div class="sendly-assist-head">' +
       '<h4 class="sendly-assist-title" id="sendly-assist-title">' + esc(ctx.title()) + '</h4>' +
@@ -333,6 +342,10 @@
     el.style.top = (Math.max(0, top) + 12) + 'px';
     el.style.bottom = '14px';
     document.body.appendChild(el);
+    // Deux cadres : l'état initial doit peindre avant la transition.
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { el.classList.remove('sendly-assist-surgit'); });
+    });
 
     el.querySelector('#sendly-assist-close').addEventListener('click', closePanel);
     el.querySelector('#sendly-assist-clear').addEventListener('click', function () {
@@ -513,6 +526,27 @@
     var form = formulaireTravail();
     if (!form) { return { texte: '', champs: 0 }; }
     var lignes = [], count = 0;
+    // selects : leurs OPTIONS sont le vocabulaire — sans elles le modèle
+    // devine des valeurs invalides. Les listes identiques ne partent qu'UNE
+    // fois (l'écran d'import répète la même liste sur chaque colonne).
+    var listes = {}, ordreListes = [];
+    function refListe(sel) {
+      var opts = [];
+      mQuery(sel).find('option').each(function () {
+        if (opts.length >= 40) { return false; }
+        var val = this.value;
+        if ('' === val) { return; }
+        var lib = (this.textContent || '').trim().slice(0, 30);
+        opts.push(val === lib ? val : val + '=' + lib);
+      });
+      if (!opts.length) { return ''; }
+      var signature = opts.join('|');
+      if (!listes[signature]) {
+        listes[signature] = 'L' + (ordreListes.length + 1);
+        ordreListes.push({ id: listes[signature], opts: opts });
+      }
+      return listes[signature];
+    }
     mQuery(form).find('input[name], select[name], textarea[name]')
       .filter(':not([type=hidden]):not([type=submit]):not([type=button]):not([type=password]):not([name*="csrf"]):not([name*="_token"])')
       .filter(':visible')
@@ -520,10 +554,15 @@
         if (count >= 25) { return false; }
         var v = String(mQuery(this).val() == null ? '' : mQuery(this).val()).slice(0, 160);
         var lab = libelleChamp(this);
+        var ref = this.tagName === 'SELECT' ? refListe(this) : '';
         lignes.push('- name="' + this.name + '"' + (lab ? ' label="' + lab + '"' : '') +
+          (ref ? ' options=@' + ref : '') +
           (v ? ' value="' + v + '"' : ' (empty)'));
         count++;
       });
+    ordreListes.forEach(function (l) {
+      lignes.push('@' + l.id + ': ' + l.opts.join(' | '));
+    });
     return {
       texte: count ? 'Screen: ' + window.location.pathname + '\nForm fields:\n' + lignes.join('\n') : '',
       champs: count
@@ -570,6 +609,8 @@
         // Même voie que create_form : endpoint gardé, entité DÉPUBLIÉE,
         // écran d'édition ouvert pour relecture du canvas.
         creationsEntite.push({ url: '/s/ai/campaign/create', spec: a, edition: '/s/campaigns/edit/' });
+      } else if (a.type === 'create_report' && a.name && a.source) {
+        creationsEntite.push({ url: '/s/ai/report/create', spec: a, edition: '/s/reports/edit/' });
       } else if (a.type === 'create_form' && a.name && a.fields) {
         // La création passe par l'endpoint gardé (form:forms:create) : le
         // formulaire naît DÉPUBLIÉ, puis on ouvre son écran d'édition pour
@@ -701,7 +742,7 @@
         return !(i === arr.length - 1 && h.role === 'user' && h.content === q);
       });
       var etat = etatEcran();
-      var capacites = ['navigate', 'create_segment', 'create_landing_page', 'create_email', 'create_form', 'create_campaign'];
+      var capacites = ['navigate', 'create_segment', 'create_landing_page', 'create_email', 'create_form', 'create_campaign', 'create_report'];
       if (etat.champs > 0) { capacites.push('fill_field'); }
       mQuery.ajax({
         url: cfg().assistEndpoint,

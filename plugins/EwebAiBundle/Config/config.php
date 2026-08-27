@@ -60,6 +60,13 @@ return [
                 'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiCampaignController::createAction',
                 'method'     => 'POST',
             ],
+            // Lot 6 : rapport à la demande — source en liste blanche,
+            // colonnes réelles de la source, rapport DÉPUBLIÉ.
+            'eweb_ai_report_create' => [
+                'path'       => '/ai/report/create',
+                'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiReportController::createAction',
+                'method'     => 'POST',
+            ],
             'eweb_ai_assist' => [
                 'path'       => '/ai/assist',
                 'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiController::assistAction',
