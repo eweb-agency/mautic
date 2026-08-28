@@ -383,9 +383,20 @@ class AiCopilotService
             ];
         }
 
+        $validees = $this->validateAssistActions($decoded['actions'] ?? null, $capabilities);
+        // Observabilité du silence (élucidation du 28/08 : « je crée » sans
+        // action, indiscernable d'un rejet de validation) : si le modèle a
+        // ÉMIS des actions et que la validation les a TOUTES jetées, on le
+        // journalise avec le brut — plus jamais un diagnostic à l'aveugle.
+        if ([] === $validees && is_array($decoded['actions'] ?? null) && [] !== $decoded['actions']) {
+            $this->logger->warning('EwebAiBundle: assist actions all dropped by validation.', [
+                'raw' => mb_substr((string) json_encode($decoded['actions']), 0, 600),
+            ]);
+        }
+
         return [
             'answer'  => $this->enforceBrand($this->normalizeAssistMarkdown(trim((string) ($decoded['answer'] ?? '')))),
-            'actions' => $this->validateAssistActions($decoded['actions'] ?? null, $capabilities),
+            'actions' => $validees,
         ];
     }
 
@@ -1252,7 +1263,16 @@ class AiCopilotService
         $conduct = [] !== $capabilities ? [
             'RULES:',
             '- You are an OPERATOR, not a guide. When the user asks for something your actions can achieve, DO IT: return the actions — never explain how to do it manually, never quote menu paths for something you just did.',
-            '- Available actions on this screen: '.implode(', ', $capabilities).'. fill_field writes into a form field of the current screen (use the exact field names from screen_state). navigate opens a screen directly. create_segment builds a contact segment from a natural-language audience description. create_landing_page creates a landing page end to end: provide name (short), description (the brief) and sections (3-6 ordered one-sentence briefs — hero first, call to action last, in the user language); the builder opens and generates each section for review. create_email creates a marketing email end to end: provide name (short internal name), subject (the subject line), description (the brief for the body) and, ONLY if the user named one, segment (the recipient segment name verbatim); the editor opens with the body generated for review. create_form creates a form: provide name, fields (1-12, ordered; types text/email/tel/textarea/select/checkbox/url/number/date; labels in the user language; required when the user implies it; options for select) and submit_kind (message with a thank-you submit_value, or redirect with an absolute URL the user gave). The form is created UNPUBLISHED for review. create_campaign builds a SIMPLE campaign — one recipient segment, one existing email to send : provide name, email and segment (both EXACTLY as the user said them — they reference existing entities), and send_at ONLY when the user states a date/time. The campaign is created UNPUBLISHED for review; anything more complex than segment→send stays a manual gesture. create_report creates a report: provide name and source (leads = contacts; email.stats = email sends, opens and clicks; page.hits = page visits; form.submissions) - the report opens UNPUBLISHED with the source standard columns, ready to refine.',
+            '- Available actions on this screen: '.implode(', ', $capabilities).'. One line each:',
+            '  * fill_field writes into a form field of the current screen (use the exact field names from screen_state).',
+            '  * navigate opens a screen directly.',
+            '  * create_segment builds a contact segment from a natural-language audience description.',
+            '  * create_landing_page creates a landing page end to end: provide name (short), description (the brief) and sections (3-6 ordered one-sentence briefs — hero first, call to action last, in the user language); the builder opens and generates each section for review.',
+            '  * create_email creates a marketing email end to end: provide name (short internal name), subject (the subject line), description (the brief for the body) and, ONLY if the user named one, segment (the recipient segment name verbatim); the editor opens with the body generated for review.',
+            '  * create_form creates a form: provide name, fields (1-12, ordered; types text/email/tel/textarea/select/checkbox/url/number/date; labels in the user language; required when the user implies it; options for select) and submit_kind (message with a thank-you submit_value, or redirect with an absolute URL the user gave). The form is created UNPUBLISHED for review.',
+            '  * create_campaign builds a SIMPLE campaign — one recipient segment, one existing email to send : provide name, email and segment (both EXACTLY as the user said them — they reference existing entities), and send_at ONLY when the user states a date/time. The campaign is created UNPUBLISHED for review; anything more complex than segment→send stays a manual gesture.',
+            '  * create_report creates a report: provide name and source (leads = contacts; email.stats = email sends, opens and clicks; page.hits = page visits; form.submissions) - the report opens UNPUBLISHED with the source standard columns, ready to refine.',
+            '- Your answer must MATCH your actions: NEVER say you created, opened or did something unless the corresponding action is in the actions array of THIS tool call. Empty actions array = you did NOTHING — then either ask your ONE clarifying question or explain, but never claim a result.',
             '- When the user dictates a wording (a thank-you message, a subject, a name), copy it VERBATIM — never paraphrase it.',
             '- The answer field is a SHORT report of what you did (one or two sentences), in '.$language.', polite form. If the request is truly ambiguous, ask ONE short clarifying question and return no action.',
             '- Only fall back to explaining (short numbered steps, interface paths like « Segments → Nouveau ») when NO available action can achieve the request.',
