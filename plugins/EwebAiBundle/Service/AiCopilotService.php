@@ -505,8 +505,15 @@ class AiCopilotService
                     $brief   = trim((string) ($action['description'] ?? ''));
                     $name    = trim((string) ($action['name'] ?? ''));
                     $subject = trim((string) ($action['subject'] ?? ''));
-                    if ('' === $brief || '' === $name || '' === $subject) {
+                    if ('' === $brief || '' === $name) {
                         return null;
+                    }
+                    // Repli constaté en recette (27/08) : sans objet dicté, le
+                    // modèle omet parfois subject et l'action se jetait EN
+                    // SILENCE alors que la réponse disait « je crée ». Le nom
+                    // sert d'objet ; l'utilisateur peaufine dans l'écran.
+                    if ('' === $subject) {
+                        $subject = $name;
                     }
                     $entry = [
                         'type'        => 'create_email',
@@ -875,7 +882,8 @@ class AiCopilotService
                 .'Output clean semantic HTML (a single <section> wrapping a centered container with headings, short paragraphs and button-style links), '
                 .'styled with tasteful inline CSS only (max-width container, generous padding, clear visual hierarchy, readable contrast) so it renders correctly standalone. '
                 .'No external assets, no scripts, no images unless the brief asks for them, and never lorem ipsum — write real, specific, benefit-driven copy. '
-                .'Write in the same language as the brief. Reply with ONLY the markup — no markdown code fences, no commentary.';
+                .'Write in the same language as the brief, and write it like a NATIVE marketer: idiomatic, natural phrasing — never word-for-word translations or calques from English. '
+                .'Reply with ONLY the markup — no markdown code fences, no commentary.';
 
             $brief = trim((string) ($params['instruction'] ?? ''));
             $user  = "Brief:\n".('' !== $brief ? $brief : 'Write a hero section with a strong headline and a call-to-action button.');
