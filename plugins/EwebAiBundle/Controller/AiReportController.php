@@ -21,12 +21,27 @@ use Symfony\Component\HttpFoundation\Response;
  * validation que l'action (validateReportSpec — source en liste blanche),
  * et le rapport naît DÉPUBLIÉ. Les colonnes ne sont JAMAIS devinées :
  * elles viennent de la liste RÉELLE de la source (getColumnList), les
- * premières servies — l'utilisateur affine dans l'écran natif.
+ * colonnes « maison » de la source servies d'abord — l'utilisateur
+ * affine dans l'écran natif.
  */
 final class AiReportController
 {
     /** Assez pour un tableau lisible, pas assez pour un mur de colonnes. */
     private const COLONNES_MAX = 6;
+
+    /**
+     * Les préfixes de colonnes « maison » de chaque source (l'alias de sa
+     * table et de son entité mère dans les ReportSubscribers du cœur) :
+     * servies d'abord, le reste de la liste complète — la liste brute est
+     * alphabétique et ses premières colonnes (canal, contact) sont hors
+     * sujet (recette du lot 6).
+     */
+    private const COLONNES_PREFIXES = [
+        'leads'            => ['l.'],
+        'email.stats'      => ['es.', 'e.'],
+        'page.hits'        => ['ph.', 'p.'],
+        'form.submissions' => ['fs.', 'f.'],
+    ];
 
     public function __construct(
         private readonly AiCopilotService $copilot,
@@ -55,8 +70,22 @@ final class AiReportController
             return new JsonResponse(['error' => 'bad_request'], Response::HTTP_BAD_REQUEST);
         }
 
+        $toutes   = array_keys((array) $this->reportModel->getColumnList($spec['source'])->choices);
+        $prefixes = self::COLONNES_PREFIXES[$spec['source']] ?? [];
+        $maison   = array_values(array_filter(
+            $toutes,
+            static function (string $colonne) use ($prefixes): bool {
+                foreach ($prefixes as $prefixe) {
+                    if (str_starts_with($colonne, $prefixe)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        ));
         $colonnes = array_slice(
-            array_keys((array) $this->reportModel->getColumnList($spec['source'])->choices),
+            array_merge($maison, array_values(array_diff($toutes, $maison))),
             0,
             self::COLONNES_MAX
         );

@@ -361,6 +361,10 @@
         if (briefPage && (!briefPage.ts || Date.now() - briefPage.ts > 180000)) { briefPage = null; }
         if (briefPage && Array.isArray(briefPage.sections) && briefPage.sections.length
             && !(window.SendlyAiConfig && window.SendlyAiConfig.teaser)) {
+          // La page naît d'un brief : toile VIERGE d'abord — le thème blank
+          // sème un bloc d'accueil (« Hello there!… ») qui restait en tête
+          // au-dessus des sections générées (recette du lot 2).
+          try { editor.DomComponents.clear(); } catch (e) { /* toile déjà vide */ }
           var suite = Promise.resolve();
           briefPage.sections.slice(0, 6).forEach(function (consigneSection) {
             suite = suite.then(function () {

@@ -307,7 +307,7 @@ final class AiCopilotAssistTest extends TestCase
         self::assertSame('les clients inactifs 90 jours', $action['segment']);
     }
 
-    public function testCreateEmailSansObjetEstJeteEtLeSegmentResteOptionnel(): void
+    public function testCreateEmailSansObjetRetombeSurLeNomEtLeSegmentResteOptionnel(): void
     {
         $result = $this->serviceOutil([
             'answer'  => 'ok',
@@ -320,8 +320,12 @@ final class AiCopilotAssistTest extends TestCase
             'actions'  => ['create_email'],
         ]);
 
-        self::assertCount(1, $result['actions'], 'sans objet → jeté ; sans segment → accepté');
+        // Repli du 28/08 : sans objet dicté, l'action n'est PLUS jetée en
+        // silence — le nom sert d'objet (recette : « je crée » sans création).
+        self::assertCount(2, $result['actions'], 'sans objet → repli sur le nom ; sans segment → accepté');
+        self::assertSame('X', $result['actions'][0]['subject']);
         self::assertArrayNotHasKey('segment', $result['actions'][0]);
+        self::assertSame('Objet', $result['actions'][1]['subject'], 'l’objet dicté reste verbatim');
     }
 
     public function testCreateLandingPageSansNomOuSansPlanEstJete(): void
