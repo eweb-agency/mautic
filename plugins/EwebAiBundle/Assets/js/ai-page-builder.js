@@ -438,16 +438,20 @@
     if (!brut) { return; }
     var brief = null;
     try { brief = JSON.parse(brut); } catch (e) {}
-    if (!brief || !brief.ts || Date.now() - brief.ts > 180000
-        || !(window.SendlyAiConfig && window.SendlyAiConfig.enabled)) {
+    if (!brief || !brief.ts || Date.now() - brief.ts > 180000) {
       try { sessionStorage.removeItem('sendlyAiPageBrief'); } catch (e) {}
       return;
     }
+    // L'activation IA se vérifie DANS la boucle : sur un chargement complet
+    // lent, SendlyAiConfig arrive parfois APRÈS le ready — purger ici était
+    // une course qui jetait le brief en silence (constaté 28/08 : thème posé
+    // par défaut, titre vide, builder jamais ouvert).
     var essais = 0;
     var minuterie = setInterval(function () {
       essais += 1;
-      if (essais > 20) { clearInterval(minuterie); return; }
+      if (essais > 40) { clearInterval(minuterie); return; }
       if (!/\/s\/pages\/new/.test(window.location.pathname)) { return; }
+      if (!(window.SendlyAiConfig && window.SendlyAiConfig.enabled)) { return; }
       var $titre = mQuery('#page_title');
       var $theme = mQuery('#page_template');
       if (!$titre.length || !$theme.length || 'function' !== typeof window.Mautic.launchBuilder) { return; }
