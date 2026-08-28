@@ -37,7 +37,7 @@
     <div style="display:flex;align-items:flex-end;justify-content:space-between;height:78px;border-bottom:1px solid #e4e8ef;padding-bottom:1px">
       {% for v in semaines %}
         {% if v >= 60 %}
-          <div style="width:24px;border-radius:6px 6px 3px 3px;position:relative;height:{{ [10, (72 * v / hmax)|round]|max }}px;background:{{ loop.last ? 'linear-gradient(180deg,#2E6BFF,#004FFF)' : '#9db9ff' }}">
+          <div style="width:24px;border-radius:6px 6px 3px 3px;position:relative;height:{{ max(10, (72 * v / hmax)|round) }}px;background:{{ loop.last ? 'linear-gradient(180deg,#2E6BFF,#004FFF)' : '#9db9ff' }}">
             {% if loop.last %}<span style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:10.5px;font-weight:700;color:#004FFF;white-space:nowrap">{{ _self.duree(v) }}</span>{% endif %}
           </div>
         {% else %}
