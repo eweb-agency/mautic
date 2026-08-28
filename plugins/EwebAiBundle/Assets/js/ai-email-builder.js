@@ -56,15 +56,16 @@
   mQuery(function () {
     var brief = lireBrief();
     if (!brief) { return; }
-    if (!(cfg() && cfg().enabled)) {
-      try { sessionStorage.removeItem(CLE); } catch (e) {}
-      return;
-    }
+    // L'activation IA se vérifie DANS la boucle : sur un chargement complet
+    // lent, SendlyAiConfig arrive parfois APRÈS le ready — purger ici était
+    // une course qui jetait le brief en silence (même correctif que le
+    // relais pages, constaté 28/08).
     var essais = 0;
     var minuterie = setInterval(function () {
       essais += 1;
-      if (essais > 20) { clearInterval(minuterie); return; }
+      if (essais > 40) { clearInterval(minuterie); return; }
       if (!/\/s\/emails\/new/.test(window.location.pathname)) { return; }
+      if (!(cfg() && cfg().enabled)) { return; }
       var $nom = mQuery('#emailform_name');
       var $objet = mQuery('#emailform_subject');
       if (!$nom.length || !$objet.length || 'function' !== typeof window.Mautic.launchBuilder) { return; }
