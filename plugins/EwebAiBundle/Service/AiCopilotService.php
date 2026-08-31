@@ -32,6 +32,9 @@ class AiCopilotService
     private const ANTHROPIC_VERSION = '2023-06-01';
     private const DEFAULT_MODEL     = 'claude-haiku-4-5-20251001';
 
+    /** L'orchestrateur du mode exécutant (cf. constructeur) — alias suivi. */
+    private const ASSIST_MODEL = 'claude-sonnet-4-5';
+
     /** Plafonds de tokens de sortie par mode de contenu. */
     private const MAX_TOKENS = [
         'generate'  => 2048,
@@ -114,6 +117,7 @@ class AiCopilotService
     private readonly ?string $apiKey;
     private readonly string $model;
     private readonly string $segmentModel;
+    private readonly string $assistModel;
 
     public function __construct(
         private readonly Client $httpClient,
@@ -128,6 +132,15 @@ class AiCopilotService
         $this->segmentModel = $this->env('SENDLY_ANTHROPIC_MODEL_SEGMENT')
             ?? $this->env('SENDLY_ANTHROPIC_MODEL')
             ?? self::DEFAULT_MODEL;
+        // L'ORCHESTRATION du mode exécutant : décider QUELLES actions émettre
+        // parmi huit demande plus de fiabilité d'appel d'outil que d'en
+        // rédiger le contenu — constat du 28/08 : le petit modèle « dit qu'il
+        // crée » sans émettre l'action, par intermittence, malgré la consigne.
+        // Le cerveau monte d'un cran, les mains (sections, corps, objets)
+        // restent sur le modèle économique : UN appel par message utilisateur,
+        // surcoût minuscule, réversible par variable d'environnement.
+        $this->assistModel = $this->env('SENDLY_ANTHROPIC_MODEL_ASSIST')
+            ?? self::ASSIST_MODEL;
     }
 
     /**
@@ -369,7 +382,7 @@ class AiCopilotService
             '',
             self::ASSIST_MAX_TOKENS,
             $this->buildAssistTool($capabilities),
-            null,
+            $this->assistModel,
             $messages
         );
 
