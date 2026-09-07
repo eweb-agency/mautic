@@ -42,6 +42,17 @@ final class BuilderShellTest extends TestCase
         self::assertStringContainsString("'builder:hide'", $js);
     }
 
+    public function testLeBoutonIaRevientApresUneSortieAjaxDuBuilder(): void
+    {
+        // « Enregistrer et fermer » depuis l'éditeur retire `.builder` sans
+        // `builder:hide` : le rattrapage passe par ajaxComplete et l'absence
+        // d'éditeur actif (`.builder.builder-active`, posé par launchBuilder).
+        $js = (string) file_get_contents(self::SHELL);
+
+        self::assertStringContainsString('ajaxComplete', $js);
+        self::assertStringContainsString('.builder.builder-active', $js);
+    }
+
     public function testLeThemeEstServiHorsBundleEtScope(): void
     {
         // Le canal d'itération rapide : CSS servi en direct (pas de npm run

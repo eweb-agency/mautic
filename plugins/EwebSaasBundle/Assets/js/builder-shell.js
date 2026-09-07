@@ -49,4 +49,17 @@
   mQuery(document).on('builder:hide', '.builder', function () {
     toggleFab(false);
   });
+
+  // Sortie du builder SANS `builder:hide` : « Enregistrer et fermer » depuis
+  // l'éditeur, ou toute navigation ajax pendant que l'éditeur est ouvert,
+  // retire `.builder` du DOM sans le déclencher — le bouton restait masqué
+  // jusqu'au prochain rechargement complet (constat proprio 02/09). À chaque
+  // fin de requête ajax, s'il n'y a plus d'éditeur actif à l'écran
+  // (`.builder.builder-active`, posé par Mautic.launchBuilder), le bouton
+  // revient.
+  mQuery(document).ajaxComplete(function () {
+    if (!mQuery('.builder.builder-active').length) {
+      toggleFab(false);
+    }
+  });
 })();
