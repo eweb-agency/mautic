@@ -39,7 +39,12 @@ final class BuilderOptionsTest extends TestCase
         // « Terminer » comme une saisie manuelle. Zéro requête réseau.
         $js = (string) file_get_contents(self::OPTIONS);
 
-        self::assertStringContainsString("form[name=\"page\"] [name=\"page[' + nom + ']\"]", $js);
+        // Lot E3 : le sélecteur suit le formulaire hôte (page[…] / emailform[…]).
+        self::assertStringContainsString("'form[name=\"' + f + '\"] [name=\"' + f + '[' + nom.split('.').join('][') + ']\"]'", $js);
+        self::assertStringContainsString("context: ['page', 'email-mjml', 'email-html']", $js);
+        self::assertStringContainsString('function vueEmail()', $js);
+        self::assertStringContainsString('data-nat="subject"', $js);
+        self::assertStringContainsString('data-nat="utmTags.utmSource"', $js);
         self::assertStringNotContainsString('fetch(', $js, "l'onglet Options ne fait AUCUN appel réseau");
         self::assertStringNotContainsString('XMLHttpRequest', $js);
         // Les booléens natifs = paire de radios yes(1)/no(0), les deux à tenir.

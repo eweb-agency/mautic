@@ -48,7 +48,7 @@ final class BuilderRetoucheTest extends TestCase
         $js = (string) file_get_contents(self::JS);
 
         self::assertStringContainsString("name: 'sendly-retouche-image'", $js);
-        self::assertStringContainsString("context: ['page']", $js);
+        self::assertStringContainsString("context: ['page', 'email-mjml', 'email-html']", $js);
         // tui fige ses dimensions à l'init (650px) : resizeEditor est le
         // SEUL levier — deux passes (l'instance naît pendant le run, le
         // bundle tui peut arriver du réseau), suivi du resize, décroché
@@ -69,7 +69,7 @@ final class BuilderRetoucheTest extends TestCase
         // (width:100% = minimum → flex), centrage+débordement coupe le
         // début (flex-start + margin:auto), Appliquer stylé inline (→
         // !important). Libellés FR sous les icônes.
-        self::assertStringContainsString('.gjs-mode-page .gjs-mdl-dialog:has(.tui-image-editor-container)', $theme);
+        self::assertStringContainsString(':is(.gjs-mode-page, .gjs-mode-email) .gjs-mdl-dialog:has(.tui-image-editor-container)', $theme);
         self::assertStringContainsString('display: flex !important', $theme);
         self::assertStringContainsString('justify-content: flex-start !important', $theme);
         self::assertStringContainsString('margin: 0 auto !important', $theme);

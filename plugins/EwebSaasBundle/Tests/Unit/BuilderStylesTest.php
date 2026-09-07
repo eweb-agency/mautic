@@ -38,6 +38,26 @@ final class BuilderStylesTest extends TestCase
         self::assertStringContainsString('dedupeSectorDom', $js);
     }
 
+    public function testLEmailMjmlASaMatriceEtSesFamilles(): void
+    {
+        // Lot E2 (07/09) : l'éditeur d'e-mails MJML se style par ATTRIBUTS
+        // (align, container-background-color…) — sa propre matrice, ses
+        // propres familles, et le re-pose de la famille à l'ouverture de
+        // l'onglet Styles (le conteneur des secteurs est re-rendu).
+        $js    = (string) file_get_contents(self::STYLES);
+        $theme = (string) file_get_contents(self::THEME);
+
+        self::assertStringContainsString("context: ['page', 'email-mjml', 'email-html']", $js);
+        self::assertStringContainsString('var SETS_MJML = {', $js);
+        self::assertStringContainsString("property: 'container-background-color'", $js);
+        self::assertStringContainsString("'mj-text': 'texte'", $js);
+        self::assertStringContainsString("'mj-column': 'colonne'", $js);
+        self::assertStringContainsString("editor.on('run:open-sm'", $js);
+        foreach (['colonne', 'espace', 'reseaux', 'liennav', 'heros'] as $famille) {
+            self::assertStringContainsString('[data-sendly-kind="'.$famille.'"] .gjs-sm-sector__s-'.$famille.' { display: block; }', $theme);
+        }
+    }
+
     public function testLaBasculeEstEnPurCssEtFailOpen(): void
     {
         // La bascule contextuelle ne touche AUCUNE vue (les vues fantômes du
@@ -46,7 +66,7 @@ final class BuilderStylesTest extends TestCase
         $theme = (string) file_get_contents(self::THEME);
 
         self::assertStringContainsString('[data-sendly-kind] .gjs-sm-sector { display: none; }', $theme);
-        self::assertStringNotContainsString('.gjs-mode-page .gjs-sm-sector { display: none; }', $theme, 'masquage sans garde-attribut = panneau Styles VIDE si le script ne tourne pas');
+        self::assertStringNotContainsString(':is(.gjs-mode-page, .gjs-mode-email) .gjs-sm-sector { display: none; }', $theme, 'masquage sans garde-attribut = panneau Styles VIDE si le script ne tourne pas');
         // La VALEUR du marqueur avance a chaque phase : seule la phase la
         // plus recente l'epingle (ici BuilderOptionsTest).
         self::assertStringContainsString('--sendly-builder-theme:', $theme);

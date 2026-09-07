@@ -19,7 +19,9 @@
 
   window.MauticGrapesJsPlugins.push({
     name: 'sendly-retouche-image',
-    context: ['page'],
+    // Lot E6 (07/09) : l'éditeur d'e-mails aussi — le module ne touche que
+    // le chrome de l'éditeur (panneaux, feuille, modale), pas le contenu.
+    context: ['page', 'email-mjml', 'email-html'],
     plugin: function (editor) {
       function ajuster() {
         var cmd = editor.Commands.get('tui-image-editor');

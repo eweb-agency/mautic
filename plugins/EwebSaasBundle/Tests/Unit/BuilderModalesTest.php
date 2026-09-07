@@ -22,7 +22,7 @@ final class BuilderModalesTest extends TestCase
         $css = (string) file_get_contents(self::THEME);
 
         foreach (['.gjs-mdl-dialog', '.gjs-mdl-title', '.gjs-am-file-uploader', '.gjs-am-asset'] as $piece) {
-            self::assertStringContainsString('.gjs-mode-page '.$piece, $css);
+            self::assertStringContainsString(':is(.gjs-mode-page, .gjs-mode-email) '.$piece, $css);
         }
         // Retour proprio 12/08 (capture) : le cadre pointillé d'origine vit
         // sur le FORM intérieur — le styler sur l'enveloppe DOUBLAIT la

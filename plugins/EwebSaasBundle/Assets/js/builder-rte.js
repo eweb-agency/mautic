@@ -18,8 +18,10 @@
  * par CKE → CONTENU VIDÉ. Avec setCustomRte, GrapesJS ne connaît qu'un seul
  * RTE : le nôtre — plus de double gestion, plus de course.
  *
- * Enregistré via `window.MauticGrapesJsPlugins`, contexte ['page'] :
- * l'éditeur d'e-mails garde sa modale. Aucun rebuild Parcel.
+ * Enregistré via `window.MauticGrapesJsPlugins`, contextes ['page',
+ * 'email-mjml', 'email-html'] depuis le lot E4 (07/09) : l'éditeur
+ * d'e-mails perd sa modale à son tour — seule différence, l'action des
+ * jetons (`email:getBuilderTokens`). Aucun rebuild Parcel.
  *
  * Recette et pièges — chacun CONSTATÉ en direct le 11/08 :
  * - Bundle CKE5 chargé DANS L'IFRAME du canvas (script tag, URL relevée sur
@@ -70,9 +72,12 @@
 
   window.MauticGrapesJsPlugins.push({
     name: 'sendly-rte',
-    context: ['page'],
+    context: ['page', 'email-mjml', 'email-html'],
     plugin: function (editor) {
       var chargement = null;
+      // page:getBuilderTokens ou email:getBuilderTokens — le formulaire hôte
+      // fait foi (même lecture que builder-shell.js).
+      var actionJetons = (mQuery('form[name="page"]').length ? 'page' : 'email') + ':getBuilderTokens';
 
       function frameWin() { var f = document.querySelector('.builder-panel .gjs-frame'); return f ? f.contentWindow : null; }
       function frameDoc() { var f = document.querySelector('.builder-panel .gjs-frame'); return f ? f.contentDocument : null; }
@@ -109,7 +114,7 @@
       function prechargerJetons() {
         mQuery.ajax({
           url: mauticAjaxUrl,
-          data: 'action=page:getBuilderTokens',
+          data: 'action=' + actionJetons,
           success: function (response) {
             if ('object' === typeof response.tokens) {
               Mautic.builderTokens = response.tokens;
@@ -126,7 +131,7 @@
       function construireConfig(iwin) {
         // SANS TokenPlugin dans la toolbar passée au helper : c'est ce
         // mot-clé qui déclenche l'ajax bloquant du core.
-        var base = Mautic.GetCkEditorConfigOptions(TOOLBAR_SANS_TOKEN, 'page:getBuilderTokens');
+        var base = Mautic.GetCkEditorConfigOptions(TOOLBAR_SANS_TOKEN, actionJetons);
         delete base.autosave;
         base.toolbar.items = TOOLBAR;
         var iconf = iwin.JSON.parse(JSON.stringify(base, function (k, v) {

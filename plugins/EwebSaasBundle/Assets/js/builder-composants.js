@@ -4,8 +4,12 @@
  * Enregistré via l'accroche OFFICIELLE `window.MauticGrapesJsPlugins`
  * (builder.service.js la consomme à chaque ouverture, filtrée par contexte) :
  * AUCUNE reconstruction du bundle Parcel n'est nécessaire, ce fichier est
- * agrégé dans app.js comme builder-shell.js. Contexte ['page'] : l'éditeur
- * d'e-mails ne voit RIEN de tout ceci.
+ * agrégé dans app.js comme builder-shell.js. Contextes ['page',
+ * 'email-mjml', 'email-html'] depuis le lot E1 (07/09, refonte de l'éditeur
+ * d'e-mails) : la même barre haute et les mêmes tuiles françaises, avec une
+ * table de blocs PAR MODE (les ids MJML mj-* et ceux du préréglage
+ * newsletter n'ont rien à voir avec ceux du webpage) et les commandes de
+ * fermeture du bon éditeur.
  *
  * Ce que fait le plugin (tout validé en direct dans l'éditeur le 10/08
  * avant d'être gravé ici) :
@@ -54,11 +58,28 @@
 "2 COLONNES": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\"/><path d=\"M12 3v18\"/></svg>",
 "3 COLONNES": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\"/><path d=\"M9 3v18\"/><path d=\"M15 3v18\"/></svg>",
 "30 / 70": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\"/><path d=\"M9.5 3v18\"/></svg>",
+"ESPACE": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m8 18 4 4 4-4\"/><path d=\"M12 2v20\"/><path d=\"m8 6 4-4 4 4\"/></svg>",
+"HÉROS": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\"/><path d=\"M3 9h18\"/></svg>",
+"GRILLE": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"7\" height=\"7\" x=\"3\" y=\"3\" rx=\"1\"/><rect width=\"7\" height=\"7\" x=\"14\" y=\"3\" rx=\"1\"/><rect width=\"7\" height=\"7\" x=\"14\" y=\"14\" rx=\"1\"/><rect width=\"7\" height=\"7\" x=\"3\" y=\"14\" rx=\"1\"/></svg>",
+"LISTE": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"8\" x2=\"21\" y1=\"6\" y2=\"6\"/><line x1=\"8\" x2=\"21\" y1=\"12\" y2=\"12\"/><line x1=\"8\" x2=\"21\" y1=\"18\" y2=\"18\"/><line x1=\"3\" x2=\"3.01\" y1=\"6\" y2=\"6\"/><line x1=\"3\" x2=\"3.01\" y1=\"12\" y2=\"12\"/><line x1=\"3\" x2=\"3.01\" y1=\"18\" y2=\"18\"/></svg>",
 "FORMULAIRE": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"2\"/><line x1=\"8\" y1=\"8\" x2=\"16\" y2=\"8\"/><line x1=\"8\" y1=\"12\" x2=\"16\" y2=\"12\"/><line x1=\"8\" y1=\"16\" x2=\"12\" y2=\"16\"/></svg>"
 };
 
   var BASIQUE = { id: 'sendly-basique', label: 'BASIQUE' };
   var LAYOUT = { id: 'sendly-layout', label: 'MISE EN PAGE' };
+
+  /** page | email-mjml | email-html — le formulaire hôte et le textarea
+   *  MJML font foi (même lecture que builder.service.js). */
+  function modeEditeur() {
+    if (mQuery('form[name="page"]').length) { return 'page'; }
+    var mjml = document.querySelector('textarea.builder-mjml');
+    return mjml && mjml.value.length ? 'email-mjml' : 'email-html';
+  }
+
+  /** Commande de fermeture SANS appliquer du préréglage, par mode. */
+  function commandeFermeture(mode) {
+    return { 'page': 'mautic-editor-page-html-close', 'email-mjml': 'mautic-editor-email-mjml-close', 'email-html': 'mautic-editor-email-html-close' }[mode];
+  }
 
   /** id de bloc -> [libellé, icône, catégorie B|L, ordre maquette] */
   var MAP = {
@@ -79,14 +100,58 @@
     'column3-7': ['30 / 70', '30 / 70', 'L', 4],
   };
 
-  function remapBlocks(editor) {
+  /** Éditeur d'e-mails MJML (grapesjs-mjml + blocs Mautic), relevé 07/09. */
+  var MAP_MJML = {
+    'mj-text': ['Texte', 'TEXTE', 'B', 1],
+    'mj-button': ['Bouton', 'BOUTON', 'B', 2],
+    'mj-image': ['Image', 'IMAGE', 'B', 3],
+    'mj-divider': ['Séparateur', 'SÉPARATEUR', 'B', 4],
+    'mj-spacer': ['Espace', 'ESPACE', 'B', 5],
+    'mj-social-group': ['Réseaux sociaux', 'RÉSEAUX SOCIAUX', 'B', 6],
+    'mj-social-element': ['Icône sociale', 'RÉSEAUX SOCIAUX', 'B', 7],
+    'mj-hero': ['Héros', 'HÉROS', 'B', 8],
+    'mj-navbar': ['Barre de navigation', 'BARRE DE NAVIGATION', 'B', 9],
+    'mj-navbar-link': ['Lien de navigation', 'LIEN', 'B', 10],
+    'text-sect': ['Section de texte', 'TEXTE', 'B', 11],
+    'grid-items': ['Grille', 'GRILLE', 'B', 12],
+    'list-items': ['Liste', 'LISTE', 'B', 13],
+    'dynamic-content': ['Contenu dynamique', 'CODE', 'B', 14],
+    'mj-1-column': ['1 colonne', '1 COLONNE', 'L', 1],
+    'mj-2-columns': ['2 colonnes', '2 COLONNES', 'L', 2],
+    'mj-3-columns': ['3 colonnes', '3 COLONNES', 'L', 3],
+    'mj-37-columns': ['30 / 70', '30 / 70', 'L', 4],
+  };
+
+  /** Éditeur d'e-mails HTML (grapesjs-preset-newsletter + blocs Mautic). */
+  var MAP_HTML = {
+    'text': ['Texte', 'TEXTE', 'B', 1],
+    'button': ['Bouton', 'BOUTON', 'B', 2],
+    'image': ['Image', 'IMAGE', 'B', 3],
+    'divider': ['Séparateur', 'SÉPARATEUR', 'B', 4],
+    'quote': ['Citation', 'CITATION', 'B', 5],
+    'link': ['Lien', 'LIEN', 'B', 6],
+    'link-block': ['Lien encadré', 'LIEN', 'B', 7],
+    'text-sect': ['Section de texte', 'TEXTE', 'B', 8],
+    'grid-items': ['Grille', 'GRILLE', 'B', 9],
+    'list-items': ['Liste', 'LISTE', 'B', 10],
+    'dynamic-content': ['Contenu dynamique', 'CODE', 'B', 11],
+    'sect100': ['1 colonne', '1 COLONNE', 'L', 1],
+    'sect50': ['2 colonnes', '2 COLONNES', 'L', 2],
+    'sect30': ['3 colonnes', '3 COLONNES', 'L', 3],
+    'sect37': ['30 / 70', '30 / 70', 'L', 4],
+  };
+
+  var MAPS = { 'page': MAP, 'email-mjml': MAP_MJML, 'email-html': MAP_HTML };
+
+  function remapBlocks(editor, mode) {
     var bm = editor.Blocks;
+    var carte = MAPS[mode] || MAP;
     var releve = bm.getAll().map(function (b) {
       return { id: b.get('id'), label: b.get('label'), attrs: Object.assign({}, b.attributes) };
     });
 
     releve.forEach(function (item) {
-      var m = MAP[item.id];
+      var m = carte[item.id];
       // le bloc bouton du thème et « Text section » ont des ids variables :
       // rattrapage par libellé (relevé le 10/08 : gjs-fonts gjs-f-button)
       if (!m && /button|bouton/i.test(String(item.label))) { m = ['Bouton', 'BOUTON', 'B', 8]; }
@@ -100,6 +165,12 @@
         order: m[3],
       }));
     });
+
+    // Les tuiles AJOUTÉES sont propres au webpage : l'e-mail a déjà son
+    // séparateur et ses réseaux sociaux (mj-divider, mj-social-group), n'a
+    // pas de formulaire embarqué, et son entrée IA reste le bouton ✨ de la
+    // barre (ai-email-builder.js) tant que la tuile n'est pas portée.
+    if (mode !== 'page') { trierBlocs(bm); return; }
 
     bm.add('sendly-separator', { label: 'Séparateur', media: ICONS['SÉPARATEUR'], category: BASIQUE, order: 14,
       content: '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0"/>' });
@@ -124,6 +195,10 @@
       bm.add('sendly-ia', { label: 'Assistant IA', media: ICONS['ASSISTANT IA'], category: BASIQUE, order: 17, content: '<div data-sendly-ia-drop="1"></div>' });
     }
 
+    trierBlocs(bm);
+  }
+
+  function trierBlocs(bm) {
     // Tri = ordre visuel (la vue rend dans l'ordre de collection)…
     var tous = bm.getAll().map(function (b) {
       var cat = b.get('category');
@@ -143,8 +218,9 @@
     });
   }
 
-  function remapPanels(editor) {
+  function remapPanels(editor, mode) {
     var pm = editor.Panels;
+    var fermer = commandeFermeture(mode);
 
     var bBlocks = pm.getButton('views', 'open-blocks');
     var bSm = pm.getButton('views', 'open-sm');
@@ -216,13 +292,14 @@
     // recharger la page).
     editor.on('stop:preset-mautic:apply-form', function () {
       setTimeout(function () {
-        var champ = document.querySelector('input[name="page[version]"]');
+        // page[version] ou emailform[version] : même verrou optimiste.
+        var champ = document.querySelector('input[name$="[version]"]');
         if (!champ) { return; }
         fetch(window.location.pathname, { credentials: 'same-origin', cache: 'no-store' })
           .then(function (r) { return r.text(); })
           .then(function (html) {
             var doc = new DOMParser().parseFromString(html, 'text/html');
-            var frais = doc.querySelector('input[name="page[version]"]');
+            var frais = doc.querySelector('input[name="' + champ.getAttribute('name') + '"]');
             if (frais && frais.value) { champ.value = frais.value; }
           })
           .catch(function () { /* hors ligne : le prochain save retentera */ });
@@ -254,7 +331,7 @@
     pm.addButton('options', { id: 'sendly-effacer', label: 'Effacer', className: 'sendly-btn-ghost',
       command: 'core:canvas-clear', attributes: { title: 'Vider la page' } });
     pm.addButton('options', { id: 'sendly-annuler', label: 'Annuler', className: 'sendly-btn-ghost',
-      command: function (ed) { ed.runCommand('mautic-editor-page-html-close'); }, attributes: { title: 'Fermer sans appliquer' } });
+      command: function (ed) { ed.runCommand(fermer); }, attributes: { title: 'Fermer sans appliquer' } });
     // « Enregistrer » SANS fermer (demande proprio 12/08 : « le builder se
     // ferme au moment du clic, il faut que je réouvre pour continuer ») :
     // même VRAI enregistrement que Terminer (proxy apply-form), le
@@ -290,20 +367,26 @@
         var proxy = pm.getButton('options', 'sendly-apply-proxy');
         if (proxy) {
           ed.once('stop:preset-mautic:apply-form', function () {
-            setTimeout(function () { ed.runCommand('mautic-editor-page-html-close'); }, 400);
+            setTimeout(function () { ed.runCommand(fermer); }, 400);
           });
           proxy.set('active', 0, { silent: true });
           proxy.set('active', 1);
         } else {
-          ed.runCommand('mautic-editor-page-html-close');
+          ed.runCommand(fermer);
         }
       }, attributes: { title: 'Enregistrer et fermer' } });
 
-    ['fullscreen', 'code-edit', 'ai-generate', 'sw-visibility'].forEach(function (id) {
+    // Options (P3 / E3) porte le mode Code et la case Contours dans les
+    // deux éditeurs ; la tuile IA remplace l'étincelle sur le webpage, et
+    // l'✨ IA de l'e-mail reste dans la barre tant que sa tuile n'est pas
+    // portée (lot E5). Le plein écran sort partout (déjà plein écran).
+    var sorties = mode === 'page' ? ['fullscreen', 'code-edit', 'ai-generate', 'sw-visibility'] : ['fullscreen', 'code-edit', 'sw-visibility'];
+    sorties.forEach(function (id) {
       if (pm.getButton('options', id)) { pm.removeButton('options', id); }
     });
-    // Le préréglage active les contours AVANT ce retrait : couper la commande,
-    // sinon ils restent affichés sans plus aucun interrupteur.
+    // Le préréglage active les contours AVANT ce retrait : couper la
+    // commande, sinon ils restent affichés sans plus aucun interrupteur
+    // (builder-contours-defaut les rallume ensuite, case cochée).
     editor.stopCommand('sw-visibility');
 
     // Composants AVANT Styles : la vue des panels ne re-rend pas la
@@ -320,9 +403,10 @@
 
   window.MauticGrapesJsPlugins.push({
     name: 'sendly-composants',
-    context: ['page'],
+    context: ['page', 'email-mjml', 'email-html'],
     plugin: function (editor) {
       editor.on('load', function () {
+        var mode = modeEditeur();
       // P6 : le gestionnaire d'images parle français. Surcharge des clés
       // `en` (la locale active) : chirurgical, aucune autre chaîne touchée.
       editor.I18n.addMessages({ en: { assetManager: {
@@ -332,8 +416,8 @@
         uploadTitle: 'Déposez vos fichiers ici ou cliquez pour téléverser',
       } } });
 
-        remapBlocks(editor);
-        remapPanels(editor);
+        remapBlocks(editor, mode);
+        remapPanels(editor, mode);
       });
     },
   });
