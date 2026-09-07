@@ -8,8 +8,13 @@
  * en direct sur le vrai éditeur avant d'être gravée ici.
  *
  * Enregistré via l'accroche OFFICIELLE `window.MauticGrapesJsPlugins`,
- * contexte ['page'] : l'éditeur d'e-mails ne voit rien de tout ceci.
- * Fichier agrégé dans app.js — aucun rebuild Parcel.
+ * contextes ['page', 'email-mjml', 'email-html'] depuis le lot E2 (07/09,
+ * refonte de l'éditeur d'e-mails) : l'e-mail MJML a SA matrice (les
+ * composants mj-* se stylent par ATTRIBUTS MJML — align, padding,
+ * container-background-color… — et chaque type déclare ses propriétés
+ * `stylable`, GrapesJS masque le reste) ; l'e-mail HTML (préréglage
+ * newsletter, tables) reprend la matrice du webpage. Fichier agrégé dans
+ * app.js — aucun rebuild Parcel.
  *
  * Architecture retenue (chaque piège ci-dessous a été CONSTATÉ en direct) :
  * - Les 10 secteurs sont enregistrés UNE FOIS au chargement, puis la bascule
@@ -37,7 +42,16 @@
     window.MauticGrapesJsPlugins = [];
   }
 
-  var KINDS = ['texte', 'bouton', 'image', 'section', 'page', 'video', 'carte', 'rebours', 'separateur', 'navbar', 'formulaire'];
+  var KINDS = ['texte', 'bouton', 'image', 'section', 'page', 'video', 'carte', 'rebours', 'separateur', 'navbar', 'formulaire',
+    // lot E2 — familles propres à l'e-mail MJML
+    'colonne', 'espace', 'reseaux', 'liennav', 'heros'];
+
+  /** page | email-mjml | email-html — même lecture que builder-composants.js. */
+  function modeEditeur() {
+    if (mQuery('form[name="page"]').length) { return 'page'; }
+    var mjml = document.querySelector('textarea.builder-mjml');
+    return mjml && mjml.value.length ? 'email-mjml' : 'email-html';
+  }
 
   var TRAITS_FR = {
     href: 'Lien',
@@ -158,6 +172,109 @@
       margeExterne(),
     ] },
   };
+
+  // ── Matrice MJML (lot E2, réglée en direct sur l'e-mail 10 d'Eweb Agency
+  //    le 07/09 : chaque écriture aboutit à un ATTRIBUT MJML, vérifié dans le
+  //    MJML rendu — `font-size="22px" align="center"`). Les propriétés
+  //    propres à MJML (align, container-background-color, background-url,
+  //    icon-size, vertical-align) sont DÉFINIES ici : `extend` ne connaît que
+  //    les natives de GrapesJS, pas celles que grapesjs-mjml ajoute.
+  function alignMjml() {
+    return { type: 'radio', property: 'align', name: 'Alignement', options: [
+      { id: 'left', label: 'G' }, { id: 'center', label: 'C' }, { id: 'right', label: 'D' }] };
+  }
+  function fondBloc() { return { type: 'color', property: 'container-background-color', name: 'Fond du bloc' }; }
+  function paddingMjml() { return { extend: 'padding', name: 'Marge interne', detached: true }; }
+  function imageFond() { return { type: 'file', property: 'background-url', name: 'Image de fond', functionName: '' }; }
+  function alignVertical() {
+    return { type: 'select', property: 'vertical-align', name: 'Alignement vertical', options: [
+      { id: 'top', label: 'Haut' }, { id: 'middle', label: 'Centre' }, { id: 'bottom', label: 'Bas' }] };
+  }
+
+  var SETS_MJML = {
+    texte: { id: 's-texte', name: 'Paramètres du texte', open: true, properties: [
+      police(), slider('font-size', 'Taille', ['px'], 8, 72, 1), graisse(),
+      slider('line-height', 'Hauteur de ligne', ['px'], 10, 80, 1),
+      slider('letter-spacing', 'Espacement des lettres', ['px'], -3, 12, 0.5),
+      alignMjml(),
+      { type: 'color', property: 'color', name: 'Couleur' },
+      fondBloc(), paddingMjml(),
+    ] },
+    bouton: { id: 's-bouton', name: 'Paramètres du bouton', open: true, properties: [
+      { type: 'color', property: 'color', name: 'Couleur du texte' },
+      { type: 'color', property: 'background-color', name: "Couleur d'arrière-plan" },
+      police(), slider('font-size', 'Taille', ['px'], 8, 48, 1), graisse(), alignMjml(),
+      paddingMjml(),
+      { extend: 'border-radius', name: 'Rayon de bordure' },
+      { extend: 'border', name: 'Bordure' },
+      fondBloc(),
+    ] },
+    image: { id: 's-image', name: "Paramètres de l'image", open: true, properties: [
+      slider('width', 'Largeur', ['px'], 40, 640, 10), alignMjml(),
+      { extend: 'border-radius', name: 'Rayon de bordure' },
+      { extend: 'border', name: 'Bordure' },
+      paddingMjml(), fondBloc(),
+    ] },
+    section: { id: 's-section', name: 'Paramètres de la section', open: true, properties: [
+      { type: 'color', property: 'background-color', name: "Couleur d'arrière-plan" },
+      imageFond(), paddingMjml(),
+      { extend: 'border', name: 'Bordure' },
+      { extend: 'border-radius', name: 'Rayon de bordure' },
+    ] },
+    colonne: { id: 's-colonne', name: 'Paramètres de la colonne', open: true, properties: [
+      { type: 'color', property: 'background-color', name: "Couleur d'arrière-plan" },
+      slider('width', 'Largeur', ['%'], 10, 100, 5), alignVertical(), paddingMjml(),
+      { extend: 'border', name: 'Bordure' },
+      { extend: 'border-radius', name: 'Rayon de bordure' },
+    ] },
+    page: { id: 's-page', name: "Paramètres de l'e-mail", open: true, properties: [
+      { type: 'color', property: 'background-color', name: "Couleur d'arrière-plan" },
+      slider('width', 'Largeur du contenu', ['px'], 480, 800, 10),
+    ] },
+    separateur: { id: 's-separateur', name: 'Paramètres du séparateur', open: true, properties: [
+      slider('border-width', 'Épaisseur', ['px'], 1, 20, 1),
+      { type: 'select', property: 'border-style', name: 'Style', options: [
+        { id: 'solid', label: 'Plein' }, { id: 'dashed', label: 'Tirets' }, { id: 'dotted', label: 'Points' }] },
+      { type: 'color', property: 'border-color', name: 'Couleur' },
+      slider('width', 'Largeur', ['%'], 10, 100, 5),
+      paddingMjml(), fondBloc(),
+    ] },
+    espace: { id: 's-espace', name: "Paramètres de l'espace", open: true, properties: [
+      slider('height', 'Hauteur', ['px'], 4, 200, 2), fondBloc(),
+    ] },
+    reseaux: { id: 's-reseaux', name: 'Paramètres des réseaux sociaux', open: true, properties: [
+      slider('icon-size', 'Taille des icônes', ['px'], 12, 64, 2), alignMjml(),
+      { type: 'color', property: 'color', name: 'Couleur du texte' },
+      police(), slider('font-size', 'Taille', ['px'], 8, 32, 1),
+      paddingMjml(),
+      { extend: 'border-radius', name: 'Rayon de bordure' },
+      fondBloc(),
+    ] },
+    liennav: { id: 's-liennav', name: 'Paramètres du lien', open: true, properties: [
+      police(), slider('font-size', 'Taille', ['px'], 8, 32, 1), graisse(),
+      { type: 'color', property: 'color', name: 'Couleur' }, paddingMjml(),
+    ] },
+    heros: { id: 's-heros', name: 'Paramètres du héros', open: true, properties: [
+      { type: 'color', property: 'background-color', name: "Couleur d'arrière-plan" },
+      imageFond(), slider('height', 'Hauteur', ['px'], 100, 800, 10), alignVertical(), paddingMjml(),
+    ] },
+  };
+
+  /** Type MJML -> famille ; un enfant sans famille (texte brut, lien dans un
+   *  mj-text…) remonte au premier ancêtre qui en a une. */
+  var KIND_MJML = {
+    'mj-text': 'texte', 'mj-button': 'bouton', 'mj-image': 'image',
+    'mj-section': 'section', 'mj-wrapper': 'section',
+    'mj-column': 'colonne', 'mj-group': 'colonne', 'mj-body': 'page',
+    'mj-divider': 'separateur', 'mj-spacer': 'espace',
+    'mj-social': 'reseaux', 'mj-social-element': 'reseaux',
+    'mj-navbar-link': 'liennav', 'mj-hero': 'heros',
+  };
+  function kindOfMjml(c) {
+    var cur = c;
+    while (cur && !KIND_MJML[cur.get('type')]) { cur = cur.parent ? cur.parent() : null; }
+    return cur ? KIND_MJML[cur.get('type')] : 'page';
+  }
 
   /** Le contrôle signature de la maquette : champ numérique + slider liés.
    *  L'écriture passe par `upValue` du MODÈLE de propriété — la SEULE voie
@@ -365,13 +482,17 @@
 
   window.MauticGrapesJsPlugins.push({
     name: 'sendly-styles',
-    context: ['page'],
+    context: ['page', 'email-mjml', 'email-html'],
     plugin: function (editor) {
+      var mode = modeEditeur();
+      var matrice = 'email-mjml' === mode ? SETS_MJML : SETS;
+      var famille = 'email-mjml' === mode ? kindOfMjml : kindOf;
+      var familleCourante = function () { return editor.getSelected() ? famille(editor.getSelected()) : 'page'; };
       registerSliderType(editor);
       editor.on('load', function () {
         var sm = editor.StyleManager;
-        Object.keys(SETS).forEach(function (kind) {
-          var def = SETS[kind];
+        Object.keys(matrice).forEach(function (kind) {
+          var def = matrice[kind];
           if (!sm.getSector(def.id)) { sm.addSector(def.id, def); }
         });
         dedupeSectorDom();
@@ -382,12 +503,19 @@
         applyKind('page');
       });
       editor.on('component:selected', function (c) {
-        applyKind(kindOf(c));
+        applyKind(famille(c));
         franciserTraits(c);
-        if ('formulaire' === kindOf(c)) { equiperFormulaire(c); }
+        if ('page' === mode && 'formulaire' === kindOf(c)) { equiperFormulaire(c); }
       });
       editor.on('component:deselected', function () {
         if (!editor.getSelected()) { applyKind('page'); }
+      });
+      // L'ouverture de l'onglet Styles RE-REND le conteneur des secteurs :
+      // l'attribut de famille posé à la sélection disparaît avec l'ancien
+      // conteneur (constaté en e-mail le 07/09 : « Paramètres de l'e-mail »
+      // affiché avec un texte sélectionné). Re-posé après le rendu.
+      editor.on('run:open-sm', function () {
+        setTimeout(function () { applyKind(familleCourante()); }, 0);
       });
       // Changer d'appareil laissait l'overlay de sélection à la géométrie
       // de l'appareil PRÉCÉDENT (badge + contour orphelins — défaut proprio
@@ -411,7 +539,7 @@
       editor.on('load', centrerEnRafale);
       window.addEventListener('resize', centrerCadre);
       editor.on('component:update:attributes', function (c) {
-        if ('formulaire' === kindOf(c)) { poserJetonFormulaire(c); }
+        if ('page' === mode && 'formulaire' === kindOf(c)) { poserJetonFormulaire(c); }
       });
     },
   });

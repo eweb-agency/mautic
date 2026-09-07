@@ -237,6 +237,12 @@
 :is(.gjs-mode-page, .gjs-mode-email) .gjs-sm-sectors[data-sendly-kind="separateur"] .gjs-sm-sector__s-separateur { display: block; }
 :is(.gjs-mode-page, .gjs-mode-email) .gjs-sm-sectors[data-sendly-kind="navbar"] .gjs-sm-sector__s-navbar { display: block; }
 :is(.gjs-mode-page, .gjs-mode-email) .gjs-sm-sectors[data-sendly-kind="formulaire"] .gjs-sm-sector__s-formulaire { display: block; }
+/* Lot E2 — familles propres à l'e-mail MJML. */
+:is(.gjs-mode-page, .gjs-mode-email) .gjs-sm-sectors[data-sendly-kind="colonne"] .gjs-sm-sector__s-colonne { display: block; }
+:is(.gjs-mode-page, .gjs-mode-email) .gjs-sm-sectors[data-sendly-kind="espace"] .gjs-sm-sector__s-espace { display: block; }
+:is(.gjs-mode-page, .gjs-mode-email) .gjs-sm-sectors[data-sendly-kind="reseaux"] .gjs-sm-sector__s-reseaux { display: block; }
+:is(.gjs-mode-page, .gjs-mode-email) .gjs-sm-sectors[data-sendly-kind="liennav"] .gjs-sm-sector__s-liennav { display: block; }
+:is(.gjs-mode-page, .gjs-mode-email) .gjs-sm-sectors[data-sendly-kind="heros"] .gjs-sm-sector__s-heros { display: block; }
 
 /* Le contrôle signature de la maquette : champ numérique + slider liés. */
 :is(.gjs-mode-page, .gjs-mode-email) .sendly-sldin { display: flex; align-items: center; gap: 8px; }

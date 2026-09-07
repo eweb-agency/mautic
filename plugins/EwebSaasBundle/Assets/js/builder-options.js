@@ -7,8 +7,10 @@
  * POST : les valeurs partent avec « Terminer » comme si elles avaient été
  * saisies dans l'écran natif.
  *
- * Enregistré via `window.MauticGrapesJsPlugins`, contexte ['page'] : rien
- * ne fuit sur l'éditeur d'e-mails. Fichier agrégé dans app.js, aucun
+ * Enregistré via `window.MauticGrapesJsPlugins`, contextes ['page',
+ * 'email-mjml', 'email-html'] depuis le lot E3 (07/09) : l'e-mail a SA vue
+ * (objet, pré-en-tête, expéditeur, publication, UTM) branchée sur le
+ * formulaire natif `emailform`, la page garde la sienne. Fichier agrégé dans app.js, aucun
  * rebuild Parcel. S'exécute APRÈS builder-composants.js (ordre alphabétique
  * d'agrégation = ordre d'enregistrement des plugins = ordre des écouteurs
  * 'load') : les retraits de boutons de la P2 précèdent nos ajouts.
@@ -34,12 +36,25 @@
     window.MauticGrapesJsPlugins = [];
   }
 
+  /** page | email — le formulaire hôte fait foi (même lecture que
+   *  builder-shell.js) ; il porte le nom du formulaire ET le préfixe des
+   *  champs (page[…] / emailform[…]). */
+  function formulaire() {
+    return mQuery('form[name="page"]').length ? 'page' : 'emailform';
+  }
+
+  /** `utmTags.utmSource` -> `emailform[utmTags][utmSource]`. */
+  function selecteur(nom) {
+    var f = formulaire();
+    return 'form[name="' + f + '"] [name="' + f + '[' + nom.split('.').join('][') + ']"]';
+  }
+
   function champNatif(nom) {
-    return document.querySelector('form[name="page"] [name="page[' + nom + ']"]');
+    return document.querySelector(selecteur(nom));
   }
 
   function tousLesChampsNatifs(nom) {
-    return document.querySelectorAll('form[name="page"] [name="page[' + nom + ']"]');
+    return document.querySelectorAll(selecteur(nom));
   }
 
   function optionsDe(sel) {
@@ -53,8 +68,39 @@
     var vue = document.createElement('div');
     vue.id = 'sendly-options-view';
     vue.style.display = 'none';
-    vue.innerHTML =
-      '<div class="sendly-opt-titre">Page</div>'
+    vue.innerHTML = 'page' === formulaire() ? vuePage() : vueEmail();
+    cont.appendChild(vue);
+    return vue;
+  }
+
+  /** Lot E3 : les réglages de l'E-MAIL sans quitter l'éditeur. */
+  function vueEmail() {
+    return '<div class="sendly-opt-titre">E-mail</div>'
+      + '<label class="sendly-opt-row"><span>Nom interne</span><input data-nat="name" type="text"></label>'
+      + '<label class="sendly-opt-row"><span>Objet</span><input data-nat="subject" type="text"></label>'
+      + '<label class="sendly-opt-row"><span>Pré-en-tête</span><input data-nat="preheaderText" type="text" placeholder="le texte visible avant l\'ouverture"></label>'
+      + '<label class="sendly-opt-row"><span>Langue</span><select data-nat="language">' + optionsDe(champNatif('language')) + '</select></label>'
+      + '<label class="sendly-opt-row"><span>Catégorie</span><select data-nat="category">' + optionsDe(champNatif('category')) + '</select></label>'
+      + '<div class="sendly-opt-titre">Expéditeur</div>'
+      + '<label class="sendly-opt-row"><span>Nom</span><input data-nat="fromName" type="text"></label>'
+      + '<label class="sendly-opt-row"><span>Adresse</span><input data-nat="fromAddress" type="text"></label>'
+      + '<label class="sendly-opt-row"><span>Répondre à</span><input data-nat="replyToAddress" type="text"></label>'
+      + '<div class="sendly-opt-titre">Publication</div>'
+      + '<label class="sendly-opt-check"><input data-nat-radio="isPublished" type="checkbox"><span>E-mail publié</span></label>'
+      + '<label class="sendly-opt-row"><span>Publier le</span><input data-nat="publishUp" type="text" placeholder="2026-09-15 09:00"></label>'
+      + '<label class="sendly-opt-row"><span>Dépublier le</span><input data-nat="publishDown" type="text" placeholder="laisser vide = jamais"></label>'
+      + '<div class="sendly-opt-titre">Suivi des liens (UTM)</div>'
+      + '<label class="sendly-opt-row"><span>Source</span><input data-nat="utmTags.utmSource" type="text"></label>'
+      + '<label class="sendly-opt-row"><span>Support</span><input data-nat="utmTags.utmMedium" type="text"></label>'
+      + '<label class="sendly-opt-row"><span>Campagne</span><input data-nat="utmTags.utmCampaign" type="text"></label>'
+      + '<label class="sendly-opt-row"><span>Contenu</span><input data-nat="utmTags.utmContent" type="text"></label>'
+      + '<div class="sendly-opt-titre">Éditeur</div>'
+      + '<label class="sendly-opt-check"><input id="sendly-opt-contours" type="checkbox"><span>Contours des blocs</span></label>'
+      + '<button id="sendly-opt-code" type="button" class="sendly-opt-bouton">Modifier le code de l\'e-mail</button>';
+  }
+
+  function vuePage() {
+    return '<div class="sendly-opt-titre">Page</div>'
       + '<label class="sendly-opt-row"><span>Titre</span><input data-nat="title" type="text"></label>'
       + '<label class="sendly-opt-row"><span>Langue</span><select data-nat="language">' + optionsDe(champNatif('language')) + '</select></label>'
       + '<label class="sendly-opt-row"><span>Catégorie</span><select data-nat="category">' + optionsDe(champNatif('category')) + '</select></label>'
@@ -73,8 +119,6 @@
       + '<div class="sendly-opt-titre">Éditeur</div>'
       + '<label class="sendly-opt-check"><input id="sendly-opt-contours" type="checkbox"><span>Contours des blocs</span></label>'
       + '<button id="sendly-opt-code" type="button" class="sendly-opt-bouton">Modifier le code de la page</button>';
-    cont.appendChild(vue);
-    return vue;
   }
 
   /** Lecture : le formulaire natif fait foi à chaque ouverture de l'onglet. */
@@ -117,7 +161,7 @@
 
   window.MauticGrapesJsPlugins.push({
     name: 'sendly-options',
-    context: ['page'],
+    context: ['page', 'email-mjml', 'email-html'],
     plugin: function (editor) {
       editor.on('load', function () {
         var pm = editor.Panels;

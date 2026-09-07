@@ -27,7 +27,11 @@ final class BuilderRteTest extends TestCase
         self::assertStringContainsString('editor.setCustomRte({', $js);
         self::assertStringContainsString('parseContent: true', $js);
         self::assertStringNotContainsString("components('')", $js, "components('') aplatit l'arbre (piège historique de la modale)");
-        self::assertStringContainsString("context: ['page']", $js, "l'éditeur d'e-mails garde sa modale");
+        // Lot E4 (07/09) : l'éditeur d'e-mails perd sa modale à son tour ;
+        // seule différence, l'action des jetons suit le formulaire hôte.
+        self::assertStringContainsString("context: ['page', 'email-mjml', 'email-html']", $js);
+        self::assertStringContainsString("var actionJetons = (mQuery('form[name=\"page\"]').length ? 'page' : 'email') + ':getBuilderTokens';", $js);
+        self::assertStringNotContainsString("'page:getBuilderTokens'", $js, 'aucune action de jetons figée sur la page');
     }
 
     public function testLaConfigEstCloneeDansLeRealmDeLIframe(): void

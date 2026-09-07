@@ -376,19 +376,18 @@
         }
       }, attributes: { title: 'Enregistrer et fermer' } });
 
-    // Webpage : Options (P3) porte le mode Code et la case Contours, la
-    // tuile IA remplace l'étincelle. E-mail (lot E1) : ces relais n'existent
-    // pas encore — code, contours et ✨ IA restent dans la barre, seul le
-    // plein écran (déjà plein écran) sort.
-    var sorties = mode === 'page' ? ['fullscreen', 'code-edit', 'ai-generate', 'sw-visibility'] : ['fullscreen'];
+    // Options (P3 / E3) porte le mode Code et la case Contours dans les
+    // deux éditeurs ; la tuile IA remplace l'étincelle sur le webpage, et
+    // l'✨ IA de l'e-mail reste dans la barre tant que sa tuile n'est pas
+    // portée (lot E5). Le plein écran sort partout (déjà plein écran).
+    var sorties = mode === 'page' ? ['fullscreen', 'code-edit', 'ai-generate', 'sw-visibility'] : ['fullscreen', 'code-edit', 'sw-visibility'];
     sorties.forEach(function (id) {
       if (pm.getButton('options', id)) { pm.removeButton('options', id); }
     });
-    if (mode === 'page') {
-      // Le préréglage active les contours AVANT ce retrait : couper la
-      // commande, sinon ils restent affichés sans plus aucun interrupteur.
-      editor.stopCommand('sw-visibility');
-    }
+    // Le préréglage active les contours AVANT ce retrait : couper la
+    // commande, sinon ils restent affichés sans plus aucun interrupteur
+    // (builder-contours-defaut les rallume ensuite, case cochée).
+    editor.stopCommand('sw-visibility');
 
     // Composants AVANT Styles : la vue des panels ne re-rend pas la
     // collection, on réordonne donc le DOM rendu.
