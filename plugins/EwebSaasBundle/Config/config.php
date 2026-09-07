@@ -74,6 +74,11 @@ return [
                 'controller' => 'MauticPlugin\EwebSaasBundle\Controller\Api\SaasStatsController::contactsAction',
                 'method'     => 'GET',
             ],
+            'eweb_saas_api_integrations' => [
+                'path'       => '/saas/v1/integrations',
+                'controller' => 'MauticPlugin\EwebSaasBundle\Controller\Api\SaasIntegrationsController::statesAction',
+                'method'     => 'GET',
+            ],
             'eweb_saas_api_hygiene_dnc' => [
                 'path'       => '/saas/v1/hygiene/dnc',
                 'controller' => 'MauticPlugin\EwebSaasBundle\Controller\Api\SaasHygieneController::dncAction',
