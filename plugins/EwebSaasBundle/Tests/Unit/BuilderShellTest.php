@@ -51,6 +51,8 @@ final class BuilderShellTest extends TestCase
 
         $theme = (string) file_get_contents(self::THEME);
         self::assertStringContainsString('.gjs-mode-page', $theme);
+        // Lot E1 : le thème sert aussi l'éditeur d'e-mails, par le même scope.
+        self::assertStringContainsString(':is(.gjs-mode-page, .gjs-mode-email)', $theme);
 
         // CLOISONNEMENT MÉCANIQUE : tout sélecteur qui touche au namespace
         // global .gjs-* doit porter le scope de mode — une seule règle nue

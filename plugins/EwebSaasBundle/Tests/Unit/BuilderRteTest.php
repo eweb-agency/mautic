@@ -213,7 +213,7 @@ final class BuilderRteTest extends TestCase
 
         self::assertStringContainsString("classList.add('sendly-rte-active')", $js);
         self::assertStringContainsString("classList.remove('sendly-rte-active')", $js);
-        self::assertStringContainsString('body.sendly-rte-active .gjs-mode-page .gjs-toolbar', $theme);
+        self::assertStringContainsString('body.sendly-rte-active :is(.gjs-mode-page, .gjs-mode-email) .gjs-toolbar', $theme);
     }
 
     public function testLeMenuDesJetonsEstCherchableEtGroupe(): void

@@ -46,7 +46,7 @@ final class BuilderStylesTest extends TestCase
         $theme = (string) file_get_contents(self::THEME);
 
         self::assertStringContainsString('[data-sendly-kind] .gjs-sm-sector { display: none; }', $theme);
-        self::assertStringNotContainsString('.gjs-mode-page .gjs-sm-sector { display: none; }', $theme, 'masquage sans garde-attribut = panneau Styles VIDE si le script ne tourne pas');
+        self::assertStringNotContainsString(':is(.gjs-mode-page, .gjs-mode-email) .gjs-sm-sector { display: none; }', $theme, 'masquage sans garde-attribut = panneau Styles VIDE si le script ne tourne pas');
         // La VALEUR du marqueur avance a chaque phase : seule la phase la
         // plus recente l'epingle (ici BuilderOptionsTest).
         self::assertStringContainsString('--sendly-builder-theme:', $theme);

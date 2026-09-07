@@ -22,7 +22,15 @@ final class BuilderComposantsTest extends TestCase
 
         self::assertStringContainsString('window.MauticGrapesJsPlugins', $js);
         self::assertStringContainsString("name: 'sendly-composants'", $js);
-        self::assertStringContainsString("context: ['page']", $js, 'sans ce contexte, l editeur d e-mails heriterait du remap');
+        // Lot E1 (07/09) : l'éditeur d'e-mails est DANS le périmètre, avec sa
+        // propre table de blocs et ses propres commandes de fermeture.
+        self::assertStringContainsString("context: ['page', 'email-mjml', 'email-html']", $js);
+        self::assertStringContainsString('MAP_MJML', $js);
+        self::assertStringContainsString("'mj-text': ['Texte'", $js);
+        self::assertStringContainsString("'sect100': ['1 colonne'", $js, 'préréglage newsletter (e-mail HTML)');
+        self::assertStringContainsString('mautic-editor-email-mjml-close', $js);
+        self::assertStringContainsString('mautic-editor-email-html-close', $js);
+        self::assertStringContainsString('input[name$="[version]"]', $js, 'le verrou optimiste vaut pour page ET emailform');
     }
 
     public function testLInventaireMaquetteEstCompletEtFrancais(): void
@@ -67,7 +75,7 @@ final class BuilderComposantsTest extends TestCase
         // relue depuis le serveur (DOMParser sur la page d'édition).
         $js = (string) file_get_contents(self::JS);
 
-        self::assertStringContainsString('input[name="page[version]"]', $js);
+        self::assertStringContainsString('input[name$="[version]"]', $js);
         self::assertStringContainsString('DOMParser', $js);
         self::assertStringContainsString("fetch(window.location.pathname, { credentials: 'same-origin', cache: 'no-store' })", $js);
     }
@@ -105,7 +113,8 @@ final class BuilderComposantsTest extends TestCase
 
         self::assertStringNotContainsString("runCommand('mautic-editor-page-html-apply')", $js, 'commande fantôme : elle n existe nulle part');
         $stop  = strpos($js, "once('stop:preset-mautic:apply-form'");
-        $close = strpos($js, "runCommand('mautic-editor-page-html-close')", (int) $stop);
+        // Lot E1 : la commande de fermeture dépend du mode (commandeFermeture).
+        $close = strpos($js, 'runCommand(fermer)', (int) $stop);
         self::assertNotFalse($stop, 'Terminer doit attendre la fin du VRAI enregistrement');
         self::assertNotFalse($close, 'Terminer doit fermer APRES l enregistrement');
     }
@@ -129,7 +138,7 @@ final class BuilderComposantsTest extends TestCase
 
         // Les <rect> Lucide se remplissaient en blanc plein : GrapesJS pose
         // fill:currentColor en CSS, qui BAT l'attribut fill="none".
-        self::assertStringContainsString('.gjs-mode-page .gjs-block svg { fill: none; }', $theme);
+        self::assertStringContainsString(':is(.gjs-mode-page, .gjs-mode-email) .gjs-block svg { fill: none; }', $theme);
         // Les conteneurs DOM des catégories héritées survivent au remap.
         self::assertStringContainsString(':not(:has(.gjs-block))', $theme);
         // Onglets texte + boutons Effacer/Annuler/Terminer.

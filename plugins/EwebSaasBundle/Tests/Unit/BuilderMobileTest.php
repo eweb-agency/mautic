@@ -98,16 +98,16 @@ final class BuilderMobileTest extends TestCase
         // Panneau → feuille du bas (poignée, coins arrondis, glissement),
         // barre de navigation fixe, pilule d'appareils masquée. Tout scopé
         // .gjs-mode-page.sendly-mobile : l'éditeur d'e-mails est intact.
-        self::assertStringContainsString('.gjs-mode-page.sendly-mobile .gjs-pn-views-container', $theme);
+        self::assertStringContainsString(':is(.gjs-mode-page, .gjs-mode-email).sendly-mobile .gjs-pn-views-container', $theme);
         self::assertStringContainsString('transform: translateY(105%)', $theme);
         self::assertStringContainsString('.sendly-feuille-ouverte .gjs-pn-views-container { transform: translateY(0); }', $theme);
-        self::assertStringContainsString('.gjs-mode-page.sendly-mobile .sendly-mobile-nav', $theme);
-        self::assertStringContainsString('.gjs-mode-page.sendly-mobile .gjs-pn-devices-c { display: none; }', $theme);
+        self::assertStringContainsString(':is(.gjs-mode-page, .gjs-mode-email).sendly-mobile .sendly-mobile-nav', $theme);
+        self::assertStringContainsString(':is(.gjs-mode-page, .gjs-mode-email).sendly-mobile .gjs-pn-devices-c { display: none; }', $theme);
         self::assertStringContainsString('sendly-poignee', $theme);
         // Aucune règle mobile hors scope mode page.
         foreach (explode("\n", $theme) as $ligne) {
             if (str_contains($ligne, '.sendly-mobile ') && str_contains($ligne, '{')) {
-                self::assertStringContainsString('.gjs-mode-page.sendly-mobile', $ligne, 'règle mobile non scopée : '.$ligne);
+                self::assertStringContainsString(':is(.gjs-mode-page, .gjs-mode-email).sendly-mobile', $ligne, 'règle mobile non scopée : '.$ligne);
             }
         }
     }

@@ -69,7 +69,7 @@ final class BuilderRetoucheTest extends TestCase
         // (width:100% = minimum → flex), centrage+débordement coupe le
         // début (flex-start + margin:auto), Appliquer stylé inline (→
         // !important). Libellés FR sous les icônes.
-        self::assertStringContainsString('.gjs-mode-page .gjs-mdl-dialog:has(.tui-image-editor-container)', $theme);
+        self::assertStringContainsString(':is(.gjs-mode-page, .gjs-mode-email) .gjs-mdl-dialog:has(.tui-image-editor-container)', $theme);
         self::assertStringContainsString('display: flex !important', $theme);
         self::assertStringContainsString('justify-content: flex-start !important', $theme);
         self::assertStringContainsString('margin: 0 auto !important', $theme);
