@@ -34,7 +34,9 @@
 
   window.MauticGrapesJsPlugins.push({
     name: 'sendly-builder-mobile',
-    context: ['page'],
+    // Lot E6 (07/09) : l'éditeur d'e-mails aussi — le module ne touche que
+    // le chrome de l'éditeur (panneaux, feuille, modale), pas le contenu.
+    context: ['page', 'email-mjml', 'email-html'],
     plugin: function (editor) {
       editor.on('load', function () {
         var racines = document.querySelectorAll('.builder, .builder-panel');

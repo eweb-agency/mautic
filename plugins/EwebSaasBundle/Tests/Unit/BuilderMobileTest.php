@@ -21,7 +21,7 @@ final class BuilderMobileTest extends TestCase
         $js = (string) file_get_contents(self::JS);
 
         self::assertStringContainsString("name: 'sendly-builder-mobile'", $js);
-        self::assertStringContainsString("context: ['page']", $js);
+        self::assertStringContainsString("context: ['page', 'email-mjml', 'email-html']", $js);
         // Bascule par matchMedia + classe de recette pour fenêtre large.
         self::assertStringContainsString("matchMedia('(max-width: 767px)')", $js);
         self::assertStringContainsString('sendly-mobile-force', $js);
