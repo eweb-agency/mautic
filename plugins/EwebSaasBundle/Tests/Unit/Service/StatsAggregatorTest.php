@@ -303,6 +303,31 @@ class StatsAggregatorTest extends TestCase
         $this->assertSame(1, $result['pages']);
     }
 
+    /**
+     * Lot B IA : le portail réconcilie le droit FACTURÉ avec le droit
+     * APPLIQUÉ — ce dernier doit voyager dans les stats, avec la même règle
+     * que le moteur (fermé seulement si '0', défaut ouvert).
+     */
+    public function testInstanceExposesTheEnforcedAiEntitlement(): void
+    {
+        unset($_ENV['SENDLY_AI_ENTITLED'], $_SERVER['SENDLY_AI_ENTITLED']);
+        putenv('SENDLY_AI_ENTITLED');
+        $this->assertTrue(
+            $this->createAggregator(new ArrayAdapter())->getStats()['instance']['aiEntitled'],
+            'sans variable, le droit est ouvert (rétro-compatible)',
+        );
+
+        $_ENV['SENDLY_AI_ENTITLED'] = '0';
+        try {
+            $this->assertFalse(
+                $this->createAggregator(new ArrayAdapter())->getStats()['instance']['aiEntitled'],
+                "'0' ferme le droit",
+            );
+        } finally {
+            unset($_ENV['SENDLY_AI_ENTITLED']);
+        }
+    }
+
     private function createAggregator(ArrayAdapter $cache): StatsAggregator
     {
         return new StatsAggregator(

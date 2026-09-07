@@ -57,6 +57,7 @@ class StatsAggregator
      *         version: string|null,
      *         locale: string|null,
      *         planTier: string|null,
+     *         aiEntitled: bool,
      *         generatedAt: string,
      *     },
      *     quotas: array{
@@ -100,6 +101,11 @@ class StatsAggregator
                         'version'     => defined('MAUTIC_VERSION') ? (string) MAUTIC_VERSION : null,
                         'locale'      => $this->envOrNull('MAUTIC_DEFAULT_LOCALE'),
                         'planTier'    => $this->envOrNull('MAUTIC_PLAN_TIER'),
+                        // Droit IA tel que le moteur l'APPLIQUE (même règle que
+                        // AiCopilotService::isEntitled : fermé seulement si '0',
+                        // défaut ouvert) — la réconciliation du portail compare
+                        // ce constat au droit facturé (lot B IA).
+                        'aiEntitled'  => '0' !== ($this->envOrNull('SENDLY_AI_ENTITLED') ?? '1'),
                         'generatedAt' => gmdate('c'),
                     ],
                     'quotas'   => [
