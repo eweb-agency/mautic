@@ -85,9 +85,14 @@ final class AiController
                 'instruction' => mb_substr((string) ($payload['instruction'] ?? ''), 0, self::MAX_INSTRUCTION),
                 'lang'        => mb_substr((string) ($payload['lang'] ?? ''), 0, 60),
                 'format'      => 'mjml' === ($payload['format'] ?? '') ? 'mjml' : 'html',
-                // Le générateur de landing pages s'annonce (prompt dédié) ;
-                // toute autre valeur retombe sur le comportement e-mail.
-                'surface'     => 'page' === ($payload['surface'] ?? '') ? 'page' : '',
+                // Les générateurs EN PLACE s'annoncent (prompt dédié) : `page`
+                // = section de landing page, `email-section` = section
+                // d'e-mail (lot E5) ; toute autre valeur retombe sur le
+                // comportement e-mail d'origine (corps complet).
+                'surface'     => in_array($payload['surface'] ?? '', ['page', 'email-section'], true) ? (string) $payload['surface'] : '',
+                // Retouche d'un FRAGMENT (le contenu d'un bloc, pas un
+                // document) : les règles de format n'exigent plus l'enveloppe.
+                'fragment'    => (bool) ($payload['fragment'] ?? false),
             ]);
 
             return new JsonResponse(['text' => $text]);

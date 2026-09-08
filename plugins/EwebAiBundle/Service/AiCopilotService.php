@@ -260,7 +260,7 @@ class AiCopilotService
      * Génération de CONTENU d'e-mail (rédiger / améliorer / traduire).
      * L'objet passe par suggestSubjects() (retour multiple).
      *
-     * @param array{content?: string, instruction?: string, lang?: string, format?: string} $params
+     * @param array{content?: string, instruction?: string, lang?: string, format?: string, surface?: string, fragment?: bool} $params
      *
      * @throws \InvalidArgumentException mode inconnu
      * @throws \RuntimeException         échec d'appel Anthropic (message neutre)
@@ -915,6 +915,24 @@ class AiCopilotService
             return [$system, $user];
         }
 
+        // Lot E5 (07/09) : la tuile « Assistant IA » de l'éditeur d'e-mails
+        // demande UNE section en place — un fragment, jamais un document.
+        if ('email-section' === ($params['surface'] ?? '')) {
+            $system = 'You are an expert email-marketing copywriter and email developer. '
+                .'Produce ONE self-contained SECTION of a marketing email based on the user brief below. '
+                .('mjml' === $format
+                    ? 'Output exactly one <mj-section> element (one or more <mj-column> holding mj-text / mj-button / mj-image / mj-divider / mj-spacer), styled through MJML attributes only (padding, font-size, color, background-color, align). Do NOT wrap it in <mjml>, <mj-head> or <mj-body>, no comments, no CDATA. '
+                    : 'Output exactly one table-based block (a single outer <table> row) using inline CSS only, email-client safe; do not wrap it in <html>, <head> or <body>. ')
+                .'No external assets, no scripts, no images unless the brief asks for them, and never lorem ipsum — write real, specific, benefit-driven copy. '
+                .'Write in the same language as the brief, and write it like a NATIVE marketer: idiomatic, natural phrasing — never word-for-word translations or calques from English. '
+                .'Reply with ONLY the markup — no markdown code fences, no commentary.';
+
+            $brief = trim((string) ($params['instruction'] ?? ''));
+            $user  = "Brief:\n".('' !== $brief ? $brief : 'Write an intro block with a strong headline, one short paragraph and a call-to-action button.');
+
+            return [$system, $user];
+        }
+
         $system = 'You are an expert email-marketing copywriter and email developer. '
             .'Produce the BODY of a marketing email based on the user brief below. '
             .$this->formatRules($format)
@@ -935,7 +953,7 @@ class AiCopilotService
     {
         $system = 'You are an expert email-marketing copywriter. Improve the provided email content. '
             .'Keep the SAME output format and overall structure, and preserve every {token} / merge tag and every link exactly as-is. '
-            .$this->formatRules($format)
+            .$this->formatRules($format, (bool) ($params['fragment'] ?? false))
             .' Reply with ONLY the improved markup — no markdown code fences, no commentary. Keep the original language.';
 
         $instruction = trim((string) ($params['instruction'] ?? ''));
@@ -955,7 +973,7 @@ class AiCopilotService
     private function buildTranslatePrompt(array $params, string $format): array
     {
         $system = 'You translate email content. Preserve ALL markup and formatting and every {token} / merge tag and link exactly; translate only the human-readable text. '
-            .$this->formatRules($format)
+            .$this->formatRules($format, (bool) ($params['fragment'] ?? false))
             .' Reply with ONLY the translated markup — no markdown code fences, no commentary.';
 
         $lang    = trim((string) ($params['lang'] ?? '')) ?: 'English';
@@ -966,8 +984,15 @@ class AiCopilotService
         return [$system, $user];
     }
 
-    private function formatRules(string $format): string
+    private function formatRules(string $format, bool $fragment = false): string
     {
+        if ($fragment) {
+            // Retouche EN PLACE d'un bloc (lot E5) : le contenu reçu est un
+            // fragment, il doit revenir tel quel dans sa forme — jamais
+            // ré-enveloppé dans un document.
+            return 'The content is a FRAGMENT: return only that fragment with the same markup and structure — no <mjml>, <mj-body>, <html>, <head> or <body> wrapper, no comments.';
+        }
+
         return 'mjml' === $format
             ? 'Return a valid MJML document that starts with <mjml> and ends with </mjml>, using only standard MJML tags (mj-body, mj-section, mj-column, mj-text, mj-button, mj-image, mj-divider). Do not add comments or CDATA.'
             : 'Return an HTML email body fragment using inline CSS and table-based layout for email-client compatibility; do not wrap it in <html>, <head> or <body>.';

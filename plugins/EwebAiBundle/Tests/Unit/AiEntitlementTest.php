@@ -169,7 +169,11 @@ final class AiEntitlementTest extends TestCase
         $tuile = (string) file_get_contents(__DIR__.'/../../../EwebSaasBundle/Assets/js/builder-composants.js');
         self::assertStringContainsString('window.SendlyAiConfig.enabled || window.SendlyAiConfig.teaser', $tuile);
         $page = (string) file_get_contents(__DIR__.'/../../Assets/js/ai-page-builder.js');
-        self::assertSame(2, substr_count($page, "window.SendlyAiUpsell.ouvrir('page')"));
+        // Lot E5 : le contexte suit l'éditeur (page sur le webpage, email
+        // dans l'éditeur d'e-mails) — toujours les deux portes clic + dépôt.
+        self::assertSame(2, substr_count($page, 'window.SendlyAiUpsell.ouvrir(contexteUpsell())'));
+        self::assertStringContainsString('function contexteUpsell()', $page);
+        self::assertStringContainsString("'page' === MODE ? 'page' : 'email'", $page);
 
         // E-mails : bouton visible, action verrouillée, contexte e-mail.
         $copilot = (string) file_get_contents(__DIR__.'/../../Assets/js/ai-copilot.js');
