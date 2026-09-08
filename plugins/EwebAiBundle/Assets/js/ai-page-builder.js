@@ -22,6 +22,15 @@
  * serveur — les textes « façon e-mail » étaient le défaut relevé en P5).
  * Gated par la clé de l'instance : sans SendlyAiConfig, la tuile n'existe
  * pas (builder-composants) et ce module reste dormant.
+ *
+ * Lot E5 (07/09) — l'ÉDITEUR D'E-MAILS aussi (contextes email-mjml et
+ * email-html) : même tuile, même invite, même barre. Différences tenues
+ * par le MODE : surface=email-section (une <mj-section> ou une rangée
+ * table, jamais un document), marqueurs d'interface en <mj-raw> (seul
+ * enfant libre d'un mj-body), insertion au niveau des SECTIONS (une
+ * section ne vit pas dans une colonne), retouches en FRAGMENT (le contenu
+ * du bloc, pas un document). L'✨ de la barre disparaît, comme sur le
+ * webpage.
  */
 (function () {
   'use strict';
@@ -50,9 +59,33 @@
       || (window.mauticBasePath || '') + '/s/ai/generate';
   }
 
+  /** page | email-mjml | email-html — le formulaire hôte et le textarea
+   *  MJML font foi (même lecture que builder-shell.js). Posé à l'init. */
+  var MODE = 'page';
+  function modeEditeur() {
+    if (mQuery('form[name="page"]').length) { return 'page'; }
+    var mjml = document.querySelector('textarea.builder-mjml');
+    return mjml && mjml.value.length ? 'email-mjml' : 'email-html';
+  }
+
+  /** Les marqueurs d'interface (invite, barre) : un div sur le webpage, un
+   *  <mj-raw> dans l'e-mail MJML — le seul enfant libre d'un mj-body. */
+  function marqueur(nom) {
+    var attr = 'invite' === nom ? 'data-sendly-invite="1"' : 'data-sendly-barre="1"';
+    return 'email-mjml' === MODE
+      ? '<mj-raw ' + attr + '></mj-raw>'
+      : '<div ' + attr + '></div>';
+  }
+
   function appelIa(corps) {
-    corps.format = 'html';
-    corps.surface = 'page';
+    if ('page' === MODE) {
+      corps.format = 'html';
+      corps.surface = 'page';
+    } else {
+      corps.format = 'email-mjml' === MODE ? 'mjml' : 'html';
+      corps.surface = 'email-section';
+      if ('generate' !== corps.mode) { corps.fragment = true; }
+    }
     return new Promise(function (res, rej) {
       mQuery.ajax({
         url: endpoint(),
@@ -76,8 +109,9 @@
 
   window.MauticGrapesJsPlugins.push({
     name: 'sendly-ai-page',
-    context: ['page'],
+    context: ['page', 'email-mjml', 'email-html'],
     plugin: function (editor) {
+      MODE = modeEditeur();
       function frameDoc() { var f = document.querySelector('.builder-panel .gjs-frame'); return f ? f.contentDocument : null; }
       function frameWin() { var f = document.querySelector('.builder-panel .gjs-frame'); return f ? f.contentWindow : null; }
 
@@ -135,7 +169,7 @@
        *  dedans et rend le composant. valeurInitiale pré-remplit (Ajuster). */
       function ouvrirInvite(parent, index, valeurInitiale) {
         injecterStyles();
-        var ajout = parent.append('<div data-sendly-invite="1"></div>', { at: index });
+        var ajout = parent.append(marqueur('invite'), { at: index });
         var comp = ajout && ajout[0];
         if (!comp) { return; }
         comp.set({ editable: false, droppable: false, copyable: false, selectable: false, hoverable: false });
@@ -208,7 +242,7 @@
 
       function poserBarre(parent, index, sections, consigne) {
         injecterStyles();
-        var ajout = parent.append('<div data-sendly-barre="1"></div>', { at: index });
+        var ajout = parent.append(marqueur('barre'), { at: index });
         var compBarre = ajout && ajout[0];
         if (!compBarre) { return; }
         compBarre.set({ editable: false, droppable: false, copyable: false, selectable: false, hoverable: false });
@@ -231,7 +265,7 @@
           retirerSections();
           compBarre.remove();
           if (p) {
-            var inv = p.append('<div data-sendly-invite="1"></div>', { at: i });
+            var inv = p.append(marqueur('invite'), { at: i });
             if (inv && inv[0]) { inv[0].set({ editable: false, droppable: false, copyable: false, selectable: false, hoverable: false }); generer(inv[0], consigne); }
           }
         });
@@ -253,8 +287,10 @@
       function retoucher(mode, lang) {
         var sel = editor.getSelected();
         if (!sel || !sel.view || !sel.view.el) { return; }
-        var contenu = sel.toHTML();
         var avant = sel.components().map(function (c) { return c.toHTML(); }).join('');
+        // E-mail : on retouche le CONTENU du bloc (fragment), le mj-text
+        // garde ses attributs ; webpage : comportement d'origine.
+        var contenu = 'page' === MODE ? sel.toHTML() : avant;
         var corps = { mode: mode, instruction: '', content: contenu };
         if (lang) { corps.lang = lang; }
         appelIa(corps).then(function (html) {
@@ -274,7 +310,7 @@
 
       function poserBarreSimple(parent, index, surAnnule) {
         injecterStyles();
-        var ajout = parent.append('<div data-sendly-barre="1"></div>', { at: index });
+        var ajout = parent.append(marqueur('barre'), { at: index });
         var compBarre = ajout && ajout[0];
         if (!compBarre) { return; }
         compBarre.set({ editable: false, droppable: false, copyable: false, selectable: false, hoverable: false });
@@ -323,7 +359,7 @@
         // En teaser, la mini-barre reste NUE : la tuile est le point
         // d'entrée du teaser, pas besoin de verrous partout.
         if (window.SendlyAiConfig && window.SendlyAiConfig.teaser) { return; }
-        if (!comp || 'text' !== comp.get('type')) { return; }
+        if (!comp || ('text' !== comp.get('type') && 'mj-text' !== comp.get('type'))) { return; }
         var barre = comp.get('toolbar') || [];
         if (barre.some(function (b) { return 'sendly-ia-ameliorer' === b.command; })) { return; }
         comp.set('toolbar', barre.concat([
@@ -331,6 +367,37 @@
           { attributes: { class: 'sendly-tb-ia', title: 'Traduire' }, command: 'sendly-ia-traduire', label: ICONE_LANGUES },
         ]));
       }
+
+      /** Où ouvrir l'invite : après la sélection sur le webpage ; dans
+       *  l'e-mail MJML, au niveau des SECTIONS (on remonte de la sélection au
+       *  premier enfant direct du mj-body / mj-wrapper), sinon en fin de
+       *  corps. */
+      function cibleSection(comp) {
+        var cur = comp;
+        while (cur && cur.parent && cur.parent()) {
+          var p = cur.parent();
+          var t = p.get('type');
+          if ('mj-body' === t || 'mj-wrapper' === t) { return { parent: p, index: cur.index() + 1 }; }
+          cur = p;
+        }
+        return null;
+      }
+      function corpsMjml() {
+        var b = editor.getWrapper().find('mj-body')[0];
+        return b || editor.getWrapper();
+      }
+      function ouvrirApres(sel, valeur) {
+        if ('email-mjml' === MODE) {
+          var c = sel ? cibleSection(sel) : null;
+          if (c) { ouvrirInvite(c.parent, c.index, valeur || ''); return; }
+          var b = corpsMjml();
+          ouvrirInvite(b, b.components().length, valeur || '');
+          return;
+        }
+        if (sel && sel.parent()) { ouvrirInvite(sel.parent(), sel.index() + 1, valeur || ''); }
+        else { ouvrirInvite(editor.getWrapper(), editor.getWrapper().components().length, valeur || ''); }
+      }
+      function contexteUpsell() { return 'page' === MODE ? 'page' : 'email'; }
 
       /* ------------------------------------------------------------------ *
        *  CÂBLAGE                                                            *
@@ -359,7 +426,7 @@
           }
         } catch (e) { briefPage = null; }
         if (briefPage && (!briefPage.ts || Date.now() - briefPage.ts > 180000)) { briefPage = null; }
-        if (briefPage && Array.isArray(briefPage.sections) && briefPage.sections.length
+        if ('page' === MODE && briefPage && Array.isArray(briefPage.sections) && briefPage.sections.length
             && !(window.SendlyAiConfig && window.SendlyAiConfig.teaser)) {
           // La page naît d'un brief : toile VIERGE d'abord — le thème blank
           // sème un bloc d'accueil (« Hello there!… ») qui restait en tête
@@ -369,7 +436,7 @@
           briefPage.sections.slice(0, 6).forEach(function (consigneSection) {
             suite = suite.then(function () {
               var w = editor.getWrapper();
-              var ajout = w.append('<div data-sendly-invite="1"></div>', { at: w.components().length });
+              var ajout = w.append(marqueur('invite'), { at: w.components().length });
               var inv = ajout && ajout[0];
               if (!inv) { return; }
               inv.set({ editable: false, droppable: false, copyable: false, selectable: false, hoverable: false });
@@ -390,12 +457,10 @@
         if (tuile) {
           tuile.addEventListener('click', function () {
             if (window.SendlyAiConfig && window.SendlyAiConfig.teaser) {
-              if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir('page'); }
+              if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir(contexteUpsell()); }
               return;
             }
-            var sel = editor.getSelected();
-            if (sel && sel.parent()) { ouvrirInvite(sel.parent(), sel.index() + 1, ''); }
-            else { ouvrirInvite(editor.getWrapper(), editor.getWrapper().components().length, ''); }
+            ouvrirApres(editor.getSelected(), '');
           });
         }
 
@@ -406,13 +471,19 @@
           var repere = premiers[0];
           var parent = repere && repere.parent ? repere.parent() : null;
           var index = repere && repere.index ? repere.index() : 0;
+          // E-mail MJML : un dépôt dans une colonne remonte au niveau des
+          // sections — une section ne vit pas dans une colonne.
+          if ('email-mjml' === MODE && repere) {
+            var cible = cibleSection(repere);
+            if (cible) { parent = cible.parent; index = cible.index - 1; }
+          }
           premiers.forEach(function (c) { if (c && c.remove) { c.remove(); } });
           if (window.SendlyAiConfig && window.SendlyAiConfig.teaser) {
-            if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir('page'); }
+            if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir(contexteUpsell()); }
             return;
           }
           if (parent) { ouvrirInvite(parent, index, ''); }
-          else { ouvrirInvite(editor.getWrapper(), editor.getWrapper().components().length, ''); }
+          else { ouvrirApres(null, ''); }
         });
 
         // Les résidus d'interface ne survivent JAMAIS à une sauvegarde :
@@ -420,7 +491,7 @@
         var exportOrig = editor.getHtml.bind(editor);
         editor.getHtml = function (opts) {
           var html = exportOrig(opts);
-          return html.replace(/<div data-sendly-(?:invite|barre)="1">[\s\S]*?<\/div>/g, '');
+          return html.replace(/<(div|mj-raw) data-sendly-(?:invite|barre)="1">[\s\S]*?<\/\1>/g, '');
         };
       });
     },

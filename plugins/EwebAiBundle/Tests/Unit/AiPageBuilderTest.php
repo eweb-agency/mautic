@@ -13,6 +13,23 @@ use PHPUnit\Framework\TestCase;
  */
 final class AiPageBuilderTest extends TestCase
 {
+    public function testLEmailAdopteLaTuileEnPlace(): void
+    {
+        // Lot E5 : même invite, même barre ; le MODE tient les différences —
+        // surface=email-section (une section, jamais un document), marqueurs
+        // <mj-raw> (seul enfant libre d'un mj-body), insertion au niveau des
+        // sections, retouches en fragment, et le mj-text a sa mini-barre.
+        $js = $this->source('ai-page-builder.js');
+
+        self::assertStringContainsString("corps.surface = 'email-section';", $js);
+        self::assertStringContainsString('corps.fragment = true;', $js);
+        self::assertStringContainsString("'<mj-raw ' + attr + '></mj-raw>'", $js);
+        self::assertStringContainsString('function cibleSection(comp)', $js);
+        self::assertStringContainsString("'mj-text' !== comp.get('type')", $js);
+        self::assertStringContainsString('<(div|mj-raw) data-sendly-(?:invite|barre)="1">', $js, 'les résidus mj-raw ne survivent pas non plus à l export');
+        self::assertStringContainsString("'page' === MODE && briefPage", $js, 'le relais de brief de page ne tourne que sur le webpage');
+    }
+
     private function source(string $file): string
     {
         $path = __DIR__.'/../../Assets/js/'.$file;
@@ -30,7 +47,8 @@ final class AiPageBuilderTest extends TestCase
         self::assertStringNotContainsString('SendlyAssistantContexts', $js);
         self::assertStringNotContainsString('SendlyAssistant.open', $js);
         self::assertStringContainsString("name: 'sendly-ai-page'", $js);
-        self::assertStringContainsString("context: ['page']", $js);
+        // Lot E5 (07/09) : l'éditeur d'e-mails est dans le périmètre.
+        self::assertStringContainsString("context: ['page', 'email-mjml', 'email-html']", $js);
     }
 
     public function testLInviteSOuvreEnPlaceAuDepotEtAuClic(): void
@@ -45,7 +63,7 @@ final class AiPageBuilderTest extends TestCase
         // remet aucun composant exploitable, l'invite s'ouvre en fin de
         // page — un dépôt ne doit JAMAIS ne rien faire.
         self::assertStringContainsString('.filter(Boolean)', $js);
-        self::assertStringContainsString("else { ouvrirInvite(editor.getWrapper(), editor.getWrapper().components().length, ''); }", $js);
+        self::assertStringContainsString("else { ouvrirInvite(editor.getWrapper(), editor.getWrapper().components().length, valeur || ''); }", $js);
         // Clic sur la tuile : insertion après la sélection, sinon fin de page.
         self::assertStringContainsString('sel.index() + 1', $js);
         self::assertStringContainsString('editor.getWrapper().components().length', $js);

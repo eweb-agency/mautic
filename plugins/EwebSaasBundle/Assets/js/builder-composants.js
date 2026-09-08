@@ -167,10 +167,18 @@
     });
 
     // Les tuiles AJOUTÉES sont propres au webpage : l'e-mail a déjà son
-    // séparateur et ses réseaux sociaux (mj-divider, mj-social-group), n'a
-    // pas de formulaire embarqué, et son entrée IA reste le bouton ✨ de la
-    // barre (ai-email-builder.js) tant que la tuile n'est pas portée.
-    if (mode !== 'page') { trierBlocs(bm); return; }
+    // séparateur et ses réseaux sociaux (mj-divider, mj-social-group) et n'a
+    // pas de formulaire embarqué. Seule la tuile Assistant IA le suit (lot
+    // E5) : repère en <mj-raw> dans l'e-mail MJML — le seul enfant libre
+    // d'un mj-body —, div dans l'e-mail HTML.
+    if (mode !== 'page') {
+      if (window.SendlyAiConfig && (window.SendlyAiConfig.enabled || window.SendlyAiConfig.teaser)) {
+        bm.add('sendly-ia', { label: 'Assistant IA', media: ICONS['ASSISTANT IA'], category: BASIQUE, order: 17,
+          content: mode === 'email-mjml' ? '<mj-raw data-sendly-ia-drop="1"></mj-raw>' : '<div data-sendly-ia-drop="1"></div>' });
+      }
+      trierBlocs(bm);
+      return;
+    }
 
     bm.add('sendly-separator', { label: 'Séparateur', media: ICONS['SÉPARATEUR'], category: BASIQUE, order: 14,
       content: '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0"/>' });
@@ -377,10 +385,9 @@
       }, attributes: { title: 'Enregistrer et fermer' } });
 
     // Options (P3 / E3) porte le mode Code et la case Contours dans les
-    // deux éditeurs ; la tuile IA remplace l'étincelle sur le webpage, et
-    // l'✨ IA de l'e-mail reste dans la barre tant que sa tuile n'est pas
-    // portée (lot E5). Le plein écran sort partout (déjà plein écran).
-    var sorties = mode === 'page' ? ['fullscreen', 'code-edit', 'ai-generate', 'sw-visibility'] : ['fullscreen', 'code-edit', 'sw-visibility'];
+    // deux éditeurs ; la tuile IA remplace l'étincelle partout (E5). Le
+    // plein écran sort partout (déjà plein écran).
+    var sorties = ['fullscreen', 'code-edit', 'ai-generate', 'sw-visibility'];
     sorties.forEach(function (id) {
       if (pm.getButton('options', id)) { pm.removeButton('options', id); }
     });
