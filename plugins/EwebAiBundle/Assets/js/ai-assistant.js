@@ -529,13 +529,25 @@
 
   /** Le formulaire de TRAVAIL de l'écran : le plus riche en champs visibles,
    *  hors panneau assistant et hors recherche. */
+  /** Un champ compte s'il est visible — OU si c'est un select habillé par
+   *  Chosen (le <select> natif est masqué, seul son habillage se voit) :
+   *  recette import CSV 09/09, l'écran de correspondance n'exposait AUCUN
+   *  champ et l'assistant « associait » dans le vide. */
+  function champVisible(el) {
+    var $el = mQuery(el);
+    if ($el.is(':visible')) { return true; }
+    if (el.tagName !== 'SELECT') { return false; }
+    var chosen = el.id ? document.getElementById(el.id + '_chosen') : null;
+    return !!(chosen && mQuery(chosen).is(':visible')) || $el.next('.chosen-container').is(':visible');
+  }
+
   function formulaireTravail() {
     var meilleur = null, score = 0;
     mQuery('form').each(function () {
       if (mQuery(this).closest('#sendly-assist-panel').length) { return; }
       var n = mQuery(this).find('input[name], select[name], textarea[name]')
         .filter(':not([type=hidden]):not([type=submit]):not([type=button]):not([name*="csrf"]):not([name*="_token"])')
-        .filter(':visible').length;
+        .filter(function () { return champVisible(this); }).length;
       if (n > score) { score = n; meilleur = this; }
     });
     return meilleur;
@@ -578,7 +590,7 @@
     }
     mQuery(form).find('input[name], select[name], textarea[name]')
       .filter(':not([type=hidden]):not([type=submit]):not([type=button]):not([type=password]):not([name*="csrf"]):not([name*="_token"])')
-      .filter(':visible')
+      .filter(function () { return champVisible(this); })
       .each(function () {
         if (count >= 25) { return false; }
         var v = String(mQuery(this).val() == null ? '' : mQuery(this).val()).slice(0, 160);
