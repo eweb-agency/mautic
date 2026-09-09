@@ -588,7 +588,7 @@ class StatsAggregator
      * jamais d'exception : le bandeau se cache, l'écran vit — même
      * philosophie que les compteurs null des campagnes.
      *
-     * @return array<string, array{id: int, name: string, isPublished: bool, modifiedAt: string|null}|null>
+     * @return array<string, array{id: int, name: string, isPublished: bool, modifiedAt: string|null, context: array<string, int|string>|null}|null>
      */
     public function getRecentWork(): array
     {
