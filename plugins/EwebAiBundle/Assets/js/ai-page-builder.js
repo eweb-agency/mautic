@@ -382,9 +382,18 @@
         }
         return null;
       }
+      /** Le conteneur où vivent les SECTIONS : celui de la dernière
+       *  mj-section existante, sinon le mj-body. ⚠️ Par TYPE (findType),
+       *  jamais par sélecteur : dans le canevas les balises mj-* sont
+       *  rendues en div, un sélecteur `mj-body` ne trouve rien et la section
+       *  partait À CÔTÉ de <mjml> — MJML malformé, builder infermable
+       *  (recette proprio 09/09). */
       function corpsMjml() {
-        var b = editor.getWrapper().find('mj-body')[0];
-        return b || editor.getWrapper();
+        var w = editor.getWrapper();
+        var sections = w.findType('mj-section');
+        var derniere = sections[sections.length - 1];
+        if (derniere && derniere.parent()) { return derniere.parent(); }
+        return w.findType('mj-body')[0] || w;
       }
       function ouvrirApres(sel, valeur) {
         if ('email-mjml' === MODE) {

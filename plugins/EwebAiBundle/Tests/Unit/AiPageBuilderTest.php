@@ -25,6 +25,12 @@ final class AiPageBuilderTest extends TestCase
         self::assertStringContainsString('corps.fragment = true;', $js);
         self::assertStringContainsString("'<mj-raw ' + attr + '></mj-raw>'", $js);
         self::assertStringContainsString('function cibleSection(comp)', $js);
+        // 09/09 : le corps MJML se cherche par TYPE — dans le canevas les
+        // mj-* sont des div, un sélecteur `find('mj-body')` ne trouve rien
+        // et la section partait hors de <mjml> (builder infermable).
+        self::assertStringContainsString("w.findType('mj-section')", $js);
+        self::assertStringContainsString("w.findType('mj-body')[0] || w", $js);
+        self::assertStringNotContainsString("find('mj-body')", $js);
         self::assertStringContainsString("'mj-text' !== comp.get('type')", $js);
         self::assertStringContainsString('<(div|mj-raw) data-sendly-(?:invite|barre)="1">', $js, 'les résidus mj-raw ne survivent pas non plus à l export');
         self::assertStringContainsString("'page' === MODE && briefPage", $js, 'le relais de brief de page ne tourne que sur le webpage');
