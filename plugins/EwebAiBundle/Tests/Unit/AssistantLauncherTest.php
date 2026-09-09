@@ -101,4 +101,21 @@ final class AssistantLauncherTest extends TestCase
         $controller = (string) file_get_contents(__DIR__.'/../../Controller/AiController.php');
         self::assertStringContainsString("'section'  => mb_substr", $controller);
     }
+
+    /**
+     * Recette import CSV (09/09) : les selects de Mautic sont habillés par
+     * Chosen — le <select> natif est masqué, `:visible` ne le voit pas, et
+     * l'écran de correspondance n'exposait AUCUN champ à l'assistant (qui
+     * « associait » dans le vide). Un select compte si son habillage l'est.
+     */
+    public function testLesSelectsHabillesParChosenComptentCommeVisibles(): void
+    {
+        $js = (string) file_get_contents(__DIR__.'/../../Assets/js/ai-assistant.js');
+
+        self::assertStringContainsString('function champVisible(el)', $js);
+        self::assertStringContainsString("el.id + '_chosen'", $js);
+        self::assertStringContainsString(".next('.chosen-container').is(':visible')", $js);
+        self::assertSame(2, substr_count($js, '.filter(function () { return champVisible(this); })'), 'le formulaire de travail ET le relevé d écran passent par le même filtre');
+        self::assertStringNotContainsString(".filter(':visible')", $js);
+    }
 }
