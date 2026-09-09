@@ -129,7 +129,29 @@ class StatsAggregatorTest extends TestCase
             },
         );
 
+        // Contexte enrichi (bandeau v2, 09/09) : une requête fetchOne par
+        // objet — objet de l'e-mail, contacts de la campagne, vues de la page.
+        $this->connection->method('fetchOne')->willReturnCallback(
+            function (string $sql): string|false {
+                if (str_contains($sql, 'SELECT subject')) {
+                    return 'Nos nouveautés de septembre';
+                }
+                if (str_contains($sql, 'campaign_leads')) {
+                    return '1234';
+                }
+                if (str_contains($sql, 'SELECT hits')) {
+                    return false; // colonne vide : pas de contexte, pas d'erreur
+                }
+
+                return '0';
+            },
+        );
+
         $work = $this->createAggregator(new ArrayAdapter())->getRecentWork();
+
+        $this->assertSame(['subject' => 'Nos nouveautés de septembre'], $work['email']['context']);
+        $this->assertSame(['contacts' => 1234], $work['campaign']['context']);
+        $this->assertNull($work['page']['context'], 'sans valeur, le contexte est null — jamais un 0 menteur');
 
         $this->assertSame(
             ['campaign', 'email', 'segment', 'form', 'page'],
