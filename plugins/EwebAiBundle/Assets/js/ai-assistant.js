@@ -574,7 +574,11 @@
     function refListe(sel) {
       var opts = [];
       mQuery(sel).find('option').each(function () {
-        if (opts.length >= 40) { return false; }
+        // 120 et non 40 : l'écran d'import liste ~70 champs contact+société
+        // et « Nom de la société » (companyname) tombait hors liste — le
+        // modèle remplissait avec une valeur voisine en prétendant l'inverse
+        // (recette 10/09). Les listes identiques ne partent qu'une fois.
+        if (opts.length >= 120) { return false; }
         var val = this.value;
         if ('' === val) { return; }
         var lib = (this.textContent || '').trim().slice(0, 30);
@@ -613,9 +617,30 @@
   /** snapshots[turnId] = [{name, old}] pour l'annulation. */
   var snapshots = {};
 
+  /** Sur un select, une valeur qui n'est pas une option est cherchée par
+   *  LIBELLÉ (sans casse ni accents) : le modèle répond parfois « Nom de la
+   *  société » au lieu de `companyname`. Sans correspondance, on ne touche
+   *  à rien — jamais un « champ rempli » qui n'a rien rempli. */
+  function normaliser(t) {
+    return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  }
+  function resoudreValeurSelect(sel, value) {
+    var opts = Array.prototype.slice.call(sel.options || []);
+    var exacte = opts.filter(function (o) { return o.value === value; })[0];
+    if (exacte) { return value; }
+    var cible = normaliser(value);
+    var parLibelle = opts.filter(function (o) { return o.value !== '' && normaliser(o.textContent) === cible; })[0]
+      || opts.filter(function (o) { return o.value !== '' && normaliser(o.value) === cible; })[0];
+    return parLibelle ? parLibelle.value : null;
+  }
+
   function poserChamp(form, name, value, releve) {
     var el = mQuery(form).find('[name="' + name + '"]').filter(':not([type=hidden])').first();
     if (!el.length) { return false; }
+    if (el.is('select')) {
+      value = resoudreValeurSelect(el.get(0), value);
+      if (null === value) { return false; }
+    }
     releve.push({ name: name, old: el.val() });
     el.val(value).trigger('change').trigger('keyup');
     // Chosen (selects Mautic) : rafraîchir le rendu.
