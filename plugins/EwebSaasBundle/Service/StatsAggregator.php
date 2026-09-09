@@ -588,7 +588,7 @@ class StatsAggregator
      * jamais d'exception : le bandeau se cache, l'écran vit — même
      * philosophie que les compteurs null des campagnes.
      *
-     * @return array<string, array{id: int, name: string, isPublished: bool, modifiedAt: string|null}|null>
+     * @return array<string, array{id: int, name: string, isPublished: bool, modifiedAt: string|null, context: array<string, int|string>|null}|null>
      */
     public function getRecentWork(): array
     {
@@ -619,6 +619,7 @@ class StatsAggregator
                     'name'        => (string) $row['name'],
                     'isPublished' => (bool) $row['is_published'],
                     'modifiedAt'  => false !== $touchedAt ? gmdate('c', $touchedAt) : null,
+                    'context'     => $this->recentWorkContext($type, (int) $row['id']),
                 ] : null;
             } catch (\Throwable $e) {
                 $this->logger->warning('EwebSaasBundle: recent work failed for {type}: {msg}', [
@@ -630,6 +631,47 @@ class StatsAggregator
         }
 
         return $work;
+    }
+
+    /**
+     * Bandeau « Reprendre » v2 — le CONTEXTE ENRICHI (aperçu par type, carnet
+     * 17/08) : l'objet de l'e-mail, le nombre de contacts du segment ou de la
+     * campagne, les vues de la page, les réponses du formulaire. Une seule
+     * requête légère par objet, FAIL-OPEN : null si la table manque.
+     *
+     * @return array<string, int|string>|null
+     */
+    private function recentWorkContext(string $type, int $id): ?array
+    {
+        $p        = $this->prefix;
+        $requetes = [
+            'email'    => ['subject',     "SELECT subject FROM {$p}emails WHERE id = ?"],
+            'segment'  => ['contacts',    "SELECT COUNT(*) FROM {$p}lead_lists_leads WHERE leadlist_id = ? AND manually_removed = 0"],
+            'campaign' => ['contacts',    "SELECT COUNT(*) FROM {$p}campaign_leads WHERE campaign_id = ? AND manually_removed = 0"],
+            'page'     => ['hits',        "SELECT hits FROM {$p}pages WHERE id = ?"],
+            'form'     => ['submissions', "SELECT COUNT(*) FROM {$p}form_submissions WHERE form_id = ?"],
+        ];
+        if (!isset($requetes[$type])) {
+            return null;
+        }
+        [$cle, $sql] = $requetes[$type];
+        try {
+            $valeur = $this->connection->fetchOne($sql, [$id]);
+        } catch (\Throwable $e) {
+            $this->logger->debug('EwebSaasBundle: recent work context unavailable for '.$type.': '.$e->getMessage());
+
+            return null;
+        }
+        if (false === $valeur || null === $valeur) {
+            return null;
+        }
+        if ('subject' === $cle) {
+            $texte = trim((string) $valeur);
+
+            return '' === $texte ? null : [$cle => $texte];
+        }
+
+        return [$cle => (int) $valeur];
     }
 
     private function countTable(string $table, ?string $whereClause = null): int
