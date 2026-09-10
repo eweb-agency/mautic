@@ -118,4 +118,22 @@ final class AssistantLauncherTest extends TestCase
         self::assertSame(2, substr_count($js, '.filter(function () { return champVisible(this); })'), 'le formulaire de travail ET le relevé d écran passent par le même filtre');
         self::assertStringNotContainsString(".filter(':visible')", $js);
     }
+
+    /**
+     * Recette 10/09 : la liste d'options d'un select partait plafonnée à 40
+     * — « Nom de la société » (companyname) tombait hors liste sur l'écran
+     * d'import et le modèle remplissait une valeur voisine. Plafond à 120,
+     * et une valeur inconnue est résolue par LIBELLÉ sans casse ni accents ;
+     * sans correspondance, rien n'est écrit (pas de « champ rempli » vide).
+     */
+    public function testLesOptionsDesSelectsVontJusquA120EtSeResolventParLibelle(): void
+    {
+        $js = (string) file_get_contents(__DIR__.'/../../Assets/js/ai-assistant.js');
+
+        self::assertStringContainsString('if (opts.length >= 120) { return false; }', $js);
+        self::assertStringNotContainsString('opts.length >= 40', $js);
+        self::assertStringContainsString('function resoudreValeurSelect(sel, value)', $js);
+        self::assertStringContainsString("normalize('NFD')", $js);
+        self::assertStringContainsString('if (null === value) { return false; }', $js);
+    }
 }
