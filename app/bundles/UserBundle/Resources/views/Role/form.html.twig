@@ -31,7 +31,7 @@
                             {{ form_row(form.name) }}
 						</div>
 						<div class="col-md-6">
-                            {{ form_row(form.isAdmin) }}
+                            {% if form.isAdmin is defined %}{{ form_row(form.isAdmin) }}{% endif %}
 						</div>
 					</div>
 				</div>
@@ -44,7 +44,7 @@
 				</div>
 			</div>
 
-            {% set hidePerms = form.isAdmin.vars.data %}
+            {% set hidePerms = form.isAdmin is defined ? form.isAdmin.vars.data : false %}
 			<div class="tab-pane fade bdr-w-0" id="permissions-container">
 				<div id="rolePermissions"{% if hidePerms %}class="hide"{% endif %}>
 					<!-- start: box layout -->

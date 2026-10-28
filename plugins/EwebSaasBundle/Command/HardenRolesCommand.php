@@ -37,6 +37,19 @@ use Symfony\Component\Console\Output\OutputInterface;
  * and guessing its shape here would risk corrupting it. Forbidden grants
  * are still pruned from it defensively, as before.
  *
+ * It also withholds single grants (FORBIDDEN_PERMISSIONS) from every tenant
+ * role. `user:roles` was given to Owner by the install fixtures, and the
+ * role form offers the "full system access" switch (isAdmin) to anyone who
+ * can edit a role: a tenant could promote its own role to administrator and
+ * reach the configuration (shared sending key in clear), plugins and
+ * marketplace. Tenants never manage roles in the instance: members and
+ * their roles come from the portal through SSO.
+ *
+ * Forbidden grants are pruned from `rawPermissions` in both shapes it can
+ * hold: the form's flat `bundle:name` keys (what `generatePermissions()`
+ * reads back when the role is saved again) and the nested `bundle => name`
+ * map.
+ *
  * Idempotent and safe to run on every container start (wired into the web
  * entrypoint after migrations): it never touches admin roles and exits 0
  * even when there is nothing to do.
@@ -46,12 +59,15 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 #[AsCommand(
     name: 'mautic:saas:roles:harden',
-    description: 'Reconcile tenant roles with the white-label contract (drop marketplace, restore plugins).',
+    description: 'Reconcile tenant roles with the white-label contract (drop marketplace and role management, restore plugins).',
 )]
 final class HardenRolesCommand extends Command
 {
     /** Bundles whose screens leak the upstream product name. */
     public const FORBIDDEN_BUNDLES = ['marketplace'];
+
+    /** Single grants no tenant role may hold. Bundle => [names]. */
+    public const FORBIDDEN_PERMISSIONS = ['user' => ['roles']];
 
     /** Restored to owner-level roles. Bundle => [name => bitwise]. */
     public const OWNER_GRANTS = ['plugin' => ['plugins' => 1024]];
@@ -75,7 +91,7 @@ final class HardenRolesCommand extends Command
 
         foreach ($roles as $role) {
             foreach ($role->getPermissions() as $permission) {
-                if (\in_array($permission->getBundle(), self::FORBIDDEN_BUNDLES, true)) {
+                if ($this->isForbidden($permission)) {
                     $role->getPermissions()->removeElement($permission);
                     $this->em->remove($permission);
                     ++$removed;
@@ -84,12 +100,9 @@ final class HardenRolesCommand extends Command
 
             $raw = $role->getRawPermissions();
             if (\is_array($raw)) {
-                $before = \count($raw);
-                foreach (self::FORBIDDEN_BUNDLES as $bundle) {
-                    unset($raw[$bundle]);
-                }
-                if (\count($raw) !== $before) {
-                    $role->setRawPermissions($raw);
+                $pruned = $this->pruneRaw($raw);
+                if ($pruned !== $raw) {
+                    $role->setRawPermissions($pruned);
                 }
             }
 
@@ -126,6 +139,43 @@ final class HardenRolesCommand extends Command
         ]));
 
         return Command::SUCCESS;
+    }
+
+    private function isForbidden(Permission $permission): bool
+    {
+        $bundle = $permission->getBundle();
+
+        return \in_array($bundle, self::FORBIDDEN_BUNDLES, true)
+            || \in_array($permission->getName(), self::FORBIDDEN_PERMISSIONS[$bundle] ?? [], true);
+    }
+
+    /**
+     * @param array<mixed> $raw
+     *
+     * @return array<mixed>
+     */
+    private function pruneRaw(array $raw): array
+    {
+        foreach (array_keys($raw) as $key) {
+            $bundle = explode(':', (string) $key, 2)[0];
+            if (\in_array($bundle, self::FORBIDDEN_BUNDLES, true)) {
+                unset($raw[$key]);
+            }
+        }
+
+        foreach (self::FORBIDDEN_PERMISSIONS as $bundle => $names) {
+            foreach ($names as $name) {
+                unset($raw[$bundle.':'.$name]);
+                if (\is_array($raw[$bundle] ?? null)) {
+                    unset($raw[$bundle][$name]);
+                    if ([] === $raw[$bundle]) {
+                        unset($raw[$bundle]);
+                    }
+                }
+            }
+        }
+
+        return $raw;
     }
 
     private function isOwnerRole(Role $role): bool

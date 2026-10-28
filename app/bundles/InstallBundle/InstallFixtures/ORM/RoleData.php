@@ -41,7 +41,11 @@ class RoleData extends AbstractFixture implements OrderedFixtureInterface, Fixtu
         // nommer le moteur ; seul le Marketplace le fait, et lui reste hors
         // d'atteinte (cf. EwebSaasBundle\Command\HardenRolesCommand).
         'plugin'            => ['plugins' => 1024],
-        'user'              => ['users' => 20, 'roles' => 1024, 'profile' => 1024],
+        // Pas de « roles » : le formulaire de rôle propose l'interrupteur
+        // « accès complet au système » à quiconque peut modifier un rôle, un
+        // client aurait pu se faire administrateur. Membres et rôles viennent
+        // du portail (SSO) ; cf. HardenRolesCommand::FORBIDDEN_PERMISSIONS.
+        'user'              => ['users' => 20, 'profile' => 1024],
     ];
 
     /**
@@ -67,7 +71,6 @@ class RoleData extends AbstractFixture implements OrderedFixtureInterface, Fixtu
         'dynamiccontent'    => ['categories' => 1024, 'dynamiccontents' => 1024],
         'point'             => ['categories' => 1024, 'points' => 1024, 'triggers' => 1024, 'groups' => 1024],
         'mauticSocial'      => ['categories' => 1024, 'monitoring' => 1024, 'tweets' => 1024],
-        'user'              => ['roles' => 4],
     ];
 
     public function __construct(
