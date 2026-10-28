@@ -45,13 +45,17 @@ class RoleType extends AbstractType
             ]
         );
 
-        $builder->add('isAdmin', YesNoButtonGroupType::class, [
-            'label' => 'mautic.user.role.form.isadmin',
-            'attr'  => [
-                'onchange' => 'Mautic.togglePermissionVisibility();',
-                'tooltip'  => 'mautic.user.role.form.isadmin.tooltip',
-            ],
-        ]);
+        // Full system access is offered only to administrators (see
+        // RoleController::canGrantAdmin()).
+        if ($options['can_grant_admin']) {
+            $builder->add('isAdmin', YesNoButtonGroupType::class, [
+                'label' => 'mautic.user.role.form.isadmin',
+                'attr'  => [
+                    'onchange' => 'Mautic.togglePermissionVisibility();',
+                    'tooltip'  => 'mautic.user.role.form.isadmin.tooltip',
+                ],
+            ]);
+        }
 
         // add a normal text field, but add your transformer to it
         $hidden = ($options['data']->isAdmin()) ? ' hide' : '';
@@ -83,6 +87,8 @@ class RoleType extends AbstractType
             'data_class'        => Role::class,
             'constraints'       => [new Valid()],
             'permissionsConfig' => [],
+            'can_grant_admin'   => true,
         ]);
+        $resolver->setAllowedTypes('can_grant_admin', 'bool');
     }
 }

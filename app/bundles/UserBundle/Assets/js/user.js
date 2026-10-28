@@ -77,7 +77,10 @@ Mautic.togglePermissionVisibility = function () {
     //add a very slight delay in order for the clicked on checkbox to be selected since the onclick action
     //is set to the parent div
     setTimeout(function () {
-        if (mQuery('#role_isAdmin_0').prop('checked')) {
+        // No admin switch (the user may not grant full access): the role is
+        // not an admin role, its permissions stay editable.
+        var isAdminField = mQuery('#role_isAdmin_0');
+        if (!isAdminField.length || isAdminField.prop('checked')) {
             mQuery('#rolePermissions').removeClass('hide');
             mQuery('#isAdminMessage').addClass('hide');
             mQuery('#permissions-tab').removeClass('disabled');

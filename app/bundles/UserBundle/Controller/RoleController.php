@@ -135,7 +135,10 @@ class RoleController extends FormController
 
         // get the user form factory
         $permissionsConfig = $this->getPermissionsConfig($entity);
-        $form              = $model->createForm($entity, $this->formFactory, $action, ['permissionsConfig' => $permissionsConfig['config']]);
+        $form              = $model->createForm($entity, $this->formFactory, $action, [
+            'permissionsConfig' => $permissionsConfig['config'],
+            'can_grant_admin'   => $this->canGrantAdmin(),
+        ]);
 
         // /Check for a submitted form and process it
         if ('POST' === $request->getMethod()) {
@@ -143,6 +146,11 @@ class RoleController extends FormController
             if (!$cancelled = $this->isFormCancelled($form)) {
                 if ($valid = $this->isFormValid($form)) {
                     // set the permissions
+                    // Only an administrator may grant full system access.
+                    if (!$this->canGrantAdmin()) {
+                        $entity->setIsAdmin(false);
+                    }
+
                     $role        = $request->request->all()['role'] ?? [];
                     $permissions = $role['permissions'] ?? null;
                     $model->setRolePermissions($entity, $permissions);
@@ -241,11 +249,16 @@ class RoleController extends FormController
         } elseif ($model->isLocked($entity)) {
             // deny access if the entity is locked
             return $this->isLocked($postActionVars, $entity, 'user.role');
+        } elseif ($entity->isAdmin() && !$this->canGrantAdmin()) {
+            return $this->accessDenied();
         }
 
         $permissionsConfig = $this->getPermissionsConfig($entity);
         $action            = $this->generateUrl('mautic_role_action', ['objectAction' => 'edit', 'objectId' => $objectId]);
-        $form              = $model->createForm($entity, $this->formFactory, $action, ['permissionsConfig' => $permissionsConfig['config']]);
+        $form              = $model->createForm($entity, $this->formFactory, $action, [
+            'permissionsConfig' => $permissionsConfig['config'],
+            'can_grant_admin'   => $this->canGrantAdmin(),
+        ]);
 
         // /Check for a submitted form and process it
         if (!$ignorePost && 'POST' === $request->getMethod()) {
@@ -254,6 +267,11 @@ class RoleController extends FormController
             if (!$cancelled = $this->isFormCancelled($form)) {
                 if ($valid = $this->isFormValid($form)) {
                     // set the permissions
+                    // Only an administrator may grant full system access.
+                    if (!$this->canGrantAdmin()) {
+                        $entity->setIsAdmin(false);
+                    }
+
                     $role        = $request->request->all()['role'] ?? [];
                     $permissions = $role['permissions'] ?? null;
                     $model->setRolePermissions($entity, $permissions);
@@ -280,7 +298,10 @@ class RoleController extends FormController
             } else {
                 // the form has to be rebuilt because the permissions were updated
                 $permissionsConfig = $this->getPermissionsConfig($entity);
-                $form              = $model->createForm($entity, $this->formFactory, $action, ['permissionsConfig' => $permissionsConfig['config']]);
+                $form              = $model->createForm($entity, $this->formFactory, $action, [
+                    'permissionsConfig' => $permissionsConfig['config'],
+                    'can_grant_admin'   => $this->canGrantAdmin(),
+                ]);
             }
         } else {
             // lock the entity
@@ -393,6 +414,8 @@ class RoleController extends FormController
                     ];
                 } elseif ($model->isLocked($entity)) {
                     return $this->isLocked($postActionVars, $entity, 'user.role');
+                } elseif ($entity->isAdmin() && !$this->canGrantAdmin()) {
+                    return $this->accessDenied();
                 } else {
                     $model->deleteEntity($entity);
                     $name      = $entity->getName();
@@ -464,6 +487,8 @@ class RoleController extends FormController
                     ];
                 } elseif (!$this->security->isGranted('user:roles:delete')) {
                     $flashes[] = $this->accessDenied(true);
+                } elseif ($entity->isAdmin() && !$this->canGrantAdmin()) {
+                    $flashes[] = $this->accessDenied(true);
                 } elseif ($model->isLocked($entity)) {
                     $flashes[] = $this->isLocked($postActionVars, $entity, 'user.role', true);
                 } else {
@@ -490,5 +515,15 @@ class RoleController extends FormController
                 'flashes' => $flashes,
             ])
         );
+    }
+
+    /**
+     * Full system access (isAdmin) can only be granted, edited or removed by an
+     * administrator: a user who may merely edit roles must not be able to
+     * promote a role, including their own, to administrator.
+     */
+    private function canGrantAdmin(): bool
+    {
+        return null !== $this->user && $this->user->isAdmin();
     }
 }
