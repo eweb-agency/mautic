@@ -9,6 +9,7 @@ use Doctrine\ORM\EntityRepository;
 use Mautic\UserBundle\Entity\Permission;
 use Mautic\UserBundle\Entity\Role;
 use MauticPlugin\EwebSaasBundle\Command\HardenRolesCommand;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -58,7 +59,7 @@ class HardenRolesCommandTest extends TestCase
     }
 
     /** @param Role[] $roles */
-    private function makeEntityManager(array $roles): EntityManagerInterface
+    private function makeEntityManager(array $roles): EntityManagerInterface&MockObject
     {
         $repository = $this->createMock(EntityRepository::class);
         $repository->method('findBy')->with(['isAdmin' => false])->willReturn($roles);

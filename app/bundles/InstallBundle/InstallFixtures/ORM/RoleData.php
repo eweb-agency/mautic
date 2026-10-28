@@ -102,7 +102,7 @@ class RoleData extends AbstractFixture implements OrderedFixtureInterface, Fixtu
         // ── Owner ─────────────────────────────────────────────────────────
         $ownerRole = new Role();
         $ownerRole->setName('Owner');
-        $ownerRole->setIsAdmin(0);
+        $ownerRole->setIsAdmin(false);
         $manager->persist($ownerRole);
 
         foreach (self::OWNER_PERMISSIONS as $bundle => $names) {
@@ -119,7 +119,7 @@ class RoleData extends AbstractFixture implements OrderedFixtureInterface, Fixtu
         // ── Member ────────────────────────────────────────────────────────
         $memberRole = new Role();
         $memberRole->setName('Member');
-        $memberRole->setIsAdmin(0);
+        $memberRole->setIsAdmin(false);
         $manager->persist($memberRole);
 
         foreach (self::MEMBER_PERMISSIONS as $bundle => $names) {
