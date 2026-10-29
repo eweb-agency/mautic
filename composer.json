@@ -129,6 +129,10 @@
     {
       "type": "git",
       "url": "https://github.com/mautic/oauth2-php"
+    },
+    {
+      "type": "vcs",
+      "url": "https://github.com/eweb-agency/mautic-mailgun-callback"
     }
   ],
   "conflict": {
