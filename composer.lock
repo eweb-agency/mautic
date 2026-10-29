@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "532d8a0891198a2f4ec36f9fe0ac0098",
+    "content-hash": "5e1a9d404b015fb2cf7e00173ff4bffb",
     "packages": [
         {
             "name": "api-platform/core",
@@ -1466,12 +1466,12 @@
             "version": "1.0.0",
             "source": {
                 "type": "git",
-                "url": "https://github.com/dignac3/mautic-mailgun-callback.git",
+                "url": "https://github.com/eweb-agency/mautic-mailgun-callback.git",
                 "reference": "80828d7a44c8d894c8780251e73d65499a02dbe0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/dignac3/mautic-mailgun-callback/zipball/80828d7a44c8d894c8780251e73d65499a02dbe0",
+                "url": "https://api.github.com/repos/eweb-agency/mautic-mailgun-callback/zipball/80828d7a44c8d894c8780251e73d65499a02dbe0",
                 "reference": "80828d7a44c8d894c8780251e73d65499a02dbe0",
                 "shasum": ""
             },
@@ -1485,23 +1485,22 @@
             "extra": {
                 "install-directory-name": "MauticMailgunCallbackBundle"
             },
-            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
             "description": "Mailgun callback handler for Mautic 7: processes bounces, spam complaints and unsubscribes into Mautic DNC.",
             "keywords": [
-                "Mautic",
                 "bounce",
                 "dnc",
                 "email",
                 "mailgun",
+                "mautic",
                 "plugin",
                 "webhook"
             ],
             "support": {
-                "issues": "https://github.com/dignac3/mautic-mailgun-callback/issues",
-                "source": "https://github.com/dignac3/mautic-mailgun-callback/tree/1.0.0"
+                "source": "https://github.com/eweb-agency/mautic-mailgun-callback/tree/1.0.0",
+                "issues": "https://github.com/eweb-agency/mautic-mailgun-callback/issues"
             },
             "time": "2026-05-06T15:55:51+00:00"
         },
