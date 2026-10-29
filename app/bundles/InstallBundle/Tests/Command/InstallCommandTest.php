@@ -83,4 +83,32 @@ class InstallCommandTest extends TestCase
 
         $this->assertStringContainsString('Install complete'.PHP_EOL, $output->fetch());
     }
+
+    public function testCommandFailsWhenMigrationsCannotBeMarkedAsExecuted(): void
+    {
+        $this->installer->method('checkIfInstalled')->willReturnOnConsecutiveCalls(false);
+        $this->installer->method('finalMigrationStep')
+            ->willReturn(['doctrine:migrations:version failed (exit code 1): The metadata storage is not initialized']);
+
+        $this->doctrineRegistry->method('getConnection')->willReturn($this->createMock(ConnectionWrapper::class));
+
+        $input = new ArrayInput(
+            [
+                'site_url'          => 'localhost',
+                '--admin_firstname' => 'Admin',
+                '--admin_lastname'  => 'Mautic',
+                '--admin_username'  => 'admin',
+                '--admin_email'     => 'admin@example.com',
+                '--admin_password'  => 'password',
+            ]
+        );
+        $output   = new BufferedOutput();
+        $exitCode = $this->command->run($input, $output);
+        $display  = $output->fetch();
+
+        $this->assertNotSame(0, $exitCode);
+        $this->assertStringContainsString('The metadata storage is not initialized', $display);
+        $this->assertStringContainsString('Install canceled', $display);
+        $this->assertStringNotContainsString('Install complete', $display);
+    }
 }

@@ -486,16 +486,43 @@ class InstallService
 
     /**
      * Final migration step for install.
+     *
+     * @return string[] errors, empty when every migration was marked as executed
      */
-    public function finalMigrationStep(): void
+    public function finalMigrationStep(): array
     {
         // Add database migrations up to this point since this is a fresh install (must be done at this point
-        // after the cache has been rebuilt
-        $input  = new ArgvInput(['console', 'doctrine:migrations:version', '--add', '--all', '--no-interaction']);
+        // after the cache has been rebuilt). doctrine:migrations:version does not create the migrations table
+        // and fails when it is missing, so the metadata storage is synced first.
+        $commands = [
+            ['console', 'doctrine:migrations:sync-metadata-storage', '--no-interaction'],
+            ['console', 'doctrine:migrations:version', '--add', '--all', '--no-interaction'],
+        ];
+
+        foreach ($commands as $command) {
+            [$exitCode, $output] = $this->runConsoleCommand($command);
+
+            if (0 !== $exitCode) {
+                return [sprintf('%s failed (exit code %d): %s', $command[1], $exitCode, $output)];
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param string[] $arguments
+     *
+     * @return array{0: int, 1: string} exit code and output
+     */
+    protected function runConsoleCommand(array $arguments): array
+    {
         $output = new BufferedOutput();
 
         $application = new Application($this->kernel);
         $application->setAutoExit(false);
-        $application->run($input, $output);
+        $exitCode = $application->run(new ArgvInput($arguments), $output);
+
+        return [$exitCode, trim($output->fetch())];
     }
 }
