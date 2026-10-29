@@ -562,6 +562,71 @@
     return '';
   }
 
+  // ── CONFIDENTIALITÉ DES FICHES (décision proprio 29/10, option A) ──────
+  // Le relevé d'écran part au serveur, puis au modèle, un tiers. Sur une
+  // fiche contact ou société (création comme édition), la VALEUR des champs
+  // ne part plus : le modèle reçoit le nom, le libellé et « (filled) » ou
+  // « (empty) ». Il sait ce qui est rempli sans voir la donnée, et peut
+  // toujours PROPOSER une valeur (poserChamp lit et écrit le DOM, jamais
+  // le relevé).
+  // Règle PRUDENTE : sur ces fiches, toute valeur est masquée par défaut,
+  // sauf une courte liste blanche de champs non personnels. Un champ
+  // personnalisé inconnu (date de naissance, adresse, n° client…) est donc
+  // masqué sans qu'on ait à le prévoir. Les coordonnées connues et les types
+  // email/tel/url restent masqués même si quelqu'un les ajoute un jour à la
+  // liste blanche. Le serveur rejoue la même règle (ScreenStatePrivacy) :
+  // un onglet resté ouvert sur l'ANCIEN app.js (navigation ajax, aucun
+  // rechargement) ne fait pas partir de valeur pour autant. Les listes
+  // ci-dessous et celles du serveur sont tenues égales par un test.
+  var FICHE_CHEMINS = /\/s\/(?:contacts\/(?:new|edit)|companies)(?:\/|$)/;
+  var FICHE_FORMULAIRES = ['lead', 'company'];
+  var FICHE_PREFIXE = /^(?:lead|company)\[([^\]]*)\]/;
+  var FICHE_COORDONNEES = [
+    'firstname', 'lastname', 'email', 'phone', 'mobile', 'fax', 'address1', 'address2',
+    'city', 'zipcode', 'country', 'state', 'website', 'facebook', 'foursquare',
+    'instagram', 'linkedin', 'skype', 'twitter', 'ip', 'ipaddress', 'ip_address',
+    'companyname', 'companyemail', 'companyphone', 'companyfax', 'companyaddress1',
+    'companyaddress2', 'companycity', 'companyzipcode', 'companycountry', 'companystate',
+    'companywebsite'
+  ];
+  var FICHE_TYPES_COORDONNEES = ['email', 'tel', 'url'];
+  var FICHE_NON_PERSONNELS = [
+    'owner', 'stage', 'tags', 'points', 'projects', 'preferred_locale',
+    'preferred_profile_image', 'score', 'companyindustry',
+    'companynumber_of_employees', 'companyannual_revenue'
+  ];
+
+  /** `lead[email]` → `email`, `lead[tags][]` → `tags`, `search` → `search`. */
+  function aliasFiche(name) {
+    var m = FICHE_PREFIXE.exec(String(name || ''));
+    return (m ? m[1] : String(name || '')).toLowerCase();
+  }
+
+  /** Vrai quand la VALEUR du champ ne doit pas quitter le navigateur.
+   *  champ = {name, type (attribut HTML), chemin (pathname), formulaire
+   *  (attribut name du <form>)}. Fonction pure : testée telle quelle. */
+  function valeurMasquee(champ) {
+    var name = String(champ.name || '');
+    var surFiche = FICHE_CHEMINS.test(String(champ.chemin || '')) ||
+      FICHE_FORMULAIRES.indexOf(String(champ.formulaire || '')) !== -1 ||
+      FICHE_PREFIXE.test(name);
+    if (!surFiche) { return false; }
+    var alias = aliasFiche(name);
+    if (FICHE_COORDONNEES.indexOf(alias) !== -1) { return true; }
+    if (FICHE_TYPES_COORDONNEES.indexOf(String(champ.type || '').toLowerCase()) !== -1) { return true; }
+    return FICHE_NON_PERSONNELS.indexOf(alias) === -1;
+  }
+
+  /** La ligne d'un champ masqué : nom, libellé, rempli ou vide. Jamais de
+   *  valeur, jamais de liste d'options (un select chargé en ajax ne porte
+   *  que l'option choisie : sa liste serait la valeur). */
+  function ligneMasquee(name, lab, rempli) {
+    return '- name="' + name + '"' + (lab ? ' label="' + lab + '"' : '') +
+      (rempli ? ' (filled)' : ' (empty)');
+  }
+
+  window.SendlyAssistant.confidentialite = { masquee: valeurMasquee, ligne: ligneMasquee };
+
   /** L'état de l'écran, en texte sobre : un champ par ligne. */
   function etatEcran() {
     var form = formulaireTravail();
@@ -597,6 +662,21 @@
       .filter(function () { return champVisible(this); })
       .each(function () {
         if (count >= 25) { return false; }
+        var champ = {
+          name: this.name,
+          type: this.getAttribute('type') || '',
+          chemin: window.location.pathname,
+          formulaire: form.getAttribute('name') || ''
+        };
+        if (valeurMasquee(champ)) {
+          var brut = mQuery(this).val();
+          var rempli = (this.type === 'checkbox' || this.type === 'radio')
+            ? !!this.checked
+            : String(brut == null ? '' : brut) !== '';
+          lignes.push(ligneMasquee(this.name, libelleChamp(this), rempli));
+          count++;
+          return;
+        }
         var v = String(mQuery(this).val() == null ? '' : mQuery(this).val()).slice(0, 160);
         var lab = libelleChamp(this);
         var ref = this.tagName === 'SELECT' ? refListe(this) : '';
