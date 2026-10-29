@@ -376,4 +376,61 @@ class InstallServiceTest extends \PHPUnit\Framework\TestCase
 
         $this->assertEquals([0 => 'password'], $this->installer->createAdminUserStep($data));
     }
+
+    public function testFinalMigrationStepSyncsMetadataStorageBeforeMarkingMigrations(): void
+    {
+        $installer = $this->createInstallerWithStubbedConsole();
+        $commands  = [];
+        $installer->expects($this->exactly(2))
+            ->method('runConsoleCommand')
+            ->willReturnCallback(function (array $arguments) use (&$commands): array {
+                $commands[] = $arguments;
+
+                return [0, ''];
+            });
+
+        $this->assertSame([], $installer->finalMigrationStep());
+        $this->assertSame(
+            [
+                ['console', 'doctrine:migrations:sync-metadata-storage', '--no-interaction'],
+                ['console', 'doctrine:migrations:version', '--add', '--all', '--no-interaction'],
+            ],
+            $commands
+        );
+    }
+
+    public function testFinalMigrationStepReportsAFailingCommandAndStops(): void
+    {
+        $installer = $this->createInstallerWithStubbedConsole();
+        $installer->expects($this->once())
+            ->method('runConsoleCommand')
+            ->willReturn([1, 'The metadata storage is not initialized']);
+
+        $errors = $installer->finalMigrationStep();
+
+        $this->assertCount(1, $errors);
+        $this->assertStringContainsString('doctrine:migrations:sync-metadata-storage failed (exit code 1)', $errors[0]);
+        $this->assertStringContainsString('The metadata storage is not initialized', $errors[0]);
+    }
+
+    /**
+     * @return InstallService&MockObject
+     */
+    private function createInstallerWithStubbedConsole(): InstallService
+    {
+        return $this->getMockBuilder(InstallService::class)
+            ->setConstructorArgs([
+                $this->configurator,
+                $this->cacheHelper,
+                $this->pathsHelper,
+                $this->entityManager,
+                $this->translator,
+                $this->kernel,
+                $this->validator,
+                $this->hasher,
+                $this->fixtureLoader,
+            ])
+            ->onlyMethods(['runConsoleCommand'])
+            ->getMock();
+    }
 }

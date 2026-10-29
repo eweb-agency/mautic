@@ -436,7 +436,7 @@ class InstallCommand extends Command
                 $siteUrl  = $params['site_url'];
                 $messages = $installer->createFinalConfigStep($siteUrl);
                 if (empty($messages)) {
-                    $installer->finalMigrationStep();
+                    $messages = $installer->finalMigrationStep();
                 }
                 break;
         }
