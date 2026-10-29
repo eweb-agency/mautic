@@ -108,9 +108,10 @@ final class AiController
      * L'assistant d'aide — panneau « Assistant IA » de la barre haute.
      *
      * Mêmes gardes que generateAction (clé, XHR même-origine), aucune
-     * permission métier : l'aide s'adresse à tout utilisateur connecté et ne
-     * révèle aucune donnée du compte — le service ne reçoit que la question
-     * et l'historique de la conversation, jamais le contenu de l'instance.
+     * permission métier : l'aide s'adresse à tout utilisateur connecté. Le
+     * service reçoit la question, l'historique et le relevé de l'écran ouvert
+     * (mode exécutant) ; il ne relit rien en base. Sur les fiches contact et
+     * société, les valeurs du relevé sont masquées (ScreenStatePrivacy).
      */
     public function assistAction(Request $request): JsonResponse
     {

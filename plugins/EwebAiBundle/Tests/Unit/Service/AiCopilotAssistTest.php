@@ -494,6 +494,43 @@ final class AiCopilotAssistTest extends TestCase
         self::assertStringContainsString('never the label', $system);
     }
 
+    /**
+     * Décision proprio 29/10 (option A) : sur une fiche contact, le modèle
+     * ne reçoit pas la valeur des coordonnées, même si le navigateur (ancien
+     * app.js resté ouvert) les envoie encore. Il peut toujours les REMPLIR.
+     */
+    public function testSurUneFicheContactLeModeleNeRecoitPasLesValeursMaisPeutRemplir(): void
+    {
+        $result = $this->serviceOutil([
+            'answer'  => 'J’ai mis à jour l’e-mail.',
+            'actions' => [['type' => 'fill_field', 'field' => 'lead[email]', 'value' => 'nouvelle.adresse@example.fr']],
+        ])->assist([
+            'question' => 'remplace son e-mail par nouvelle.adresse@example.fr',
+            'actions'  => ['fill_field', 'navigate'],
+            'context'  => implode("\n", [
+                'Screen: /s/contacts/edit/42',
+                'Form fields:',
+                '- name="lead[email]" label="E-mail" value="jeanne.martin@example.fr"',
+                '- name="lead[phone]" label="Téléphone" value="01 23 45 67 89"',
+                '- name="lead[points]" label="Points" value="40"',
+            ]),
+        ]);
+
+        $tour = (string) end($this->sent['messages'])['content'];
+        self::assertStringNotContainsString('jeanne.martin', $tour);
+        self::assertStringNotContainsString('01 23 45', $tour);
+        self::assertStringContainsString('- name="lead[email]" label="E-mail" (filled)', $tour);
+        self::assertStringContainsString('- name="lead[points]" label="Points" value="40"', $tour);
+
+        self::assertStringContainsString('A field marked (filled) holds a value that is hidden from you for privacy', (string) $this->sent['system']);
+
+        self::assertSame(
+            [['type' => 'fill_field', 'field' => 'lead[email]', 'value' => 'nouvelle.adresse@example.fr']],
+            $result['actions'],
+            'le champ masqué reste remplissable'
+        );
+    }
+
     public function testLeBaremeDuTempsGagneEstServeurEtBorne(): void
     {
         $service = $this->serviceOutil(['answer' => 'ok', 'actions' => []]);
