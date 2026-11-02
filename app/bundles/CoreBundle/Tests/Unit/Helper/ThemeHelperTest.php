@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mautic\CoreBundle\Tests\Unit\Helper;
 
+use Mautic\CoreBundle\Exception\BadConfigurationException;
 use Mautic\CoreBundle\Exception\FileNotFoundException;
 use Mautic\CoreBundle\Helper\CoreParametersHelper;
 use Mautic\CoreBundle\Helper\Filesystem;
@@ -226,6 +227,33 @@ class ThemeHelperTest extends TestCase
         $this->assertNotEquals('@themes/nature/page.html.twig', $template);
         $this->assertNotEquals('@themes/goldstar/page.html.twig', $template);
         $this->assertStringContainsString('/page.html.twig', $template);
+    }
+
+    public function testThemeFallbackUsesAnInstalledThemeThatHasTheTemplate(): void
+    {
+        // The default theme is an email-only theme: it is both the requested theme and the default one,
+        // and only some other installed themes ship html/form.html.twig.
+        $this->twig->method('getLoader')->willReturn($this->loader);
+        $this->loader->method('exists')
+            ->willReturnCallback(fn (string $name): bool => '@themes/blank/html/form.html.twig' === $name);
+        $this->mockThemesPaths();
+
+        $this->themeHelper->setDefaultTheme('_1-2-1-2-column');
+
+        $template = $this->themeHelper->checkForTwigTemplate('@themes/_1-2-1-2-column/html/form.html.twig');
+        $this->assertSame('@themes/blank/html/form.html.twig', $template);
+    }
+
+    public function testThemeFallbackThrowsWhenNoInstalledThemeHasTheTemplate(): void
+    {
+        $this->twig->method('getLoader')->willReturn($this->loader);
+        $this->loader->method('exists')->willReturn(false);
+        $this->mockThemesPaths();
+
+        $this->themeHelper->setDefaultTheme('_1-2-1-2-column');
+
+        $this->expectException(BadConfigurationException::class);
+        $this->themeHelper->checkForTwigTemplate('@themes/_1-2-1-2-column/html/form.html.twig');
     }
 
     public function testCopyWithNoNewDirName(): void
@@ -592,5 +620,20 @@ class ThemeHelperTest extends TestCase
 
         $this->expectException(FileNotFoundException::class);
         $this->themeHelper->delete('theme-legacy-email-foo');
+    }
+
+    private function mockThemesPaths(): void
+    {
+        $this->pathsHelper->method('getSystemPath')
+            ->willReturnCallback(
+                function ($path, $absolute) {
+                    switch ($path) {
+                        case 'themes':
+                            return ($absolute) ? __DIR__.'/../../../../../../themes' : 'themes';
+                        case 'themes_root':
+                            return __DIR__.'/../../../../../..';
+                    }
+                }
+            );
     }
 }
