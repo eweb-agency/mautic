@@ -5,6 +5,7 @@ namespace Mautic\SmsBundle\Integration\Twilio;
 use libphonenumber\NumberParseException;
 use libphonenumber\PhoneNumberFormat;
 use libphonenumber\PhoneNumberUtil;
+use Mautic\CoreBundle\Helper\PhoneNumberHelper;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\SmsBundle\Sms\TransportInterface;
 use Psr\Log\LoggerInterface;
@@ -80,7 +81,7 @@ class TwilioTransport implements TransportInterface
     private function sanitizeNumber($number)
     {
         $util   = PhoneNumberUtil::getInstance();
-        $parsed = $util->parse($number, 'US');
+        $parsed = $util->parse($number, PhoneNumberHelper::DEFAULT_REGION);
 
         return $util->format($parsed, PhoneNumberFormat::E164);
     }

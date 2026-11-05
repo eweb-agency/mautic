@@ -42,6 +42,27 @@ class TwilioTransportTest extends TestCase
         $this->twilioTransport->sendSms($lead, 'some_content');
     }
 
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function numberProvider(): iterable
+    {
+        yield 'mobile français sans indicatif' => ['0612345678', '+33612345678'];
+        yield 'mobile français avec espaces' => ['06 12 34 56 78', '+33612345678'];
+        yield 'numéro français international' => ['+33612345678', '+33612345678'];
+        yield 'numéro étranger international' => ['+14155552671', '+14155552671'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('numberProvider')]
+    public function testSanitizeNumber(string $number, string $expected): void
+    {
+        $reflection = new \ReflectionClass($this->twilioTransport::class);
+        $method     = $reflection->getMethod('sanitizeNumber');
+        $method->setAccessible(true);
+
+        Assert::assertSame($expected, $method->invoke($this->twilioTransport, $number));
+    }
+
     public function testCreatePayload(): void
     {
         $reflection = new \ReflectionClass($this->twilioTransport::class);
