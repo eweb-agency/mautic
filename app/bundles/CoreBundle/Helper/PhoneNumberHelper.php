@@ -8,6 +8,12 @@ use libphonenumber\PhoneNumberUtil;
 class PhoneNumberHelper
 {
     /**
+     * Région supposée pour un numéro saisi sans indicatif (06 12 34 56 78).
+     * Un numéro au format international (+33…) n'en dépend pas.
+     */
+    public const DEFAULT_REGION = 'FR';
+
+    /**
      * @param int $format
      *
      * @return string
@@ -15,7 +21,7 @@ class PhoneNumberHelper
     public function format($number, $format = PhoneNumberFormat::E164)
     {
         $phoneUtil   = PhoneNumberUtil::getInstance();
-        $phoneNumber = $phoneUtil->parse($number, 'US');
+        $phoneNumber = $phoneUtil->parse($number, self::DEFAULT_REGION);
 
         return $phoneUtil->format($phoneNumber, $format);
     }
