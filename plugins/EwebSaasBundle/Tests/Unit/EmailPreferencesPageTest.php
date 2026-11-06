@@ -105,8 +105,17 @@ final class EmailPreferencesPageTest extends TestCase
     {
         $html = $this->render('fr', 'frequency', ['rhythm' => 'weekly']);
 
-        self::assertSame(2, substr_count($html, 'type="radio"'));
-        self::assertStringNotContainsStringIgnoringCase('pause', $html);
+        self::assertSame(3, substr_count($html, 'type="radio"'));
+        self::assertStringContainsString('Faire une pause de 3 mois', $html);
+    }
+
+    public function testUnePauseEnCoursAfficheSaDateDeReprise(): void
+    {
+        $html = $this->render('fr', 'frequency', ['rhythm' => 'pause', 'resume' => '6 février 2027']);
+
+        self::assertStringContainsString('value="pause" checked', $html);
+        self::assertStringContainsString('En pause jusqu&#039;au 6 février 2027', $html);
+        self::assertStringNotContainsString('Faire une pause de 3 mois', $html);
     }
 
     /**
@@ -119,9 +128,11 @@ final class EmailPreferencesPageTest extends TestCase
     {
         yield 'fr semaine' => ['fr', 'saved', ['rhythm' => 'weekly'], 'nos e-mails marketing une fois par semaine au maximum'];
         yield 'fr mois' => ['fr', 'saved', ['rhythm' => 'monthly'], 'nos e-mails marketing une fois par mois au maximum'];
+        yield 'fr pause' => ['fr', 'saved', ['rhythm' => 'pause', 'resume' => '6 février 2027'], 'pas nos e-mails marketing jusqu&#039;au 6 février 2027'];
         yield 'fr désabonné' => ['fr', 'unsubscribed', ['canResubscribe' => false], 'plus nos e-mails marketing à camille@exemple.fr'];
         yield 'en semaine' => ['en_US', 'saved', ['rhythm' => 'weekly'], 'our marketing emails once a week at most'];
         yield 'en mois' => ['en_US', 'saved', ['rhythm' => 'monthly'], 'our marketing emails once a month at most'];
+        yield 'en pause' => ['en_US', 'saved', ['rhythm' => 'pause', 'resume' => 'February 6, 2027'], 'not get our marketing emails until February 6, 2027'];
         yield 'en désabonné' => ['en_US', 'unsubscribed', ['canResubscribe' => false], 'our marketing emails at camille@exemple.fr'];
     }
 
@@ -158,6 +169,14 @@ final class EmailPreferencesPageTest extends TestCase
         self::assertStringNotContainsString('class="brand"', $this->render('fr', 'invalid', ['brand' => '']));
     }
 
+    public function testLeLogoRemplaceLeNomQuandIlExiste(): void
+    {
+        $html = $this->render('fr', 'home', ['logo' => 'media/images/sendly/logo-abc.png']);
+
+        self::assertStringContainsString('<img class="logo" src="/media/images/sendly/logo-abc.png" alt="Atelier Mistral">', $html);
+        self::assertStringNotContainsString('class="brand"', $html);
+    }
+
     public function testLesDeuxLanguesOntLesMemesCles(): void
     {
         $fr = array_filter(array_keys($this->messages('fr')), self::isPageKey(...));
@@ -190,6 +209,8 @@ final class EmailPreferencesPageTest extends TestCase
             'address'        => self::ADDRESS,
             'urls'           => self::URLS,
             'rhythm'         => 'weekly',
+            'resume'         => null,
+            'logo'           => null,
             'canResubscribe' => true,
         ], $parameters));
     }

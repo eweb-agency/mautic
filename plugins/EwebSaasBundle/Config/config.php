@@ -105,6 +105,11 @@ return [
                 'controller' => 'MauticPlugin\EwebSaasBundle\Controller\Api\SaasIntegrationsController::statesAction',
                 'method'     => 'GET',
             ],
+            'eweb_saas_api_brand_logo' => [
+                'path'       => '/saas/v1/brand/logo',
+                'controller' => 'MauticPlugin\EwebSaasBundle\Controller\Api\SaasBrandController::logoAction',
+                'method'     => 'POST',
+            ],
             'eweb_saas_api_hygiene_dnc' => [
                 'path'       => '/saas/v1/hygiene/dnc',
                 'controller' => 'MauticPlugin\EwebSaasBundle\Controller\Api\SaasHygieneController::dncAction',

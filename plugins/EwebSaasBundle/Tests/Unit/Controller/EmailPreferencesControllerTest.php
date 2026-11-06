@@ -12,6 +12,7 @@ use Mautic\LeadBundle\Entity\DoNotContact as Dnc;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\PageBundle\Entity\Page;
 use MauticPlugin\EwebSaasBundle\Controller\EmailPreferencesController;
+use MauticPlugin\EwebSaasBundle\Service\BrandLogo;
 use MauticPlugin\EwebSaasBundle\Service\EmailPreferences;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -31,6 +32,8 @@ final class EmailPreferencesControllerTest extends TestCase
 
     private EmailPreferences&MockObject $preferences;
 
+    private BrandLogo&MockObject $logo;
+
     private Environment&MockObject $twig;
 
     private HttpKernelInterface&MockObject $kernel;
@@ -45,6 +48,7 @@ final class EmailPreferencesControllerTest extends TestCase
     protected function setUp(): void
     {
         $this->preferences = $this->createMock(EmailPreferences::class);
+        $this->logo        = $this->createMock(BrandLogo::class);
         $this->twig        = $this->createMock(Environment::class);
         $this->kernel      = $this->createMock(HttpKernelInterface::class);
 
@@ -63,6 +67,7 @@ final class EmailPreferencesControllerTest extends TestCase
 
         $this->controller = new EmailPreferencesController(
             $this->preferences,
+            $this->logo,
             $this->twig,
             $this->createMock(TranslatorInterface::class),
             $router,
@@ -301,6 +306,30 @@ final class EmailPreferencesControllerTest extends TestCase
         self::assertSame('/eweb_saas_email_preferences/'.self::HASH.'/saved', $response->headers->get('Location'));
     }
 
+    public function testLeLogoDeLOrganisationEstTransmisATousLesEcrans(): void
+    {
+        $this->givenStat($this->stat());
+        $this->preferences->method('dncReason')->willReturn(Dnc::IS_CONTACTABLE);
+        $this->logo->method('assetPath')->willReturn('media/images/sendly/logo-abc.png');
+
+        $this->controller->showAction(self::HASH);
+
+        self::assertSame('media/images/sendly/logo-abc.png', $this->rendered['logo']);
+    }
+
+    public function testUnePauseEnCoursTransmetSaDateDeReprise(): void
+    {
+        $this->givenStat($this->stat());
+        $this->preferences->method('dncReason')->willReturn(Dnc::IS_CONTACTABLE);
+        $this->preferences->method('rhythm')->willReturn(EmailPreferences::PAUSE);
+        $this->preferences->method('pausedUntil')->willReturn(new \DateTimeImmutable('2027-02-06 12:00:00'));
+
+        $this->controller->showAction(self::HASH, 'saved');
+
+        self::assertSame(EmailPreferences::PAUSE, $this->rendered['rhythm']);
+        self::assertSame('6 février 2027', $this->rendered['resume']);
+    }
+
     public function testUnChoixInconnuNEnregistreRien(): void
     {
         $this->givenStat($this->stat());
@@ -308,7 +337,7 @@ final class EmailPreferencesControllerTest extends TestCase
         $this->preferences->method('isRhythm')->willReturn(false);
         $this->preferences->expects(self::never())->method('saveRhythm');
 
-        $response = $this->controller->frequencyAction($this->post(['rhythm' => 'pause']), self::HASH);
+        $response = $this->controller->frequencyAction($this->post(['rhythm' => 'demain']), self::HASH);
 
         self::assertSame('/eweb_saas_email_preferences/'.self::HASH.'/frequency', $response->headers->get('Location'));
     }

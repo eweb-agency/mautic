@@ -15,7 +15,6 @@ use Mautic\FormBundle\Entity\Form;
 use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Entity\FrequencyRule;
 use Mautic\LeadBundle\Entity\Lead;
-use Mautic\LeadBundle\Entity\LeadList;
 use Mautic\PageBundle\Entity\Page;
 use PHPUnit\Framework\Assert;
 
@@ -178,13 +177,69 @@ final class EmailPreferencesFunctionalTest extends MauticMysqlTestCase
         Assert::assertSame(FrequencyRule::TIME_WEEK, $rules[0]->getFrequencyTime());
     }
 
-    public function testUnChoixDePauseEstRefuse(): void
+    public function testUnChoixInconnuEstRefuse(): void
+    {
+        $stat = $this->stat();
+
+        $this->client->request('POST', $this->page($stat).'/frequency', ['rhythm' => 'demain']);
+
+        Assert::assertNull($this->rule($stat));
+    }
+
+    public function testChoisirLaPauseArreteLesEnvoisEtAfficheLaDateDeReprise(): void
     {
         $stat = $this->stat();
 
         $this->client->request('POST', $this->page($stat).'/frequency', ['rhythm' => 'pause']);
 
-        Assert::assertNull($this->rule($stat));
+        Assert::assertSame(303, $this->client->getResponse()->getStatusCode());
+        $rule = $this->rule($stat);
+        Assert::assertInstanceOf(FrequencyRule::class, $rule);
+        Assert::assertNull($rule->getFrequencyTime());
+        Assert::assertLessThanOrEqual(new \DateTime(), $rule->getPauseFromDate());
+        Assert::assertGreaterThan(new \DateTime('+88 days'), $rule->getPauseToDate());
+        Assert::assertLessThan(new \DateTime('+93 days'), $rule->getPauseToDate());
+
+        $date    = (new \IntlDateFormatter('fr', \IntlDateFormatter::LONG, \IntlDateFormatter::NONE))->format($rule->getPauseToDate());
+        $crawler = $this->client->request('GET', $this->page($stat).'/saved');
+        Assert::assertStringContainsString("jusqu'au ".$date, $crawler->filter('p')->text());
+
+        $crawler = $this->client->request('GET', $this->page($stat).'/frequency');
+        Assert::assertSame('pause', $crawler->filter('input[checked]')->attr('value'));
+        Assert::assertStringContainsString("En pause jusqu'au ".$date, $crawler->filter('label.option')->last()->text());
+
+        $second = $this->email('Pendant la pause');
+        $this->em->flush();
+        $this->getContainer()->get(EmailModel::class)->sendEmail($second, [$this->contact($stat)], ['email_type' => MailHelper::EMAIL_TYPE_MARKETING]);
+        Assert::assertSame(0, $this->countStats($second));
+    }
+
+    public function testChoisirUnRythmeLeveLaPause(): void
+    {
+        $stat = $this->stat();
+        $this->client->request('POST', $this->page($stat).'/frequency', ['rhythm' => 'pause']);
+
+        $this->client->request('POST', $this->page($stat).'/frequency', ['rhythm' => 'monthly']);
+
+        $rule = $this->rule($stat);
+        Assert::assertNull($rule->getPauseFromDate());
+        Assert::assertNull($rule->getPauseToDate());
+        Assert::assertSame(FrequencyRule::TIME_MONTH, $rule->getFrequencyTime());
+
+        $crawler = $this->client->request('GET', $this->page($stat).'/saved');
+        Assert::assertStringContainsString('une fois par mois au maximum', $crawler->filter('p')->text());
+    }
+
+    public function testLaPauseEnAnglaisSEcritDansLaLangueDuContact(): void
+    {
+        $stat = $this->stat(null, 'alex@example.com', 'hachage-anglais', 'en_GB');
+        $this->forgetContacts();
+
+        $this->client->request('POST', $this->page($stat).'/frequency', ['rhythm' => 'pause']);
+        $crawler = $this->client->request('GET', $this->page($stat).'/saved');
+
+        Assert::assertStringContainsString('You will not get our marketing emails until', $crawler->filter('p')->text());
+        Assert::assertMatchesRegularExpression('/until (January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}\.$/', $crawler->filter('p')->text());
     }
 
     /**
@@ -231,36 +286,6 @@ final class EmailPreferencesFunctionalTest extends MauticMysqlTestCase
         $this->em->flush();
 
         $this->getContainer()->get(EmailModel::class)->sendEmail($second, [$this->contact($stat)], ['email_type' => MailHelper::EMAIL_TYPE_TRANSACTIONAL]);
-
-        Assert::assertSame(1, $this->countStats($second));
-    }
-
-    /**
-     * Pourquoi la pause n'est pas proposée : une pause en cours dans la règle
-     * n'empêche pas l'envoi d'un segment.
-     */
-    public function testUnePauseEnregistreeNeRetientAucunEnvoi(): void
-    {
-        $stat = $this->stat();
-
-        $rule = new FrequencyRule();
-        $rule->setLead($stat->getLead());
-        $rule->setChannel('email');
-        $rule->setDateAdded(new \DateTime());
-        $rule->setPauseFromDate(new \DateTime('-1 day'));
-        $rule->setPauseToDate(new \DateTime('+3 months'));
-        $this->em->persist($rule);
-
-        $segment = new LeadList();
-        $segment->setName('Segment');
-        $segment->setAlias('segment');
-        $segment->setPublicName('Segment');
-        $this->em->persist($segment);
-
-        $second = $this->email('Pendant la pause');
-        $this->em->flush();
-
-        $this->getContainer()->get(EmailModel::class)->sendEmail($second, [$this->contact($stat)], ['listId' => $segment->getId()]);
 
         Assert::assertSame(1, $this->countStats($second));
     }

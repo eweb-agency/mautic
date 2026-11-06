@@ -11,6 +11,7 @@ use Mautic\LeadBundle\Entity\DoNotContact as Dnc;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\PageBundle\Entity\Page;
 use Mautic\PageBundle\EventListener\BuilderSubscriber;
+use MauticPlugin\EwebSaasBundle\Service\BrandLogo;
 use MauticPlugin\EwebSaasBundle\Service\EmailPreferences;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -36,6 +37,7 @@ final class EmailPreferencesController
 {
     public function __construct(
         private readonly EmailPreferences $preferences,
+        private readonly BrandLogo $logo,
         private readonly Environment $twig,
         private readonly TranslatorInterface $translator,
         private readonly UrlGeneratorInterface $router,
@@ -85,10 +87,11 @@ final class EmailPreferencesController
         }
 
         $rhythm = $this->preferences->rhythm($lead);
+        $resume = $this->resumeDate($lead);
 
         return match ($screen) {
-            'frequency'    => $this->render('frequency', $stat, ['rhythm' => $rhythm ?? EmailPreferences::RHYTHM_WEEKLY]),
-            'saved'        => null === $rhythm ? $this->redirect($idHash, 'frequency') : $this->render('saved', $stat, ['rhythm' => $rhythm]),
+            'frequency'    => $this->render('frequency', $stat, ['rhythm' => $rhythm ?? EmailPreferences::RHYTHM_WEEKLY, 'resume' => $resume]),
+            'saved'        => null === $rhythm ? $this->redirect($idHash, 'frequency') : $this->render('saved', $stat, ['rhythm' => $rhythm, 'resume' => $resume]),
             'resubscribed' => $this->render('resubscribed', $stat),
             default        => $this->render('home', $stat),
         };
@@ -186,6 +189,22 @@ final class EmailPreferencesController
         return $this->kernel->handle($request->duplicate(null, null, $attributes), HttpKernelInterface::SUB_REQUEST);
     }
 
+    /**
+     * La date de reprise d'une pause, écrite dans la langue de la page.
+     */
+    private function resumeDate(Lead $lead): ?string
+    {
+        $until = $this->preferences->pausedUntil($lead);
+
+        if (null === $until) {
+            return null;
+        }
+
+        $locale = $this->translator instanceof LocaleAwareInterface ? $this->translator->getLocale() : 'fr';
+
+        return (new \IntlDateFormatter($locale, \IntlDateFormatter::LONG, \IntlDateFormatter::NONE))->format($until) ?: null;
+    }
+
     private function useLocale(?Lead $lead): void
     {
         if ($this->translator instanceof LocaleAwareInterface) {
@@ -228,7 +247,10 @@ final class EmailPreferencesController
         $locale = $this->translator instanceof LocaleAwareInterface ? $this->translator->getLocale() : 'fr';
 
         return $this->secure(new Response(
-            $this->twig->render('@EwebSaas/EmailPreferences/page.html.twig', array_merge($parameters, ['language' => substr($locale, 0, 2)])),
+            $this->twig->render('@EwebSaas/EmailPreferences/page.html.twig', array_merge($parameters, [
+                'language' => substr($locale, 0, 2),
+                'logo'     => $this->logo->assetPath(),
+            ])),
             $status
         ));
     }

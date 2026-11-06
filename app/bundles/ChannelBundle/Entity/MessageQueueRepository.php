@@ -40,8 +40,10 @@ class MessageQueueRepository extends CommonRepository
             ->andWhere($q->expr()->lt('mq.attempts', 'mq.maxAttempts'))
             ->andWhere('mq.lastAttempt is null or mq.lastAttempt < :processStarted')
             ->andWhere('mq.scheduledDate <= :processStarted')
+            ->andWhere('mq.status != :cancelled')
             ->setParameter('success', false, 'boolean')
             ->setParameter('processStarted', $processStarted)
+            ->setParameter('cancelled', MessageQueue::STATUS_CANCELLED)
             ->indexBy('mq', 'mq.id');
 
         $q->orderBy('mq.priority, mq.scheduledDate', Order::Ascending->value);
@@ -68,7 +70,7 @@ class MessageQueueRepository extends CommonRepository
 
         $expr = $q->expr()->and(
             $q->expr()->eq($this->getTableAlias().'.channel', ':channel'),
-            $q->expr()->neq($this->getTableAlias().'.status', ':status')
+            $q->expr()->notIn($this->getTableAlias().'.status', [':sent', ':cancelled'])
         );
 
         if (!empty($ids)) {
@@ -81,7 +83,8 @@ class MessageQueueRepository extends CommonRepository
             ->from(MAUTIC_TABLE_PREFIX.'message_queue', $this->getTableAlias())
             ->where($expr)
             ->setParameter('channel', $channel)
-            ->setParameter('status', MessageQueue::STATUS_SENT)
+            ->setParameter('sent', MessageQueue::STATUS_SENT)
+            ->setParameter('cancelled', MessageQueue::STATUS_CANCELLED)
             ->setParameter('ids', $ids, ArrayParameterType::INTEGER)
             ->executeQuery()
             ->fetchOne();

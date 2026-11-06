@@ -28,6 +28,10 @@ class EmailPreferences
 
     public const RHYTHM_MONTHLY = 'monthly';
 
+    public const PAUSE          = 'pause';
+
+    private const PAUSE_LENGTH  = 'P3M';
+
     private const CHANNEL = 'email';
 
     /**
@@ -70,14 +74,19 @@ class EmailPreferences
 
     public function isRhythm(string $rhythm): bool
     {
-        return isset(self::RHYTHMS[$rhythm]);
+        return isset(self::RHYTHMS[$rhythm]) || self::PAUSE === $rhythm;
     }
 
     /**
-     * Le rythme enregistré, s'il fait partie de ceux que la page propose.
+     * Le choix en cours parmi ceux que la page propose : la pause d'abord,
+     * puis le rythme enregistré.
      */
     public function rhythm(Lead $lead): ?string
     {
+        if (null !== $this->pausedUntil($lead)) {
+            return self::PAUSE;
+        }
+
         $rule = $this->findRule($lead);
 
         if (null === $rule || 1 !== (int) $rule->getFrequencyNumber()) {
@@ -88,15 +97,36 @@ class EmailPreferences
     }
 
     /**
+     * La date de reprise d'une pause en cours (celle que le moteur applique,
+     * voir `FrequencyRuleRepository::getPausedContactIds`).
+     */
+    public function pausedUntil(Lead $lead): ?\DateTimeInterface
+    {
+        $rule  = $this->findRule($lead);
+        $until = $rule?->getPauseToDate();
+        $from  = $rule?->getPauseFromDate();
+        $now   = new \DateTimeImmutable();
+
+        return null !== $until && $until > $now && (null === $from || $from <= $now) ? $until : null;
+    }
+
+    /**
      * Écrit directement la règle du canal e-mail. `LeadModel::setFrequencyRules`
      * ne convient pas : il réécrit aussi les segments et les catégories du
      * contact à partir des données du formulaire natif, et remet les autres
      * champs de la règle à zéro.
+     *
+     * Une pause garde le rythme enregistré, qui reprend à son terme ; relancer
+     * une pause en cours ne la prolonge pas. Choisir un rythme lève la pause.
      */
     public function saveRhythm(Lead $lead, string $rhythm): void
     {
         if (!$this->isRhythm($rhythm)) {
             throw new \InvalidArgumentException('Rythme inconnu.');
+        }
+
+        if (self::PAUSE === $rhythm && null !== $this->pausedUntil($lead)) {
+            return;
         }
 
         $rule = $this->findRule($lead);
@@ -108,8 +138,16 @@ class EmailPreferences
         }
 
         $rule->setDateAdded(new \DateTime());
-        $rule->setFrequencyNumber(1);
-        $rule->setFrequencyTime(self::RHYTHMS[$rhythm]);
+
+        if (self::PAUSE === $rhythm) {
+            $rule->setPauseFromDate(new \DateTime());
+            $rule->setPauseToDate((new \DateTime())->add(new \DateInterval(self::PAUSE_LENGTH)));
+        } else {
+            $rule->setFrequencyNumber(1);
+            $rule->setFrequencyTime(self::RHYTHMS[$rhythm]);
+            $rule->setPauseFromDate(null);
+            $rule->setPauseToDate(null);
+        }
 
         $this->rules()->saveEntity($rule);
     }
@@ -142,7 +180,7 @@ class EmailPreferences
      * e-mail, sinon celui de l'espace. `brand_name` vient en dernier car le
      * provisionneur y pose l'identifiant technique de l'espace, et
      * `mailer_from_name` vaut « Mautic » tant que rien ne l'a remplacé.
-     * Aucun logo n'existe côté espace : le nom est la seule marque disponible.
+     * Le nom s'affiche quand l'organisation n'a pas de logo (voir `BrandLogo`).
      */
     public function brandName(?Email $email): string
     {

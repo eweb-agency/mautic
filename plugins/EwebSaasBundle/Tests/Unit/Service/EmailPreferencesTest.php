@@ -110,13 +110,13 @@ final class EmailPreferencesTest extends TestCase
         self::assertInstanceOf(\DateTimeInterface::class, $saved->getDateAdded());
     }
 
-    public function testChangerDeRythmeMetAJourLaRegleExistanteSansToucherAuReste(): void
+    public function testChangerDeRythmeMetAJourLaRegleExistanteEtLeveLaPause(): void
     {
-        $pause = new \DateTime('2030-01-01');
         $rule  = new FrequencyRule();
         $rule->setChannel('email');
         $rule->setPreferredChannel(true);
-        $rule->setPauseFromDate($pause);
+        $rule->setPauseFromDate(new \DateTime('-1 day'));
+        $rule->setPauseToDate(new \DateTime('+1 month'));
         $rule->setFrequencyNumber(1);
         $rule->setFrequencyTime(FrequencyRule::TIME_WEEK);
 
@@ -127,7 +127,8 @@ final class EmailPreferencesTest extends TestCase
 
         self::assertSame(FrequencyRule::TIME_MONTH, $rule->getFrequencyTime());
         self::assertTrue((bool) $rule->getPreferredChannel());
-        self::assertSame($pause, $rule->getPauseFromDate());
+        self::assertNull($rule->getPauseFromDate());
+        self::assertNull($rule->getPauseToDate());
     }
 
     public function testUnRythmeInconnuEstRefuse(): void
@@ -136,16 +137,82 @@ final class EmailPreferencesTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->preferences->saveRhythm(new Lead(), 'pause');
+        $this->preferences->saveRhythm(new Lead(), 'demain');
     }
 
-    public function testLaPageNeProposePasLaPause(): void
+    public function testLaPageProposeLesDeuxRythmesEtLaPause(): void
     {
-        // Aucun envoi ne lit pause_from_date ni pause_to_date dans ce moteur :
-        // proposer la pause serait une fausse promesse.
         self::assertTrue($this->preferences->isRhythm('weekly'));
         self::assertTrue($this->preferences->isRhythm('monthly'));
-        self::assertFalse($this->preferences->isRhythm('pause'));
+        self::assertTrue($this->preferences->isRhythm('pause'));
+        self::assertFalse($this->preferences->isRhythm('demain'));
+    }
+
+    public function testUnePauseDureTroisMoisEtGardeLeRythme(): void
+    {
+        $rule = new FrequencyRule();
+        $rule->setChannel('email');
+        $rule->setFrequencyNumber(1);
+        $rule->setFrequencyTime(FrequencyRule::TIME_WEEK);
+
+        $this->rules->method('findOneBy')->willReturn($rule);
+        $this->rules->expects(self::once())->method('saveEntity')->with($rule);
+
+        $this->preferences->saveRhythm(new Lead(), EmailPreferences::PAUSE);
+
+        self::assertLessThanOrEqual(new \DateTime(), $rule->getPauseFromDate());
+        self::assertEquals((new \DateTime())->add(new \DateInterval('P3M'))->format('Y-m-d'), $rule->getPauseToDate()->format('Y-m-d'));
+        self::assertSame(FrequencyRule::TIME_WEEK, $rule->getFrequencyTime());
+    }
+
+    public function testRelancerUnePauseEnCoursNeLaProlongePas(): void
+    {
+        $until = new \DateTime('+1 month');
+        $rule  = new FrequencyRule();
+        $rule->setPauseFromDate(new \DateTime('-2 months'));
+        $rule->setPauseToDate($until);
+
+        $this->rules->method('findOneBy')->willReturn($rule);
+        $this->rules->expects(self::never())->method('saveEntity');
+
+        $this->preferences->saveRhythm(new Lead(), EmailPreferences::PAUSE);
+
+        self::assertSame($until, $rule->getPauseToDate());
+    }
+
+    /**
+     * @return iterable<string, array{?string, ?string, bool}>
+     */
+    public static function pauses(): iterable
+    {
+        yield 'en cours' => ['-1 day', '+1 month', true];
+        yield 'sans début' => [null, '+1 month', true];
+        yield 'terminée' => ['-4 months', '-1 month', false];
+        yield 'à venir' => ['+1 week', '+1 month', false];
+        yield 'sans fin' => ['-1 day', null, false];
+        yield 'aucune' => [null, null, false];
+    }
+
+    #[DataProvider('pauses')]
+    public function testLaDateDeRepriseSuitLaPauseAppliquee(?string $from, ?string $to, bool $paused): void
+    {
+        $rule = new FrequencyRule();
+        $rule->setPauseFromDate(null === $from ? null : new \DateTime($from));
+        $rule->setPauseToDate(null === $to ? null : new \DateTime($to));
+        $this->rules->method('findOneBy')->willReturn($rule);
+
+        self::assertSame($paused ? $rule->getPauseToDate() : null, $this->preferences->pausedUntil(new Lead()));
+    }
+
+    public function testUnePauseEnCoursPasseAvantLeRythmeEnregistre(): void
+    {
+        $rule = new FrequencyRule();
+        $rule->setFrequencyNumber(1);
+        $rule->setFrequencyTime(FrequencyRule::TIME_WEEK);
+        $rule->setPauseToDate(new \DateTime('+1 month'));
+        $this->rules->method('findOneBy')->willReturn($rule);
+
+        self::assertSame(EmailPreferences::PAUSE, $this->preferences->rhythm(new Lead()));
     }
 
     #[DataProvider('rythmes')]

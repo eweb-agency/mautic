@@ -2,6 +2,7 @@
 
 namespace Mautic\LeadBundle\Entity;
 
+use Doctrine\DBAL\ArrayParameterType;
 use Mautic\CoreBundle\Entity\CommonRepository;
 
 /**
@@ -42,6 +43,36 @@ class FrequencyRuleRepository extends CommonRepository
         $defaultRuleViolations = $this->getDefaultFrequencyRuleViolations($leadIds, $defaultFrequencyNumber, $defaultFrequencyTime, $statTable, $statContactColumn, $statSentColumn);
 
         return array_merge($frequencyRuleViolations, $defaultRuleViolations);
+    }
+
+    /**
+     * Sendly : les contacts dont la pause sur ce canal est en cours. Une date
+     * absente ne borne pas la pause de ce côté-là, mais il en faut au moins une.
+     *
+     * @param array<int|string> $leadIds
+     *
+     * @return int[]
+     */
+    public function getPausedContactIds(string $channel, array $leadIds): array
+    {
+        if (empty($leadIds)) {
+            return [];
+        }
+
+        $q = $this->getEntityManager()->getConnection()->createQueryBuilder();
+
+        $q->select('fr.lead_id')
+            ->from(MAUTIC_TABLE_PREFIX.'lead_frequencyrules', 'fr')
+            ->where('fr.channel = :channel')
+            ->andWhere('fr.lead_id IN (:leadIds)')
+            ->andWhere('fr.pause_from_date IS NOT NULL OR fr.pause_to_date IS NOT NULL')
+            ->andWhere('fr.pause_from_date IS NULL OR fr.pause_from_date <= :now')
+            ->andWhere('fr.pause_to_date IS NULL OR fr.pause_to_date > :now')
+            ->setParameter('channel', $channel)
+            ->setParameter('leadIds', array_values(array_map('intval', $leadIds)), ArrayParameterType::INTEGER)
+            ->setParameter('now', (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s'));
+
+        return array_map('intval', $q->executeQuery()->fetchFirstColumn());
     }
 
     private function validateDefaultParameters(mixed $number, mixed $time): bool

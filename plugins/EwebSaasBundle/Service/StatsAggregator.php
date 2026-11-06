@@ -266,7 +266,8 @@ class StatsAggregator
     /**
      * E-mails programmés (publish_up dans les 60 prochains jours) pour le
      * calendrier « Planifier une campagne » du dashboard. Fenêtre FIXE :
-     * une seule clé de cache possible.
+     * une seule clé de cache possible. Seuls les e-mails de segment partent à
+     * leur date : c'est ce que traite `mautic:broadcasts:send` dans le cron.
      */
     public function getScheduledEmails(): array
     {
@@ -280,6 +281,7 @@ class StatsAggregator
             $rows = $this->connection->fetchAllAssociative(
                 "SELECT id, name, publish_up FROM {$emailsTable}
                  WHERE is_published = 1
+                   AND email_type = 'list'
                    AND publish_up IS NOT NULL
                    AND publish_up BETWEEN :now AND :until
                  ORDER BY publish_up ASC

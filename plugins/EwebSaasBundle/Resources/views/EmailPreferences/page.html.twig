@@ -20,6 +20,7 @@
         body { min-height: 100vh; min-height: 100dvh; background: #F2F4F7; font-family: Helvena, -apple-system, Arial, sans-serif; color: #14181F; display: flex; align-items: center; justify-content: center; padding: 20px; }
         main { width: 100%; max-width: 440px; background: #fff; border-radius: 20px; padding: 34px 26px 28px; text-align: center; }
         .brand { font-size: 26px; line-height: 32px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; overflow-wrap: anywhere; margin-bottom: 24px; }
+        .logo { display: block; max-width: 180px; max-height: 72px; margin: 0 auto 24px; border-radius: 12px; }
         h1 { margin: 0 0 8px; font-size: 23px; line-height: 29px; font-weight: 500; letter-spacing: -.01em; }
         p { margin: 0; font-size: 15px; line-height: 23px; color: #59616E; }
         form { margin: 0; }
@@ -41,7 +42,7 @@
 </head>
 <body>
 <main>
-    {% if brand %}<div class="brand">{{ brand }}</div>{% endif %}
+    {% if logo %}<img class="logo" src="{{ getAssetUrl(logo) }}" alt="{{ brand }}">{% elseif brand %}<div class="brand">{{ brand }}</div>{% endif %}
 
     {% if screen == 'home' %}
         <h1>{{ (t ~ 'home.title')|trans }}</h1>
@@ -57,11 +58,11 @@
         <p>{{ (t ~ 'frequency.text')|trans }}</p>
         <form method="post" action="{{ urls.save }}">
             <div class="options">
-                {% for value in ['weekly', 'monthly'] %}
+                {% for value in ['weekly', 'monthly', 'pause'] %}
                     <label class="option">
                         <input type="radio" name="rhythm" value="{{ value }}"{{ rhythm == value ? ' checked' : '' }}>
                         <i></i>
-                        <span>{{ (t ~ 'frequency.' ~ value)|trans }}</span>
+                        <span>{{ value == 'pause' and resume ? (t ~ 'frequency.paused')|trans({'%date%': resume}) : (t ~ 'frequency.' ~ value)|trans }}</span>
                     </label>
                 {% endfor %}
             </div>
@@ -74,7 +75,7 @@
     {% elseif screen == 'saved' %}
         <div class="done" aria-hidden="true">✓</div>
         <h1>{{ (t ~ 'noted')|trans }}</h1>
-        <p>{{ (t ~ 'saved.' ~ rhythm)|trans }}</p>
+        <p>{{ (t ~ 'saved.' ~ rhythm)|trans({'%date%': resume}) }}</p>
         <div class="note after-text"><a class="link" href="{{ urls.frequency }}">{{ (t ~ 'saved.change')|trans }}</a></div>
 
     {% elseif screen == 'resubscribed' %}

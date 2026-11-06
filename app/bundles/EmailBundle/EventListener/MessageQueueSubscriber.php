@@ -38,8 +38,12 @@ class MessageQueueSubscriber implements EventSubscriberInterface
 
         $sendTo            = [];
         $messagesByContact = [];
+        // Sendly : désabonné entre-temps, le message échoue au lieu de passer
+        // pour envoyé. Marqué envoyé sans stat, le contact redevenait « en
+        // attente » et un plafond atteint faisait boucler le broadcast.
         $options           = [
-            'email_type' => MailHelper::EMAIL_TYPE_MARKETING,
+            'email_type'   => MailHelper::EMAIL_TYPE_MARKETING,
+            'dnc_as_error' => true,
         ];
 
         /** @var MessageQueue $message */
