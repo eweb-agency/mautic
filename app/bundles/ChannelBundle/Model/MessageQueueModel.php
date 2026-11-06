@@ -79,6 +79,23 @@ class MessageQueueModel extends FormModel
 
         /** @var \Mautic\LeadBundle\Entity\FrequencyRuleRepository $frequencyRulesRepo */
         $frequencyRulesRepo     = $this->em->getRepository(\Mautic\LeadBundle\Entity\FrequencyRule::class);
+        $queuedContacts         = [];
+
+        // Sendly : un contact en pause ne reçoit rien, ni maintenant ni à la fin
+        // de la pause. La trace annulée le sort des destinataires en attente.
+        foreach ($frequencyRulesRepo->getPausedContactIds($channel, $leadIds) as $pausedId) {
+            if (isset($messageQueue[$pausedId])) {
+                $messageQueue[$pausedId]->setStatus(MessageQueue::STATUS_CANCELLED);
+                $messageQueue[$pausedId]->setLastAttempt(new \DateTime());
+                $messageQueue[$pausedId]->setProcessed();
+            } else {
+                $this->queue([$leads[$pausedId]], $channel, $channelId, new \DateInterval('PT0S'), $attempts, $priority, $campaignEventId, [], MessageQueue::STATUS_CANCELLED);
+            }
+
+            $queuedContacts[$pausedId] = $pausedId;
+            unset($leads[$pausedId], $leadIds[$pausedId]);
+        }
+
         $defaultFrequencyNumber = $this->coreParametersHelper->get($channel.'_frequency_number');
         $defaultFrequencyTime   = $this->coreParametersHelper->get($channel.'_frequency_time');
 
@@ -92,7 +109,6 @@ class MessageQueueModel extends FormModel
             $statSentColumn
         );
 
-        $queuedContacts = [];
         foreach ($dontSendTo as $frequencyRuleMet) {
             // We only deal with date intervals here (no time intervals) so it's safe to use 'P'
             $scheduleInterval = new \DateInterval('P1'.substr($frequencyRuleMet['frequency_time'], 0, 1));
@@ -127,6 +143,7 @@ class MessageQueueModel extends FormModel
      * @param int      $priority
      * @param int|null $campaignEventId
      * @param array    $options
+     * @param string   $status          STATUS_CANCELLED garde une trace que rien ne rejouera
      */
     public function queue(
         $leads,
@@ -137,6 +154,7 @@ class MessageQueueModel extends FormModel
         $priority = 1,
         $campaignEventId = null,
         $options = [],
+        string $status = MessageQueue::STATUS_PENDING,
     ): bool {
         $messageQueues = [];
 
@@ -162,6 +180,7 @@ class MessageQueueModel extends FormModel
             $messageQueue->setPriority($priority);
             $messageQueue->setScheduledDate($scheduledDate);
             $messageQueue->setOptions($options);
+            $messageQueue->setStatus($status);
 
             $messageQueues[] = $messageQueue;
         }

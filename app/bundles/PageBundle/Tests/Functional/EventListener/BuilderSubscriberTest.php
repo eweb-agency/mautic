@@ -42,6 +42,8 @@ class BuilderSubscriberTest extends MauticMysqlTestCase
 
     protected function setUp(): void
     {
+        // Ces tests visent le parcours d'origine, pas la page Sendly.
+        $this->configParams['saas_unsubscribe_page']    = 0;
         $this->configParams['show_contact_preferences'] = 1;
         $data                                           = $this->providedData();
         $this->configParams                             = array_merge($data[0], $this->configParams);
