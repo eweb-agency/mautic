@@ -126,7 +126,10 @@ class PublicController extends CommonFormController
         $session                = $request->getSession();
         $isOneClickUnsubscribe  = $request->isMethod(Request::METHOD_POST) && 'One-Click' === $request->get('List-Unsubscribe');
         $isUnsubscribeAll       = $request->get('unsubscribe_all');
-        $showContactPreferences = $this->coreParametersHelper->get('show_contact_preferences');
+        // Sendly : le centre de préférences défini sur un e-mail s'affiche quel
+        // que soit le réglage de l'espace (posé par EmailPreferencesController,
+        // un attribut de requête ne vient jamais de l'URL).
+        $showContactPreferences = $this->coreParametersHelper->get('show_contact_preferences') || $request->attributes->getBoolean('sendly_preference_center');
 
         if (!empty($stat)) {
             if ($isOneClickUnsubscribe) {

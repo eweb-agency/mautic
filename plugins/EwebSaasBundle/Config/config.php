@@ -27,6 +27,32 @@ return [
                 'path'       => '/sendly.js',
                 'controller' => 'MauticPlugin\EwebSaasBundle\Controller\TrackingJsController::indexAction',
             ],
+
+            // Page de désabonnement vue par les destinataires (voir
+            // EventListener/UnsubscribeEntrySubscriber). Le hachage de suivi
+            // de l'e-mail est la seule clé : aucune adresse dans ces URL.
+            'eweb_saas_email_preferences' => [
+                'path'         => '/email/preferences/{idHash}/{screen}',
+                'controller'   => 'MauticPlugin\EwebSaasBundle\Controller\EmailPreferencesController::showAction',
+                'method'       => 'GET',
+                'defaults'     => ['screen' => 'home'],
+                'requirements' => ['screen' => 'home|frequency|saved|resubscribed'],
+            ],
+            'eweb_saas_email_preferences_frequency' => [
+                'path'       => '/email/preferences/{idHash}/frequency',
+                'controller' => 'MauticPlugin\EwebSaasBundle\Controller\EmailPreferencesController::frequencyAction',
+                'method'     => 'POST',
+            ],
+            'eweb_saas_email_preferences_unsubscribe' => [
+                'path'       => '/email/preferences/{idHash}/unsubscribe',
+                'controller' => 'MauticPlugin\EwebSaasBundle\Controller\EmailPreferencesController::unsubscribeAction',
+                'method'     => 'POST',
+            ],
+            'eweb_saas_email_preferences_resubscribe' => [
+                'path'       => '/email/preferences/{idHash}/resubscribe',
+                'controller' => 'MauticPlugin\EwebSaasBundle\Controller\EmailPreferencesController::resubscribeAction',
+                'method'     => 'POST',
+            ],
         ],
 
         // API routes — automatically prefixed with /api by Mautic's RouteLoader
@@ -99,5 +125,11 @@ return [
         // Surchargeable par instance via MAUTIC_SAAS_PORTAL_URL ; une valeur
         // vide retire le menu (instance autonome, hors SaaS).
         'saas_portal_url' => 'https://marketing.eweb-agency.fr',
+
+        // Page de désabonnement Sendly. Vrai par défaut : elle s'applique à
+        // tous les espaces dès le déploiement de l'image, sans toucher à
+        // local.php. Faux = retour au parcours d'origine, pour un espace
+        // précis en cas de besoin et pour les tests qui visent ce parcours.
+        'saas_unsubscribe_page' => true,
     ],
 ];
