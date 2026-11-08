@@ -260,7 +260,8 @@ class CampaignSubscriber implements EventSubscriberInterface
         }
         $event->setChannel('email', $emailId);
 
-        $type    = $config['email_type'] ?? MailHelper::EMAIL_TYPE_TRANSACTIONAL;
+        // Sendly : sans type explicite, le désabonnement et le rythme s'appliquent.
+        $type    = $config['email_type'] ?? MailHelper::EMAIL_TYPE_MARKETING;
         $options = [
             'source'         => ['campaign.event', $event->getEvent()->getId()],
             'email_attempts' => $config['attempts'] ?? 3,

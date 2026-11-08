@@ -1,0 +1,103 @@
+{#
+  Page de désabonnement vue par les destinataires (voir
+  EmailPreferencesController). Maquette validée par le propriétaire. Aucun
+  script : les boutons qui écrivent sont de vrais formulaires en POST.
+#}
+{% set t = 'eweb.saas.preferences.' %}
+<!doctype html>
+<html lang="{{ language }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>{{ brand ? brand ~ ' · ' : '' }}{{ (t ~ 'page_title')|trans }}</title>
+    <style>
+        @font-face { font-family: Helvena; font-weight: 400; font-display: swap; src: url('{{ getAssetUrl('plugins/EwebSaasBundle/Assets/fonts/Helvena_Regular.woff2') }}') format('woff2'); }
+        @font-face { font-family: Helvena; font-weight: 500; font-display: swap; src: url('{{ getAssetUrl('plugins/EwebSaasBundle/Assets/fonts/Helvena_Medium.woff2') }}') format('woff2'); }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; }
+        body { min-height: 100vh; min-height: 100dvh; background: #F2F4F7; font-family: Helvena, -apple-system, Arial, sans-serif; color: #14181F; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        main { width: 100%; max-width: 440px; background: #fff; border-radius: 20px; padding: 34px 26px 28px; text-align: center; }
+        .brand { font-size: 26px; line-height: 32px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; overflow-wrap: anywhere; margin-bottom: 24px; }
+        .logo { display: block; max-width: 180px; max-height: 72px; margin: 0 auto 24px; border-radius: 12px; }
+        h1 { margin: 0 0 8px; font-size: 23px; line-height: 29px; font-weight: 500; letter-spacing: -.01em; }
+        p { margin: 0; font-size: 15px; line-height: 23px; color: #59616E; }
+        form { margin: 0; }
+        .address { margin: 18px 0 20px; padding: 12px 14px; border: 1px solid #DFE3E9; border-radius: 12px; font-size: 15px; color: #14181F; background: #F8F9FB; overflow-wrap: anywhere; }
+        .button { display: block; width: 100%; padding: 14px 16px; border-radius: 12px; font: inherit; font-size: 15.5px; font-weight: 500; line-height: 21px; border: 1px solid #004FFF; background: #004FFF; color: #fff; text-align: center; text-decoration: none; margin-top: 10px; cursor: pointer; }
+        .button.secondary { background: #fff; color: #14181F; border-color: #CFD5DD; }
+        .options { margin: 16px 0 8px; }
+        .option { position: relative; display: flex; align-items: center; gap: 11px; text-align: left; padding: 13px 14px; border: 1px solid #DFE3E9; border-radius: 12px; margin-top: 9px; font-size: 15px; cursor: pointer; }
+        .option input { position: absolute; opacity: 0; }
+        .option i { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #AEB6C2; }
+        .option input:checked + i { border: 5px solid #004FFF; }
+        .option:has(input:checked) { border-color: #004FFF; background: #F5F8FF; }
+        .note { margin-top: 14px; font-size: 13.5px; color: #59616E; }
+        .note.after-text { margin-top: 18px; }
+        .link { padding: 0; border: 0; background: none; font: inherit; color: #14181F; text-decoration: underline; cursor: pointer; }
+        .done { width: 46px; height: 46px; border-radius: 50%; background: #E8F6EF; color: #0A7F4F; display: grid; place-items: center; margin: 0 auto 14px; font-size: 22px; }
+        a:focus-visible, button:focus-visible, .option:has(input:focus-visible) { outline: 2px solid #004FFF; outline-offset: 2px; }
+    </style>
+</head>
+<body>
+<main>
+    {% if logo %}<img class="logo" src="{{ getAssetUrl(logo) }}" alt="{{ brand }}">{% elseif brand %}<div class="brand">{{ brand }}</div>{% endif %}
+
+    {% if screen == 'home' %}
+        <h1>{{ (t ~ 'home.title')|trans }}</h1>
+        <p>{{ (t ~ 'home.text')|trans }}</p>
+        <div class="address">{{ address }}</div>
+        <a class="button" href="{{ urls.frequency }}">{{ (t ~ 'home.manage')|trans }}</a>
+        <form method="post" action="{{ urls.unsubscribe }}">
+            <button class="button secondary" type="submit">{{ (t ~ 'home.unsubscribe')|trans }}</button>
+        </form>
+
+    {% elseif screen == 'frequency' %}
+        <h1>{{ (t ~ 'frequency.title')|trans }}</h1>
+        <p>{{ (t ~ 'frequency.text')|trans }}</p>
+        <form method="post" action="{{ urls.save }}">
+            <div class="options">
+                {% for value in ['weekly', 'monthly', 'pause'] %}
+                    <label class="option">
+                        <input type="radio" name="rhythm" value="{{ value }}"{{ rhythm == value ? ' checked' : '' }}>
+                        <i></i>
+                        <span>{{ value == 'pause' and resume ? (t ~ 'frequency.paused')|trans({'%date%': resume}) : (t ~ 'frequency.' ~ value)|trans }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+            <button class="button" type="submit">{{ (t ~ 'frequency.save')|trans }}</button>
+        </form>
+        <form class="note" method="post" action="{{ urls.unsubscribe }}">
+            {{ (t ~ 'frequency.finally')|trans }} <button class="link" type="submit">{{ (t ~ 'frequency.unsubscribe')|trans }}</button>
+        </form>
+
+    {% elseif screen == 'saved' %}
+        <div class="done" aria-hidden="true">✓</div>
+        <h1>{{ (t ~ 'noted')|trans }}</h1>
+        <p>{{ (t ~ 'saved.' ~ rhythm)|trans({'%date%': resume}) }}</p>
+        <div class="note after-text"><a class="link" href="{{ urls.frequency }}">{{ (t ~ 'saved.change')|trans }}</a></div>
+
+    {% elseif screen == 'resubscribed' %}
+        <div class="done" aria-hidden="true">✓</div>
+        <h1>{{ (t ~ 'noted')|trans }}</h1>
+        <p>{{ (t ~ 'resubscribed.text')|trans({'%email%': address}) }}</p>
+        <div class="note after-text"><a class="link" href="{{ urls.frequency }}">{{ (t ~ 'home.manage')|trans }}</a></div>
+
+    {% elseif screen == 'unsubscribed' %}
+        <div class="done" aria-hidden="true">✓</div>
+        <h1>{{ (t ~ 'unsubscribed.title')|trans }}</h1>
+        <p>{{ (t ~ 'unsubscribed.text')|trans({'%email%': address}) }}</p>
+        {% if canResubscribe %}
+            <form class="note after-text" method="post" action="{{ urls.resubscribe }}">
+                {{ (t ~ 'unsubscribed.mistake')|trans }} <button class="link" type="submit">{{ (t ~ 'unsubscribed.resubscribe')|trans }}</button>
+            </form>
+        {% endif %}
+
+    {% else %}
+        <h1>{{ (t ~ 'invalid.title')|trans }}</h1>
+        <p>{{ (t ~ 'invalid.text')|trans }}</p>
+    {% endif %}
+</main>
+</body>
+</html>

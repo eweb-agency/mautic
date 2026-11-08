@@ -36,6 +36,8 @@ class PublicControllerFunctionalTest extends MauticMysqlTestCase
 
     protected function setUp(): void
     {
+        // Ces tests visent le parcours d'origine, pas la page Sendly.
+        $this->configParams['saas_unsubscribe_page']           = 0;
         $this->configParams['show_contact_segments']           = 0;
         $this->configParams['show_contact_frequency']          = 0;
         $this->configParams['show_contact_pause_dates']        = 0;
