@@ -4,6 +4,7 @@ namespace Mautic\LeadBundle\Form\Type;
 
 use Mautic\CoreBundle\Form\EventListener\CleanFormSubscriber;
 use Mautic\CoreBundle\Form\Type\FormButtonsType;
+use Mautic\CoreBundle\Helper\CoreParametersHelper;
 use Mautic\CoreBundle\Helper\UserHelper;
 use Mautic\EmailBundle\Form\Type\EmailListType;
 use Symfony\Component\Form\AbstractType;
@@ -23,6 +24,7 @@ class EmailType extends AbstractType
 
     public function __construct(
         private UserHelper $userHelper,
+        private CoreParametersHelper $coreParametersHelper,
     ) {
     }
 
@@ -60,7 +62,14 @@ class EmailType extends AbstractType
             ]
         );
 
-        $default = (empty($options['data']['from'])) ? $user->getEmail() : $options['data']['from'];
+        // Sendly : l'adresse proposée est celle de l'espace (mailer_from_email),
+        // alignée DMARC sur le domaine d'envoi. L'adresse personnelle de
+        // l'utilisateur partait via ce domaine sans y être autorisée (DMARC en
+        // échec : spam ou refus, constaté le 09/11). Les réponses suivent déjà
+        // le réglage de l'espace (mailer_reply_to_email) ou le propriétaire du
+        // contact. Sans adresse d'espace, comportement d'origine.
+        $spaceFrom = trim((string) $this->coreParametersHelper->get('mailer_from_email'));
+        $default   = (empty($options['data']['from'])) ? ('' !== $spaceFrom ? $spaceFrom : $user->getEmail()) : $options['data']['from'];
         $builder->add(
             'from',
             TextType::class,
