@@ -521,7 +521,9 @@ class LeadControllerTest extends MauticMysqlTestCase
         Assert::assertSame('Your email is contact@an.email', $email->getTextBody());
         Assert::assertCount(1, $email->getFrom());
         Assert::assertSame($user->getName(), $email->getFrom()[0]->getName());
-        Assert::assertSame($user->getEmail(), $email->getFrom()[0]->getAddress());
+        // Sendly : l'expéditeur proposé est l'adresse d'envoi de l'espace
+        // (mailer_from_email), plus l'adresse personnelle de l'utilisateur.
+        Assert::assertSame(static::getContainer()->get('mautic.helper.core_parameters')->get('mailer_from_email'), $email->getFrom()[0]->getAddress());
         Assert::assertCount(1, $email->getTo());
         Assert::assertSame('', $email->getTo()[0]->getName());
         Assert::assertSame($contact->getEmail(), $email->getTo()[0]->getAddress());
@@ -576,7 +578,9 @@ EMAIL;
         Assert::assertSame($expectedText, $email->getTextBody());
         Assert::assertCount(1, $email->getFrom());
         Assert::assertSame($user->getName(), $email->getFrom()[0]->getName());
-        Assert::assertSame($user->getEmail(), $email->getFrom()[0]->getAddress());
+        // Sendly : l'expéditeur proposé est l'adresse d'envoi de l'espace
+        // (mailer_from_email), plus l'adresse personnelle de l'utilisateur.
+        Assert::assertSame(static::getContainer()->get('mautic.helper.core_parameters')->get('mailer_from_email'), $email->getFrom()[0]->getAddress());
         Assert::assertCount(1, $email->getTo());
         Assert::assertSame('', $email->getTo()[0]->getName());
         Assert::assertSame($contact->getEmail(), $email->getTo()[0]->getAddress());
