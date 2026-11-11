@@ -30,16 +30,63 @@ class AiCopilotService
 {
     private const ENDPOINT          = 'https://api.anthropic.com/v1/messages';
     private const ANTHROPIC_VERSION = '2023-06-01';
-    private const DEFAULT_MODEL     = 'claude-haiku-4-5-20251001';
+    /**
+     * Les « mains » : rédaction, objets, critères de segment, sections.
+     *
+     * ⚠️ 11/11/2026 : `claude-haiku-4-5` restait servi mais `claude-sonnet-4-5`
+     * (l'orchestrateur ci-dessous) est RETIRÉ par Anthropic le 30/11/2026 :
+     * sans migration, chaque message du panneau aurait échoué. Les deux
+     * passent à la génération actuelle (Haiku 5.5 : dix fois moins cher que
+     * Haiku 4.5 ; Sonnet 5.5 : moins cher que Sonnet 4.5).
+     */
+    private const DEFAULT_MODEL = 'claude-haiku-5-5';
 
-    /** L'orchestrateur du mode exécutant (cf. constructeur) — alias suivi. */
-    private const ASSIST_MODEL = 'claude-sonnet-4-5';
+    /** Le « cerveau » du mode exécutant (cf. constructeur). */
+    private const ASSIST_MODEL = 'claude-sonnet-5-5';
 
-    /** Plafonds de tokens de sortie par mode de contenu. */
+    /**
+     * Modèles qui REFUSENT un outil imposé (`tool_choice` de type `tool` ou
+     * `any` → 400 « not supported for this model »). Pour eux, l'outil est
+     * proposé en `auto`, la consigne exige l'appel, et l'absence d'appel est
+     * rattrapée par un second essai. Haiku 5.5 accepte l'outil imposé (il
+     * saute alors sa réflexion, ce qui est plus rapide) : il le garde.
+     */
+    private const NO_FORCED_TOOL_MODELS = [
+        'claude-sonnet-5-5', 'claude-opus-5-5',
+        'claude-fable-5-1', 'claude-fable-5-2', 'claude-mythos-5-1', 'claude-mythos-5-2',
+    ];
+
+    /**
+     * Modèles SANS paramètre `effort` (il y renvoie une erreur). Seule une
+     * surcharge par variable d'environnement peut encore y mener.
+     */
+    private const NO_EFFORT_MODELS = ['claude-haiku-4-5', 'claude-sonnet-4-5', 'claude-3'];
+
+    /**
+     * Effort de réflexion : « low » est le réglage conseillé pour la
+     * conversation et la rédaction. Au-delà, le modèle réfléchit avant presque
+     * chaque réponse, ce qui retarde le premier mot sans gain mesuré ici.
+     */
+    private const EFFORT = 'low';
+
+    /** Statuts qui méritent UN second essai (surcharge, erreur passagère). */
+    private const RETRYABLE_STATUSES = [429, 500, 502, 503, 504, 529];
+
+    /** Attente maximale avant le second essai, en millisecondes. */
+    private const MAX_RETRY_DELAY_MS = 2000;
+
+    /**
+     * Plafonds de tokens de sortie par mode de contenu.
+     *
+     * Relevés le 11/11/2026 (2048 → 6000) : sur les modèles 5.5 la réflexion
+     * compte dans `max_tokens` et le même texte pèse ~30 % de jetons en plus.
+     * À 2048, une traduction d'e-mail complète était déjà coupée sans le dire ;
+     * une réponse coupée est désormais REFUSÉE (voir callAnthropic).
+     */
     private const MAX_TOKENS = [
-        'generate'  => 2048,
-        'improve'   => 2048,
-        'translate' => 2048,
+        'generate'  => 6000,
+        'improve'   => 6000,
+        'translate' => 6000,
     ];
 
     /** Nombre de propositions d'objet (borné). */
@@ -47,13 +94,13 @@ class AiCopilotService
     private const SUBJECTS_MAX      = 5;
 
     /** Plafond de sortie et nombre de critères pour la segmentation. */
-    private const SEGMENT_MAX_TOKENS  = 3000;
+    private const SEGMENT_MAX_TOKENS  = 4000;
     private const SEGMENT_MAX_FILTERS = 10;
     private const SEGMENT_MAX_HISTORY = 5;
     private const SEGMENT_MAX_CURRENT = 30;
 
     /** Assistant d'aide : bornes de la conversation (protège l'appel et la facture). */
-    private const ASSIST_MAX_TOKENS   = 1200;
+    private const ASSIST_MAX_TOKENS   = 4000;
     private const ASSIST_MAX_QUESTION = 1000;
     private const ASSIST_MAX_HISTORY  = 6;
     private const ASSIST_MAX_CONTEXT  = 8000;
@@ -122,6 +169,9 @@ class AiCopilotService
     public function __construct(
         private readonly Client $httpClient,
         private readonly LoggerInterface $logger,
+        // Attente avant le second essai. Paramètre scalaire avec défaut :
+        // l'autowiring le laisse tel quel, les tests le mettent à 0.
+        private readonly int $retryDelayMs = 1000,
     ) {
         $this->apiKey = $this->env('SENDLY_ANTHROPIC_KEY');
         $this->model  = $this->env('SENDLY_ANTHROPIC_MODEL') ?? self::DEFAULT_MODEL;
@@ -622,7 +672,7 @@ class AiCopilotService
 
         [$system, $user] = $this->buildSubjectPrompt($params, $count);
 
-        $raw = $this->callAnthropic($system, $user, 90 * $count + 150);
+        $raw = $this->callAnthropic($system, $user, 120 * $count + 400);
 
         return $this->parseSubjects($raw, $count);
     }
@@ -1005,13 +1055,13 @@ class AiCopilotService
     // ── Appel HTTP Anthropic (fail-soft) ────────────────────────────────────
 
     /**
-     * @param array<string, mixed>|null $tool  outil imposé : force une SORTIE
-     *                                         STRUCTURÉE (ce n'est pas une
-     *                                         capacité — le modèle ne peut rien
-     *                                         exécuter, seulement remplir une
-     *                                         forme validée par un schéma)
-     * @param string|null               $model surcharge de modèle pour un usage
-     *                                         plus difficile que la rédaction
+     * @param array<string, mixed>|null                       $tool     forme de sortie IMPOSÉE (ce n'est pas
+     *                                                                  une capacité : le modèle ne peut rien
+     *                                                                  exécuter, seulement remplir une forme
+     *                                                                  validée par un schéma)
+     * @param string|null                                     $model    surcharge de modèle pour un usage plus
+     *                                                                  difficile que la rédaction
+     * @param list<array{role: string, content: string}>|null $messages conversation (surfaces conversationnelles)
      */
     private function callAnthropic(
         string $system,
@@ -1021,59 +1071,36 @@ class AiCopilotService
         ?string $model = null,
         ?array $messages = null,
     ): string {
-        $payload = [
-            'model'      => $model ?? $this->model,
-            'max_tokens' => $maxTokens,
-            'system'     => $system,
-            // `$messages` sert aux surfaces conversationnelles (assistant) ;
-            // les autres restent au tour unique historique.
-            'messages'   => $messages ?? [
-                ['role' => 'user', 'content' => $userContent],
-            ],
-        ];
+        $model   = $model ?? $this->model;
+        $payload = $this->buildPayload($system, $userContent, $maxTokens, $tool, $model, $messages);
 
-        if (null !== $tool) {
-            $payload['tools']       = [$tool];
-            $payload['tool_choice'] = ['type' => 'tool', 'name' => $tool['name']];
+        $decoded = $this->send($payload);
+
+        // Outil proposé en `auto` (modèle qui refuse l'outil imposé) : l'appel
+        // n'est pas garanti. Un second essai, puis on se contente du texte,
+        // que les appelants savent déjà traiter.
+        if (null !== $tool && !$this->hasToolUse($decoded) && !$this->forcesTool($model)) {
+            $this->logger->info('EwebAiBundle: model answered without calling the tool, retrying once.');
+            $decoded = $this->send($payload);
         }
 
-        try {
-            $response = $this->httpClient->request('POST', self::ENDPOINT, [
-                RequestOptions::HEADERS => [
-                    'x-api-key'         => (string) $this->apiKey,
-                    'anthropic-version' => self::ANTHROPIC_VERSION,
-                ],
-                RequestOptions::JSON            => $payload,
-                RequestOptions::HTTP_ERRORS     => false,
-                RequestOptions::CONNECT_TIMEOUT => 5,
-                RequestOptions::TIMEOUT         => 60,
+        $stop = (string) ($decoded['stop_reason'] ?? '');
+        if ('refusal' === $stop) {
+            $this->logger->warning('EwebAiBundle: Anthropic declined the request ({category}).', [
+                'category' => (string) ($decoded['stop_details']['category'] ?? '?'),
             ]);
-        } catch (\Throwable $e) {
-            // Réseau / transport : ne jamais faire remonter le détail à l'UI.
-            $this->logger->warning('EwebAiBundle: Anthropic transport error: {msg}', ['msg' => $e->getMessage()]);
-            throw new \RuntimeException('AI request failed.');
+            throw new \RuntimeException('AI request was declined.');
+        }
+        if ('max_tokens' === $stop) {
+            // Réponse COUPÉE : un MJML tronqué ou une liste d'actions à moitié
+            // écrite ne doit jamais être réinjecté comme s'il était complet.
+            $this->logger->warning('EwebAiBundle: Anthropic response truncated at {max} tokens.', ['max' => $maxTokens]);
+            throw new \RuntimeException('AI response was truncated.');
         }
 
-        $status = $response->getStatusCode();
-        $raw    = (string) $response->getBody();
-
-        if ($status < 200 || $status >= 300) {
-            // On journalise le statut, jamais la clé ni le corps de la requête.
-            $this->logger->warning('EwebAiBundle: Anthropic returned HTTP {status}', ['status' => $status]);
-            throw new \RuntimeException('AI request failed.');
-        }
-
-        try {
-            $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException) {
-            $this->logger->warning('EwebAiBundle: Anthropic returned non-JSON payload.');
-            throw new \RuntimeException('AI request failed.');
-        }
-
-        // Sortie structurée : le contenu utile est dans le bloc d'outil, pas
-        // dans du texte. On le renvoie en JSON pour que l'appelant le décode —
-        // avec repli sur le texte si le modèle a répondu en clair malgré la
-        // contrainte (le parseur en aval traite les deux cas identiquement).
+        // Sortie structurée : le contenu utile est dans le bloc d'outil. Les
+        // blocs `thinking` (réflexion des modèles 5.5) sont ignorés : on lit
+        // les blocs par TYPE, jamais par position.
         $text = '';
         foreach ($decoded['content'] ?? [] as $block) {
             if (!is_array($block)) {
@@ -1093,6 +1120,158 @@ class AiCopilotService
         }
 
         return $text;
+    }
+
+    /**
+     * Corps de la requête.
+     *
+     * - `system` en BLOC avec `cache_control` : la consigne et l'outil (rendus
+     *   avant elle) sont mis en cache cinq minutes. Ils ne changent pas d'un
+     *   message à l'autre : lecture à un dixième du prix, et premier mot plus tôt.
+     *   En dessous du minimum de mise en cache, l'API ignore le marqueur sans
+     *   erreur.
+     * - outil IMPOSÉ seulement si le modèle l'accepte (NO_FORCED_TOOL_MODELS) ;
+     *   sinon `auto` et la consigne l'exige.
+     * - `effort` bas, sauf sur les anciens modèles qui ne le connaissent pas.
+     *
+     * @param array<string, mixed>|null                       $tool
+     * @param list<array{role: string, content: string}>|null $messages
+     *
+     * @return array<string, mixed>
+     */
+    private function buildPayload(
+        string $system,
+        string $userContent,
+        int $maxTokens,
+        ?array $tool,
+        string $model,
+        ?array $messages,
+    ): array {
+        if (null !== $tool && !$this->forcesTool($model)) {
+            $system .= "\n\nALWAYS answer by calling the `".(string) $tool['name'].'` tool exactly once. Never answer in plain text.';
+        }
+
+        $payload = [
+            'model'      => $model,
+            'max_tokens' => $maxTokens,
+            'system'     => [[
+                'type'          => 'text',
+                'text'          => $system,
+                'cache_control' => ['type' => 'ephemeral'],
+            ]],
+            // `$messages` sert aux surfaces conversationnelles (assistant) ;
+            // les autres restent au tour unique historique.
+            'messages'   => $messages ?? [
+                ['role' => 'user', 'content' => $userContent],
+            ],
+        ];
+
+        if (!$this->matchesAny($model, self::NO_EFFORT_MODELS)) {
+            $payload['output_config'] = ['effort' => self::EFFORT];
+        }
+
+        if (null !== $tool) {
+            $payload['tools']       = [$tool];
+            $payload['tool_choice'] = $this->forcesTool($model)
+                ? ['type' => 'tool', 'name' => $tool['name']]
+                : ['type' => 'auto'];
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Un envoi, avec UN second essai sur surcharge ou erreur passagère.
+     *
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, mixed>
+     */
+    private function send(array $payload): array
+    {
+        for ($attempt = 1;; ++$attempt) {
+            try {
+                $response = $this->httpClient->request('POST', self::ENDPOINT, [
+                    RequestOptions::HEADERS => [
+                        'x-api-key'         => (string) $this->apiKey,
+                        'anthropic-version' => self::ANTHROPIC_VERSION,
+                    ],
+                    RequestOptions::JSON            => $payload,
+                    RequestOptions::HTTP_ERRORS     => false,
+                    RequestOptions::CONNECT_TIMEOUT => 5,
+                    RequestOptions::TIMEOUT         => 90,
+                ]);
+            } catch (\Throwable $e) {
+                // Réseau / transport : ne jamais faire remonter le détail à l'UI.
+                $this->logger->warning('EwebAiBundle: Anthropic transport error: {msg}', ['msg' => $e->getMessage()]);
+                throw new \RuntimeException('AI request failed.');
+            }
+
+            $status = $response->getStatusCode();
+
+            if (1 === $attempt && in_array($status, self::RETRYABLE_STATUSES, true)) {
+                $this->logger->info('EwebAiBundle: Anthropic returned HTTP {status}, retrying once.', ['status' => $status]);
+                $retryAfter = (int) ceil(1000 * (float) $response->getHeaderLine('retry-after'));
+                $delay      = min(self::MAX_RETRY_DELAY_MS, max($this->retryDelayMs, $retryAfter));
+                if ($this->retryDelayMs > 0 && $delay > 0) {
+                    usleep($delay * 1000);
+                }
+                continue;
+            }
+
+            $raw = (string) $response->getBody();
+
+            if ($status < 200 || $status >= 300) {
+                // On journalise le statut et le TYPE d'erreur renvoyé par l'API
+                // (jamais la clé ni le corps de la requête) : un 400 de forme
+                // devient diagnosticable sans rejouer l'appel.
+                $type = '';
+                $err  = json_decode($raw, true);
+                if (is_array($err) && is_array($err['error'] ?? null)) {
+                    $type = mb_substr((string) ($err['error']['type'] ?? '').' '.(string) ($err['error']['message'] ?? ''), 0, 300);
+                }
+                $this->logger->warning('EwebAiBundle: Anthropic returned HTTP {status} {type}', ['status' => $status, 'type' => $type]);
+                throw new \RuntimeException('AI request failed.');
+            }
+
+            try {
+                $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                $this->logger->warning('EwebAiBundle: Anthropic returned non-JSON payload.');
+                throw new \RuntimeException('AI request failed.');
+            }
+
+            return is_array($decoded) ? $decoded : [];
+        }
+    }
+
+    /** @param array<string, mixed> $decoded */
+    private function hasToolUse(array $decoded): bool
+    {
+        foreach ($decoded['content'] ?? [] as $block) {
+            if (is_array($block) && 'tool_use' === ($block['type'] ?? null)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function forcesTool(string $model): bool
+    {
+        return !$this->matchesAny($model, self::NO_FORCED_TOOL_MODELS);
+    }
+
+    /** @param list<string> $prefixes */
+    private function matchesAny(string $model, array $prefixes): bool
+    {
+        foreach ($prefixes as $prefix) {
+            if (str_starts_with($model, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -128,7 +128,7 @@ final class AiCopilotSegmentTest extends TestCase
     {
         $this->service($this->toolResponse([]))->suggestSegmentFilters($this->params());
 
-        $system = $this->sent['system'];
+        $system = $this->sent['system'][0]['text'];
 
         self::assertStringContainsString('lead.tags|tags|in,!in|VALUES:12=VIP', $system, 'le catalogue réel doit être transmis');
         self::assertStringContainsString('today, month_last', $system, 'les jetons de date doivent être transmis');
@@ -141,7 +141,7 @@ final class AiCopilotSegmentTest extends TestCase
         // placer dans le prompt système lui donnerait autorité sur les règles.
         $this->service($this->toolResponse([]))->suggestSegmentFilters($this->params());
 
-        self::assertStringNotContainsString('les clients VIP inactifs', $this->sent['system']);
+        self::assertStringNotContainsString('les clients VIP inactifs', $this->sent['system'][0]['text']);
         self::assertStringContainsString('les clients VIP inactifs', $this->sent['messages'][0]['content']);
     }
 
@@ -270,7 +270,7 @@ final class AiCopilotSegmentTest extends TestCase
         self::assertStringContainsString('Filters currently on the screen', $user);
         self::assertStringContainsString('- company.companyname like mairie', $user);
 
-        $system = (string) $this->sent['system'];
+        $system = (string) $this->sent['system'][0]['text'];
         self::assertStringContainsString('ONLY source of truth', $system);
         self::assertStringContainsString('If the screen shows no filters, propose the complete set', $system);
     }
