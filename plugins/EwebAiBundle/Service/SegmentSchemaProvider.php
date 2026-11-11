@@ -144,9 +144,9 @@ class SegmentSchemaProvider
 
                 $list = null;
                 if (isset($properties['list']) && is_array($properties['list']) && [] !== $properties['list']) {
-                    $list = [];
-                    foreach ($properties['list'] as $key => $label) {
-                        $list[(string) $key] = is_scalar($label) ? (string) $label : (string) $key;
+                    $list = $this->valueToLabel($properties['list']);
+                    if ([] === $list) {
+                        $list = null;
                     }
                 }
 
@@ -161,6 +161,47 @@ class SegmentSchemaProvider
         }
 
         return $catalog;
+    }
+
+    /**
+     * Liste du cœur → [valeur enregistrée => libellé affiché].
+     *
+     * ⚠️ PIÈGE SILENCIEUX N°6 : LES LISTES DU CŒUR SONT [LIBELLÉ => VALEUR].
+     * C'est la forme des `choices` Symfony, et le cœur l'emploie PARTOUT :
+     * `TypeOperatorSubscriber::onTypeListCollect()` pose le booléen
+     * `['Non' => 0, 'Oui' => 1]`, `makeChoices()` produit `[nom => id]` pour les
+     * tags, campagnes et segments, les e-mails arrivent en `name_is_key`, et les
+     * champs personnalisés passent par `parseListForChoices()` (libellés en clés).
+     *
+     * Lire la liste à l'envers faisait enregistrer le LIBELLÉ comme valeur :
+     *  - un tag « VIP » au lieu de son identifiant → segment vide ;
+     *  - pire, « A cliqué sur un lien d'un e-mail = Non » enregistré avec la
+     *    valeur « Non », que le cœur caste en booléen VRAI
+     *    (`ContactSegmentFilterCrate::getFilter()`) : le segment visait les
+     *    contacts qui ONT cliqué, l'exact contraire de la demande. Sans erreur.
+     *
+     * Les groupes d'options (`[groupe => [libellé => valeur]]`) sont aplatis.
+     *
+     * @param array<mixed> $engineList
+     *
+     * @return array<string, string>
+     */
+    private function valueToLabel(array $engineList): array
+    {
+        $out = [];
+
+        foreach ($engineList as $label => $value) {
+            if (is_array($value)) {
+                $out += $this->valueToLabel($value);
+                continue;
+            }
+            if (!is_scalar($value) || '' === (string) $value) {
+                continue;
+            }
+            $out[(string) $value] = (string) $label;
+        }
+
+        return $out;
     }
 
     /**

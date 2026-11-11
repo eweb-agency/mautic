@@ -42,10 +42,30 @@ final class SegmentFilterValidatorTest extends TestCase
                 'operators' => ['in', '!in', 'empty', '!empty'],
             ],
         ],
+        // Les critères e-mail du groupe `behaviors`, avec les opérateurs que le
+        // cœur leur donne réellement (FilterOperatorSubscriber), plus « vide /
+        // non vide » sur la date d'envoi (SegmentNeverReceivedSubscriber).
         'behaviors' => [
             'lead_email_read_count' => [
                 'label'     => 'E-mails lus', 'type' => 'number', 'list' => null,
                 'operators' => ['=', 'gt', 'gte', 'lt', 'lte'],
+            ],
+            'lead_email_read_date' => [
+                'label'     => 'A ouvert l e-mail (date)', 'type' => 'datetime', 'list' => null,
+                'operators' => ['=', '!=', 'gt', 'lt', 'gte', 'lte'],
+            ],
+            'lead_email_sent_date' => [
+                'label'     => 'E-mail envoyé (date)', 'type' => 'datetime', 'list' => null,
+                'operators' => ['=', '!=', 'gt', 'lt', 'gte', 'lte', 'empty', '!empty'],
+            ],
+            'email_id' => [
+                'label'     => 'A cliqué sur un lien d un e-mail', 'type' => 'boolean',
+                'list'      => ['0' => 'Non', '1' => 'Oui'],
+                'operators' => ['=', '!='],
+            ],
+            'email_clicked_link_date' => [
+                'label'     => 'A cliqué dans un e-mail (date)', 'type' => 'datetime', 'list' => null,
+                'operators' => ['=', '!=', 'gt', 'lt', 'gte', 'lte'],
             ],
         ],
     ];
@@ -249,5 +269,140 @@ final class SegmentFilterValidatorTest extends TestCase
 
         self::assertSame([], $out['filters']);
         self::assertSame('engine_rejected', $out['dropped'][0]['reason']);
+    }
+
+    // ── Formes négatives : « jamais cliqué », « jamais ouvert », « jamais reçu » ──
+
+    public function testRecetteLaPhraseCompleteDu11NovembreDonneTroisCriteresComplets(): void
+    {
+        // RECETTE. « Les contacts de Lyon qui ont ouvert un e-mail le mois
+        // dernier, mais n'ont jamais cliqué. » Le 11/11, le 3e critère sortait
+        // en « A cliqué dans un email (date) égal à (valeur à choisir) » : un
+        // critère incomplet, ÉCARTÉ du décompte, donc un nombre faux. Voici la
+        // proposition que le prompt demande désormais au modèle.
+        $out = $this->validator()->sanitize([
+            ['glue' => 'and', 'object' => 'lead', 'field' => 'city', 'operator' => '=', 'value' => 'Lyon'],
+            ['glue' => 'and', 'object' => 'behaviors', 'field' => 'lead_email_read_date', 'operator' => 'gte', 'value' => 'month_last'],
+            ['glue' => 'and', 'object' => 'behaviors', 'field' => 'email_id', 'operator' => '=', 'value' => '0'],
+        ]);
+
+        self::assertSame([], $out['dropped']);
+        self::assertCount(3, $out['filters']);
+
+        [$ville, $ouvert, $jamaisClique] = $out['filters'];
+
+        self::assertSame(['city', '=', 'Lyon'], [$ville['field'], $ville['operator'], $ville['properties']['filter']]);
+        self::assertSame(
+            ['lead_email_read_date', 'gte', 'le mois dernier'],
+            [$ouvert['field'], $ouvert['operator'], $ouvert['properties']['filter']]
+        );
+        self::assertSame(
+            ['behaviors', 'email_id', 'boolean', '=', '0'],
+            [$jamaisClique['object'], $jamaisClique['field'], $jamaisClique['type'], $jamaisClique['operator'], $jamaisClique['properties']['filter']]
+        );
+        self::assertSame('and', $jamaisClique['glue']);
+
+        // Aucun critère « à compléter » : les trois entrent dans le décompte.
+        foreach ($out['filters'] as $f) {
+            self::assertFalse($f['needsInput'], $f['field'].' ne doit pas attendre de valeur');
+        }
+    }
+
+    public function testRecetteMemeSiLeModelePoseVideSurLaDateDeClic(): void
+    {
+        // Filet de sécurité : la forme intuitive mais fausse est rattrapée.
+        $out = $this->validator()->sanitize([
+            ['glue' => 'and', 'object' => 'lead', 'field' => 'city', 'operator' => '=', 'value' => 'Lyon'],
+            ['glue' => 'and', 'object' => 'behaviors', 'field' => 'lead_email_read_date', 'operator' => 'gte', 'value' => 'month_last'],
+            ['glue' => 'and', 'object' => 'behaviors', 'field' => 'email_clicked_link_date', 'operator' => 'empty', 'value' => null],
+        ]);
+
+        self::assertSame([], $out['dropped']);
+        self::assertSame('email_id', $out['filters'][2]['field']);
+        self::assertSame('=', $out['filters'][2]['operator']);
+        self::assertSame('0', $out['filters'][2]['properties']['filter']);
+    }
+
+    public function testDejaCliqueSurLaDateDeClicDevientOui(): void
+    {
+        $out = $this->validator()->sanitize([
+            ['object' => 'behaviors', 'field' => 'email_clicked_link_date', 'operator' => '!empty', 'value' => null],
+        ]);
+
+        self::assertSame(['email_id', '=', '1'], [
+            $out['filters'][0]['field'], $out['filters'][0]['operator'], $out['filters'][0]['properties']['filter'],
+        ]);
+    }
+
+    public function testJamaisCliqueEcritAvecLeLibelleNonEnregistreLaCle0(): void
+    {
+        // Le modèle peut écrire le libellé. Le moteur caste « Non » en VRAI :
+        // seule la clé « 0 » veut dire « jamais cliqué ».
+        $out = $this->validator()->sanitize([
+            ['object' => 'behaviors', 'field' => 'email_id', 'operator' => '=', 'value' => 'Non'],
+        ]);
+
+        self::assertSame('0', $out['filters'][0]['properties']['filter']);
+    }
+
+    public function testJamaisOuvertSurLaDateDOuvertureDevientZeroLecture(): void
+    {
+        // « vide » sur la date d'ouverture signifierait « jamais reçu » pour le
+        // moteur (aucune clause de lecture) : traduit en nombre de lectures = 0.
+        $out = $this->validator()->sanitize([
+            ['object' => 'behaviors', 'field' => 'lead_email_read_date', 'operator' => 'empty', 'value' => null],
+        ]);
+
+        self::assertSame(['lead_email_read_count', 'number', '=', '0'], [
+            $out['filters'][0]['field'], $out['filters'][0]['type'],
+            $out['filters'][0]['operator'], $out['filters'][0]['properties']['filter'],
+        ]);
+        self::assertFalse($out['filters'][0]['needsInput']);
+    }
+
+    public function testDejaOuvertSurLaDateDOuvertureDevientAuMoinsUneLecture(): void
+    {
+        $out = $this->validator()->sanitize([
+            ['object' => 'behaviors', 'field' => 'lead_email_read_date', 'operator' => '!empty', 'value' => null],
+        ]);
+
+        self::assertSame(['lead_email_read_count', 'gt', '0'], [
+            $out['filters'][0]['field'], $out['filters'][0]['operator'], $out['filters'][0]['properties']['filter'],
+        ]);
+    }
+
+    public function testJamaisOuvertExprimeDirectementResteZeroLecture(): void
+    {
+        $out = $this->validator()->sanitize([
+            ['object' => 'behaviors', 'field' => 'lead_email_read_count', 'operator' => '=', 'value' => 0],
+        ]);
+
+        self::assertSame('0', $out['filters'][0]['properties']['filter']);
+        self::assertFalse($out['filters'][0]['needsInput'], '0 est une vraie valeur, pas une absence');
+    }
+
+    public function testJamaisRecuEstUnVideSurLaDateDEnvoi(): void
+    {
+        $out = $this->validator()->sanitize([
+            ['object' => 'behaviors', 'field' => 'lead_email_sent_date', 'operator' => 'empty', 'value' => null],
+            ['object' => 'behaviors', 'field' => 'lead_email_sent_date', 'operator' => '!empty', 'value' => null],
+        ]);
+
+        self::assertSame([], $out['dropped']);
+        self::assertSame(['empty', ''], [$out['filters'][0]['operator'], $out['filters'][0]['properties']['filter']]);
+        self::assertSame(['!empty', ''], [$out['filters'][1]['operator'], $out['filters'][1]['properties']['filter']]);
+        self::assertFalse($out['filters'][0]['needsInput']);
+    }
+
+    public function testUneDateDeClicDansUnePeriodeResteUneDate(): void
+    {
+        // La réécriture ne touche QUE « vide / non vide » : « a cliqué le mois
+        // dernier » garde le critère de date.
+        $out = $this->validator()->sanitize([
+            ['object' => 'behaviors', 'field' => 'email_clicked_link_date', 'operator' => 'gte', 'value' => 'month_last'],
+        ]);
+
+        self::assertSame('email_clicked_link_date', $out['filters'][0]['field']);
+        self::assertSame('le mois dernier', $out['filters'][0]['properties']['filter']);
     }
 }
