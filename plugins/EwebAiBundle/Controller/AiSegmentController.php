@@ -124,6 +124,7 @@ final class AiSegmentController
         // d'autre ne l'est.
         $sanitized = $this->validator->sanitize($raw['filters']);
         $filters   = $sanitized['filters'];
+        $catalog   = $this->schema->getCatalog();
 
         // ÉTAPE 5 — le nombre. Une proposition sans nombre laisse le client
         // deviner ; c'est précisément ce qu'on veut lui éviter.
@@ -141,6 +142,7 @@ final class AiSegmentController
                     'field'      => $f['field'],
                     'operator'   => $f['operator'],
                     'value'      => $f['properties']['filter'] ?? '',
+                    'valueLabel' => $this->valueLabel($f, $catalog),
                     'needsInput' => (bool) ($f['needsInput'] ?? false),
                 ],
                 $filters
@@ -211,6 +213,31 @@ final class AiSegmentController
             ],
             'MATCH_ONE'
         );
+    }
+
+    /**
+     * Libellé lisible de la valeur, pris dans la liste du catalogue : « Non »
+     * plutôt que « 0 », le nom du tag plutôt que son identifiant. Null quand le
+     * champ n'a pas de liste (texte, nombre, date) : la valeur se lit telle quelle.
+     *
+     * @param array<string, mixed>                               $filter
+     * @param array<string, array<string, array<string, mixed>>> $catalog
+     */
+    private function valueLabel(array $filter, array $catalog): ?string
+    {
+        $list  = $catalog[(string) ($filter['object'] ?? '')][(string) ($filter['field'] ?? '')]['list'] ?? null;
+        $value = $filter['properties']['filter'] ?? null;
+
+        if (!is_array($list) || null === $value || '' === $value || [] === $value) {
+            return null;
+        }
+
+        $labels = array_map(
+            static fn ($v): string => is_scalar($v) && isset($list[(string) $v]) ? (string) $list[(string) $v] : (string) (is_scalar($v) ? $v : ''),
+            is_array($value) ? array_values($value) : [$value]
+        );
+
+        return implode(', ', $labels);
     }
 
     /**

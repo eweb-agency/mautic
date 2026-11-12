@@ -63,7 +63,7 @@ final class AiCopilotEmailSectionTest extends TestCase
     {
         $this->service()->generate('generate', ['instruction' => 'Un bloc bienvenue', 'format' => 'mjml', 'surface' => 'email-section']);
 
-        $system = (string) ($this->sent['system'] ?? '');
+        $system = (string) ($this->sent['system'][0]['text'] ?? '');
         self::assertStringContainsString('ONE self-contained SECTION of a marketing email', $system);
         self::assertStringContainsString('exactly one <mj-section>', $system);
         self::assertStringContainsString('Do NOT wrap it in <mjml>', $system);
@@ -74,7 +74,7 @@ final class AiCopilotEmailSectionTest extends TestCase
     {
         $this->service()->generate('generate', ['instruction' => 'Un bloc bienvenue', 'format' => 'html', 'surface' => 'email-section']);
 
-        $system = (string) ($this->sent['system'] ?? '');
+        $system = (string) ($this->sent['system'][0]['text'] ?? '');
         self::assertStringContainsString('exactly one table-based block', $system);
         self::assertStringContainsString('do not wrap it in <html>', $system);
     }
@@ -83,7 +83,7 @@ final class AiCopilotEmailSectionTest extends TestCase
     {
         $this->service()->generate('generate', ['instruction' => 'Un e-mail', 'format' => 'mjml']);
 
-        $system = (string) ($this->sent['system'] ?? '');
+        $system = (string) ($this->sent['system'][0]['text'] ?? '');
         self::assertStringContainsString('Produce the BODY of a marketing email', $system);
         self::assertStringContainsString('starts with <mjml> and ends with </mjml>', $system);
     }
@@ -91,17 +91,17 @@ final class AiCopilotEmailSectionTest extends TestCase
     public function testLaRetoucheDUnFragmentNeReenveloppePas(): void
     {
         $this->service()->generate('improve', ['content' => '<p>Bonjour</p>', 'format' => 'mjml', 'fragment' => true]);
-        $improve = (string) ($this->sent['system'] ?? '');
+        $improve = (string) ($this->sent['system'][0]['text'] ?? '');
         self::assertStringContainsString('The content is a FRAGMENT', $improve);
         self::assertStringNotContainsString('starts with <mjml>', $improve);
 
         $this->service()->generate('translate', ['content' => '<p>Bonjour</p>', 'lang' => 'anglais', 'format' => 'html', 'fragment' => true]);
-        $translate = (string) ($this->sent['system'] ?? '');
+        $translate = (string) ($this->sent['system'][0]['text'] ?? '');
         self::assertStringContainsString('The content is a FRAGMENT', $translate);
 
         // Sans fragment, la retouche garde ses règles de document (modale ✨).
         $this->service()->generate('improve', ['content' => '<mjml></mjml>', 'format' => 'mjml']);
-        $document = (string) ($this->sent['system'] ?? '');
+        $document = (string) ($this->sent['system'][0]['text'] ?? '');
         self::assertStringContainsString('starts with <mjml> and ends with </mjml>', $document);
     }
 }

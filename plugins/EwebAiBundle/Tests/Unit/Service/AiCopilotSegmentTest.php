@@ -128,11 +128,30 @@ final class AiCopilotSegmentTest extends TestCase
     {
         $this->service($this->toolResponse([]))->suggestSegmentFilters($this->params());
 
-        $system = $this->sent['system'];
+        $system = $this->sent['system'][0]['text'];
 
         self::assertStringContainsString('lead.tags|tags|in,!in|VALUES:12=VIP', $system, 'le catalogue réel doit être transmis');
         self::assertStringContainsString('today, month_last', $system, 'les jetons de date doivent être transmis');
         self::assertStringContainsString('French', $system);
+    }
+
+    public function testTeachesTheNegativeAndEverFormsWithTheEngineFieldsThatCarryThem(): void
+    {
+        // Constat du 11/11 : « n'ont jamais cliqué » sortait en date de clic
+        // « égal à (valeur à choisir) ». Le prompt doit nommer les critères qui
+        // portent « jamais » / « déjà », et interdire la date pour cela.
+        $this->service($this->toolResponse([]))->suggestSegmentFilters($this->params());
+
+        $system = $this->sent['system'][0]['text'];
+
+        self::assertStringContainsString('never clicked / no click in any email -> behaviors.email_id "=" value "0"', $system);
+        self::assertStringContainsString('-> behaviors.email_id "=" value "1"', $system);
+        self::assertStringContainsString('never opened / never read any email -> behaviors.lead_email_read_count "=" value 0', $system);
+        self::assertStringContainsString('behaviors.lead_email_read_count "gt" value 0', $system);
+        self::assertStringContainsString('behaviors.lead_email_sent_date "empty" (value null)', $system);
+        self::assertStringContainsString('behaviors.lead_email_sent_date "!empty" (value null)', $system);
+        self::assertStringContainsString('a date field only answers WHEN something happened; it can NEVER express "never"', $system);
+        self::assertStringContainsString('lead_email_read_date "gte" month_last AND email_id "=" "0"', $system);
     }
 
     public function testPutsTheClientDescriptionInTheUserMessageNotTheSystemPrompt(): void
@@ -141,7 +160,7 @@ final class AiCopilotSegmentTest extends TestCase
         // placer dans le prompt système lui donnerait autorité sur les règles.
         $this->service($this->toolResponse([]))->suggestSegmentFilters($this->params());
 
-        self::assertStringNotContainsString('les clients VIP inactifs', $this->sent['system']);
+        self::assertStringNotContainsString('les clients VIP inactifs', $this->sent['system'][0]['text']);
         self::assertStringContainsString('les clients VIP inactifs', $this->sent['messages'][0]['content']);
     }
 
@@ -270,7 +289,7 @@ final class AiCopilotSegmentTest extends TestCase
         self::assertStringContainsString('Filters currently on the screen', $user);
         self::assertStringContainsString('- company.companyname like mairie', $user);
 
-        $system = (string) $this->sent['system'];
+        $system = (string) $this->sent['system'][0]['text'];
         self::assertStringContainsString('ONLY source of truth', $system);
         self::assertStringContainsString('If the screen shows no filters, propose the complete set', $system);
     }

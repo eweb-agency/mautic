@@ -193,6 +193,10 @@
     if (f.value === '' || f.value == null) {
       return '';
     }
+    // Libellé de liste fourni par le serveur (« Non » plutôt que « 0 »).
+    if (typeof f.valueLabel === 'string' && f.valueLabel !== '') {
+      return f.valueLabel;
+    }
     return Array.isArray(f.value) ? f.value.join(', ') : String(f.value);
   }
 

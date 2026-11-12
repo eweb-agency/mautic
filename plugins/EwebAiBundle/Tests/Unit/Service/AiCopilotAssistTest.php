@@ -125,7 +125,7 @@ final class AiCopilotAssistTest extends TestCase
     {
         $this->service('ok')->assist(['question' => 'q', 'lang' => 'German']);
 
-        $system = (string) $this->sent['system'];
+        $system = (string) $this->sent['system'][0]['text'];
         self::assertStringContainsString('Answer in German', $system);
         self::assertStringContainsString('called Sendly and ONLY Sendly', $system);
     }
@@ -154,7 +154,7 @@ final class AiCopilotAssistTest extends TestCase
         $service = $this->service('ok');
         $service->assist(['question' => 'q', 'lang' => 'French']);
 
-        $system = (string) $this->sent['system'];
+        $system = (string) $this->sent['system'][0]['text'];
         self::assertStringNotContainsString('COACH', $system);
         self::assertStringContainsString('ONE topic per answer', $system);
         self::assertStringContainsString('5 at most, ONE action each', $system);
@@ -200,7 +200,7 @@ final class AiCopilotAssistTest extends TestCase
         return new AiCopilotService($client, new NullLogger());
     }
 
-    public function testAvecCapacitesLeModeExecutantImposeLOutilEtLaConsigneOperator(): void
+    public function testAvecCapacitesLeModeExecutantExigeLOutilEtLaConsigneOperator(): void
     {
         $this->serviceOutil(['answer' => 'fait', 'actions' => []])->assist([
             'question' => 'remplis le nom',
@@ -209,9 +209,13 @@ final class AiCopilotAssistTest extends TestCase
         ]);
 
         self::assertSame('repondre_et_agir', $this->sent['tools'][0]['name'] ?? null);
-        self::assertSame(['type' => 'tool', 'name' => 'repondre_et_agir'], $this->sent['tool_choice'] ?? null);
+        // Le cerveau (Sonnet 5.5) REFUSE l'outil imposé (400) : outil en
+        // `auto`, et la consigne exige l'appel. AiCopilotModelesTest couvre le
+        // second essai quand le modèle répond quand même en texte.
+        self::assertSame(['type' => 'auto'], $this->sent['tool_choice'] ?? null);
 
-        $system = (string) $this->sent['system'];
+        $system = (string) $this->sent['system'][0]['text'];
+        self::assertStringContainsString('ALWAYS answer by calling the `repondre_et_agir` tool exactly once', $system);
         self::assertStringContainsString('OPERATOR, not a guide', $system);
         self::assertStringNotContainsString('COACH', $system);
 
@@ -226,7 +230,7 @@ final class AiCopilotAssistTest extends TestCase
         $this->service('ok')->assist(['question' => 'q']);
 
         self::assertArrayNotHasKey('tools', $this->sent);
-        self::assertStringNotContainsString('OPERATOR', (string) $this->sent['system']);
+        self::assertStringNotContainsString('OPERATOR', (string) $this->sent['system'][0]['text']);
     }
 
     public function testLesActionsSontValideesTypesInconnusEtCiblesHorsListeJetes(): void
@@ -464,7 +468,7 @@ final class AiCopilotAssistTest extends TestCase
             'question' => 'q', 'actions' => ['create_form'],
         ]);
 
-        self::assertStringContainsString('copy it VERBATIM', (string) $this->sent['system']);
+        self::assertStringContainsString('copy it VERBATIM', (string) $this->sent['system'][0]['text']);
     }
 
     public function testCreateReportValideNomEtSourceEnListeBlanche(): void
@@ -489,7 +493,7 @@ final class AiCopilotAssistTest extends TestCase
             'question' => 'q', 'actions' => ['fill_field'],
         ]);
 
-        $system = (string) $this->sent['system'];
+        $system = (string) $this->sent['system'][0]['text'];
         self::assertStringContainsString('options=@Ln', $system);
         self::assertStringContainsString('never the label', $system);
     }
@@ -522,7 +526,7 @@ final class AiCopilotAssistTest extends TestCase
         self::assertStringContainsString('- name="lead[email]" label="E-mail" (filled)', $tour);
         self::assertStringContainsString('- name="lead[points]" label="Points" value="40"', $tour);
 
-        self::assertStringContainsString('A field marked (filled) holds a value that is hidden from you for privacy', (string) $this->sent['system']);
+        self::assertStringContainsString('A field marked (filled) holds a value that is hidden from you for privacy', (string) $this->sent['system'][0]['text']);
 
         self::assertSame(
             [['type' => 'fill_field', 'field' => 'lead[email]', 'value' => 'nouvelle.adresse@example.fr']],
