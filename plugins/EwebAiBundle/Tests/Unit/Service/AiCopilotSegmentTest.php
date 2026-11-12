@@ -142,7 +142,7 @@ final class AiCopilotSegmentTest extends TestCase
         // portent « jamais » / « déjà », et interdire la date pour cela.
         $this->service($this->toolResponse([]))->suggestSegmentFilters($this->params());
 
-        $system = $this->sent['system'];
+        $system = $this->sent['system'][0]['text'];
 
         self::assertStringContainsString('never clicked / no click in any email -> behaviors.email_id "=" value "0"', $system);
         self::assertStringContainsString('-> behaviors.email_id "=" value "1"', $system);
