@@ -171,11 +171,62 @@ final class SegmentSchemaProviderTest extends TestCase
         $digest = $this->provider([
             'lead' => ['tags' => $this->choice([
                 'label'      => 'Tags',
-                'properties' => ['type' => 'tags', 'list' => ['12' => 'VIP', '7' => 'Newsletter']],
+                // Forme du cœur : [libellé => identifiant] (makeChoices()).
+                'properties' => ['type' => 'tags', 'list' => ['VIP' => 12, 'Newsletter' => 7]],
             ])],
         ])->toPromptDigest();
 
         self::assertStringContainsString('VALUES:12=VIP,7=Newsletter', $digest);
+    }
+
+    public function testReadsCoreListsAsLabelToValueAndIndexesThemByValue(): void
+    {
+        // PIÈGE SILENCIEUX N°6. Le cœur livre ses listes au format des choix
+        // Symfony, [libellé => valeur] (TypeOperatorSubscriber::onTypeListCollect).
+        // Lues à l'envers, « A cliqué sur un lien d'un e-mail = Non » partait
+        // avec la valeur « Non », que le moteur caste en VRAI : le segment
+        // visait les contacts qui ONT cliqué. Le catalogue doit indexer par la
+        // valeur ENREGISTRÉE.
+        $catalog = $this->provider([
+            'behaviors' => ['email_id' => $this->choice([
+                'label'      => 'A cliqué sur un lien d un e-mail',
+                'properties' => ['type' => 'boolean', 'list' => ['Non' => 0, 'Oui' => 1]],
+                'operators'  => ['égal à' => '=', 'différent de' => '!='],
+            ])],
+        ])->getCatalog();
+
+        self::assertSame(['0' => 'Non', '1' => 'Oui'], $catalog['behaviors']['email_id']['list']);
+    }
+
+    public function testTheDigestOffersTheStoredValueAsTheKey(): void
+    {
+        $digest = $this->provider([
+            'behaviors' => ['email_id' => $this->choice([
+                'properties' => ['type' => 'boolean', 'list' => ['Non' => 0, 'Oui' => 1]],
+                'operators'  => ['égal à' => '='],
+            ])],
+        ])->toPromptDigest();
+
+        self::assertStringContainsString('behaviors.email_id|boolean|=|VALUES:0=Non,1=Oui', $digest);
+    }
+
+    public function testFlattensOptionGroups(): void
+    {
+        // Les champs personnalisés de type liste peuvent grouper leurs options :
+        // [groupe => [libellé => valeur]]. Le groupe n'est pas une valeur.
+        $catalog = $this->provider([
+            'lead' => ['region' => $this->choice([
+                'properties' => ['type' => 'select', 'list' => [
+                    'Sud'      => ['Provence' => 'paca', 'Occitanie' => 'occ'],
+                    'Bretagne' => 'bzh',
+                ]],
+            ])],
+        ])->getCatalog();
+
+        self::assertSame(
+            ['paca' => 'Provence', 'occ' => 'Occitanie', 'bzh' => 'Bretagne'],
+            $catalog['lead']['region']['list']
+        );
     }
 
     public function testDefersValueSetsTooLongToEnumerate(): void
@@ -185,7 +236,7 @@ final class SegmentSchemaProviderTest extends TestCase
         // aux identifiants inventés sur une instance à 300 campagnes.
         $long = [];
         for ($i = 1; $i <= 40; ++$i) {
-            $long[(string) $i] = 'Campagne '.$i;
+            $long['Campagne '.$i] = $i;
         }
 
         $digest = $this->provider([
@@ -204,7 +255,7 @@ final class SegmentSchemaProviderTest extends TestCase
         // décalerait la lecture de toute la ligne.
         $digest = $this->provider([
             'lead' => ['tags' => $this->choice([
-                'properties' => ['type' => 'tags', 'list' => ['1' => "A|B,C\nD"]],
+                'properties' => ['type' => 'tags', 'list' => ["A|B,C\nD" => 1]],
             ])],
         ])->toPromptDigest();
 

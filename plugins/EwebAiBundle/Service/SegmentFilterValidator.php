@@ -48,6 +48,43 @@ class SegmentFilterValidator
     /** Types de champ traités comme des dates. */
     private const DATE_TYPES = ['date', 'datetime'];
 
+    /**
+     * Formes négatives (« jamais ») et d'existence (« déjà ») exprimées sur un
+     * critère de DATE qui ne sait pas les porter → critère natif qui les porte.
+     *
+     * ⚠️ PIÈGE SILENCIEUX N°7 : « VIDE » SUR UNE DATE DE COMPORTEMENT NE VEUT PAS
+     * DIRE « JAMAIS ». Constat du 11/11 : « … mais n'ont jamais cliqué » devenait
+     * « A cliqué dans un email (date) égal à (valeur à choisir) ». La correction
+     * intuitive, l'opérateur `empty` sur cette date, serait FAUSSE elle aussi :
+     *  - `email_clicked_link_date` : `ChannelClickQueryBuilder` appelle
+     *    `expr()->empty()`, méthode inexistante → la requête ne se construit pas ;
+     *  - `lead_email_read_date` : `ForeignValueFilterQueryBuilder` renvoie les
+     *    contacts absents de `email_stats` SANS regarder les lectures → on
+     *    obtiendrait « jamais reçu » en croyant « jamais ouvert ».
+     * Les critères justes existent déjà dans le cœur :
+     *  - « A cliqué sur un lien d'un e-mail » (`email_id`), booléen que
+     *    `ContactSegmentFilterCrate::setOperator()` convertit en `empty`/`notEmpty`
+     *    sur les clics e-mail (Non → aucun clic, jamais) ;
+     *  - « Nombre de lectures » (`lead_email_read_count`), une somme ramenée à 0
+     *    par COALESCE pour un contact sans aucun envoi.
+     * Le prompt les indique ; cette table rattrape le modèle s'il se trompe quand
+     * même, AVANT le contrôle d'opérateur (qui écarterait le critère au lieu de
+     * le traduire). « Jamais reçu » n'y figure pas : `empty` sur
+     * `lead_email_sent_date` est juste (SegmentNeverReceivedSubscriber).
+     *
+     * @var array<string, array<string, array{field: string, operator: string, value: string}>>
+     */
+    private const NEGATIVE_REWRITES = [
+        'email_clicked_link_date' => [
+            'empty'  => ['field' => 'email_id', 'operator' => '=', 'value' => '0'],
+            '!empty' => ['field' => 'email_id', 'operator' => '=', 'value' => '1'],
+        ],
+        'lead_email_read_date' => [
+            'empty'  => ['field' => 'lead_email_read_count', 'operator' => '=', 'value' => '0'],
+            '!empty' => ['field' => 'lead_email_read_count', 'operator' => 'gt', 'value' => '0'],
+        ],
+    ];
+
     public function __construct(
         private readonly SegmentSchemaProvider $schema,
         private readonly ContactSegmentFilterFactory $filterFactory,
@@ -109,6 +146,17 @@ class SegmentFilterValidator
 
         if ('' === $field) {
             return ['reason' => 'missing_field'];
+        }
+
+        // « Jamais » / « déjà » posés sur une date : traduits vers le critère
+        // natif qui les exprime (voir NEGATIVE_REWRITES). L'objet est laissé à
+        // la résolution ci-dessous, qui le prend dans le catalogue.
+        $rawOperator = isset($raw['operator']) && is_scalar($raw['operator']) ? (string) $raw['operator'] : '';
+        if (isset(self::NEGATIVE_REWRITES[$field][$rawOperator])) {
+            $rewrite         = self::NEGATIVE_REWRITES[$field][$rawOperator];
+            $field           = $rewrite['field'];
+            $raw['operator'] = $rewrite['operator'];
+            $raw['value']    = $rewrite['value'];
         }
 
         // Objet inconnu, ou objet juste faux : on tente la compensation que le

@@ -135,6 +135,25 @@ final class AiCopilotSegmentTest extends TestCase
         self::assertStringContainsString('French', $system);
     }
 
+    public function testTeachesTheNegativeAndEverFormsWithTheEngineFieldsThatCarryThem(): void
+    {
+        // Constat du 11/11 : « n'ont jamais cliqué » sortait en date de clic
+        // « égal à (valeur à choisir) ». Le prompt doit nommer les critères qui
+        // portent « jamais » / « déjà », et interdire la date pour cela.
+        $this->service($this->toolResponse([]))->suggestSegmentFilters($this->params());
+
+        $system = $this->sent['system'];
+
+        self::assertStringContainsString('never clicked / no click in any email -> behaviors.email_id "=" value "0"', $system);
+        self::assertStringContainsString('-> behaviors.email_id "=" value "1"', $system);
+        self::assertStringContainsString('never opened / never read any email -> behaviors.lead_email_read_count "=" value 0', $system);
+        self::assertStringContainsString('behaviors.lead_email_read_count "gt" value 0', $system);
+        self::assertStringContainsString('behaviors.lead_email_sent_date "empty" (value null)', $system);
+        self::assertStringContainsString('behaviors.lead_email_sent_date "!empty" (value null)', $system);
+        self::assertStringContainsString('a date field only answers WHEN something happened; it can NEVER express "never"', $system);
+        self::assertStringContainsString('lead_email_read_date "gte" month_last AND email_id "=" "0"', $system);
+    }
+
     public function testPutsTheClientDescriptionInTheUserMessageNotTheSystemPrompt(): void
     {
         // La description est une donnée client, pas une consigne système. La
