@@ -287,7 +287,8 @@ final class AiCopilotSegmentTest extends TestCase
 
         $user = (string) $this->sent['messages'][0]['content'];
         self::assertStringContainsString('Filters currently on the screen', $user);
-        self::assertStringContainsString('- company.companyname like mairie', $user);
+        // Numérotées (lot 2) : le modèle désigne une ligne à retirer par son numéro.
+        self::assertStringContainsString("1. company.companyname like mairie\n2. company.companycountry in France", $user);
 
         $system = (string) $this->sent['system'][0]['text'];
         self::assertStringContainsString('ONLY source of truth', $system);
@@ -326,5 +327,38 @@ final class AiCopilotSegmentTest extends TestCase
 
         self::assertNull($out['name']);
         self::assertNull($out['description']);
+    }
+
+    // ── Modifier un segment existant (lot 2, 12/11/2026) ──────────────────
+
+    public function testLeModelePeutRetirerDesLignesParLeurNumero(): void
+    {
+        $body = json_encode(['content' => [[
+            'type'  => 'tool_use',
+            'name'  => 'emit_segment_filters',
+            'input' => ['filters' => [], 'remove' => [2, '1', 2, 0, -3, 'x', 99], 'name' => 'x'],
+        ]]], JSON_THROW_ON_ERROR);
+
+        $out = $this->service($body)->suggestSegmentFilters($this->params());
+
+        // Entiers positifs, uniques, triés ; 99 dépasse le plafond de lignes.
+        self::assertSame([1, 2], $out['remove']);
+    }
+
+    public function testSansRetraitLaListeEstVide(): void
+    {
+        $out = $this->service($this->toolResponse([]))->suggestSegmentFilters($this->params());
+
+        self::assertSame([], $out['remove']);
+    }
+
+    public function testLaConsigneExpliqueRetirerEtRemplacer(): void
+    {
+        $this->service($this->toolResponse([]))->suggestSegmentFilters($this->params());
+
+        $system = (string) $this->sent['system'][0]['text'];
+        self::assertStringContainsString('put its NUMBER in `remove`', $system);
+        self::assertStringContainsString('Never remove a filter the user did not ask to change', $system);
+        self::assertArrayHasKey('remove', $this->sent['tools'][0]['input_schema']['properties']);
     }
 }

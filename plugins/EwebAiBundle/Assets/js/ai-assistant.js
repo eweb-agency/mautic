@@ -147,6 +147,11 @@
       '.sendly-assist-ex button:hover{background:#f0f5ff}' +
       '.sendly-assist-foot{display:flex;gap:8px;padding:0 14px 8px}' +
       '.sendly-assist-fait{margin-top:8px;font-size:12px;font-weight:600;color:#0a7d43}' +
+      // Carte de CONFIRMATION (actions qui partent chez de vrais contacts).
+      '.sendly-assist-carte{margin-top:8px;padding:10px 12px;border:1px solid #d9e2f2;border-radius:10px;background:#f7f9ff;font-size:12.5px}' +
+      '.sendly-assist-carte-actions{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap}' +
+      '.sendly-assist-confirmer{background:' + BRAND + ';color:#fff;border:0;border-radius:999px;padding:5px 13px;font-size:12px;cursor:pointer}' +
+      '.sendly-assist-renoncer{background:#fff;color:#303a4c;border:1px solid #d5dced;border-radius:999px;padding:5px 13px;font-size:12px;cursor:pointer}' +
       '#sendly-assist-input{flex:1;border:1px solid #d5dced;border-radius:999px;padding:8px 14px;font-size:13px;background:#f7f8fa}' +
       '#sendly-assist-input:focus{outline:none;border-color:' + BRAND + ';background:#fff}' +
       '#sendly-assist-send{border:0;border-radius:50%;width:34px;height:34px;flex:none;background:' + BRAND + ';' +
@@ -416,6 +421,9 @@
       send(this.textContent);
       document.getElementById('sendly-assist-ex').style.display = 'none';
     });
+    mQuery(el).on('click', '.sendly-assist-confirmer, .sendly-assist-renoncer', function () {
+      repondreConfirmation(String(mQuery(this).data('confirm')), mQuery(this).hasClass('sendly-assist-confirmer'));
+    });
     mQuery(el).on('click', '.sendly-assist-undo', function () {
       var turnId = mQuery(this).data('turn');
       if (!openCtx || typeof openCtx.onUndo !== 'function') {
@@ -520,7 +528,7 @@
     [/\/s\/companies/, 'Sociétés', ['Ouvrir la liste des contacts', 'Créer un rapport des contacts créés ce mois-ci']],
     [/\/s\/segments/, 'Segments', ['Créer un segment des contacts qui n’ont jamais cliqué', 'Créer un segment des contacts ajoutés ce mois-ci', 'Créer un segment des contacts sans ville renseignée']],
     [/\/s\/campaigns/, 'Campagnes', ['Ouvrir une nouvelle campagne', 'Rédiger un e-mail de bienvenue', 'Créer un segment des contacts ajoutés ce mois-ci']],
-    [/\/s\/emails/, 'E-mails', ['Rédiger un e-mail de bienvenue', 'Rédiger une newsletter mensuelle', 'Rédiger un e-mail de relance pour les contacts inactifs']],
+    [/\/s\/emails/, 'E-mails', ['Rédiger un e-mail de bienvenue', 'Programmer l’envoi de cet e-mail demain à 9 h', 'Créer un test A/B de l’objet de cet e-mail']],
     [/\/s\/sms/, 'SMS', ['Ouvrir la liste des SMS', 'Créer un segment des contacts qui ont un numéro de mobile']],
     [/\/s\/forms/, 'Formulaires', ['Créer un formulaire de demande de devis', 'Créer un formulaire d’inscription à la newsletter']],
     [/\/s\/pages/, 'Pages', ['Créer une page d’inscription à un webinaire', 'Créer une page de présentation de mon offre']],
@@ -804,7 +812,9 @@
     create_form: 'créer le formulaire',
     create_campaign: 'créer la campagne',
     create_report: 'créer le rapport',
-    create_landing_page: 'créer la page'
+    create_landing_page: 'créer la page',
+    schedule_email: 'programmer l’envoi',
+    create_ab_test: 'créer le test A/B'
   };
 
   /** Motif d'échec d'une création, par code renvoyé par le serveur. Tout
@@ -821,7 +831,13 @@
     entitlement: 'cette action fait partie de l’offre Pro',
     disabled: 'Sendly Copilot n’est pas activé sur votre espace',
     bad_request: 'la demande était incomplète',
-    not_found: 'élément introuvable'
+    not_found: 'élément introuvable',
+    not_segment_email: 'seul un e-mail de segment se programme (un e-mail modèle part par une campagne)',
+    no_segment: 'cet e-mail n’a aucun segment destinataire',
+    is_variant: 'c’est une variante A/B : programmez l’e-mail principal',
+    publish_down_before: 'sa date de fin de publication tombe avant l’envoi',
+    invalid_parent: 'cet e-mail est déjà une variante ou une traduction',
+    no_traffic_budget: 'il n’y a plus de place pour de nouvelles variantes'
   };
 
   /** Message d'échec d'un appel au Copilot, selon la cause : l'offre, le
@@ -845,16 +861,99 @@
   }
   window.SendlyAssistant.messageErreur = messageErreur;
 
+  /** L'e-mail ouvert à l'écran (édition ou fiche), ou 0. */
+  function emailCourant() {
+    var m = /\/s\/emails\/(edit|view)\/(\d+)/.exec(window.location.pathname);
+    return m ? parseInt(m[2], 10) : 0;
+  }
+  function emailEnEdition() {
+    return /\/s\/emails\/edit\/\d+/.test(window.location.pathname) ? emailCourant() : 0;
+  }
+
+  /** Confirmations en attente : id → {payload, tour, carte}. Une action qui
+   *  part chez de vrais contacts n'est JAMAIS exécutée sans ce clic
+   *  (décision du propriétaire du 11/11). */
+  var confirmations = {};
+  var confirmationSeq = 0;
+
+  function carteConfirmation(id, texte, libelleOk) {
+    return '<div class="sendly-assist-carte" data-carte="' + id + '">' + esc(texte) +
+      '<div class="sendly-assist-carte-actions">' +
+      '<button type="button" class="sendly-assist-confirmer" data-confirm="' + id + '">' + esc(libelleOk) + '</button>' +
+      '<button type="button" class="sendly-assist-renoncer" data-confirm="' + id + '">Ne rien faire</button>' +
+      '</div></div>';
+  }
+
+  /** Remplace la carte d'une confirmation par une ligne d'état. */
+  function fermerCarte(c, ligneHtml, suite) {
+    var motif = new RegExp('<div class="sendly-assist-carte" data-carte="' + c.id + '">[\\s\\S]*?</div></div>');
+    c.tour.html = c.tour.html.replace(motif, ligneHtml);
+    if (suite) { c.tour.result = (c.tour.result ? c.tour.result + '; ' : '') + suite; }
+    renderConv();
+  }
+
+  /** Après une programmation, l'écran d'édition du même e-mail reflète
+   *  l'état réel : un « Enregistrer » ultérieur ne doit pas l'écraser. */
+  function synchroniserFormulaireEmail(rep) {
+    if (emailEnEdition() !== rep.id) { return; }
+    var publie = rep.mode === 'schedule' ? '1' : '0';
+    mQuery('input[name="emailform[isPublished]"]').each(function () {
+      this.checked = (this.value === publie);
+    }).trigger('change');
+    if (rep.mode === 'schedule') {
+      mQuery('input[name="emailform[publishUp]"]').val(rep.send_at).trigger('change');
+    }
+  }
+
+  function repondreConfirmation(id, ok) {
+    var c = confirmations[id];
+    if (!c || c.repondu) { return; }
+    c.repondu = true;
+    if (!ok) {
+      fermerCarte(c, '<div class="sendly-assist-mut">' + esc('✗ Rien n’a été programmé : vous avez choisi de ne rien faire.') + '</div>', 'user declined: ' + c.payload.mode);
+      return;
+    }
+    fermerCarte(c, '<div class="sendly-assist-mut sendly-assist-encours">' + esc('Confirmation envoyée…') + '</div>');
+    mQuery.ajax({
+      url: cfg().scheduleEndpoint, type: 'POST', dataType: 'json', contentType: 'application/json',
+      data: JSON.stringify(mQuery.extend({}, c.payload, { confirm: true })),
+      success: function (rep) {
+        var html = rep && rep.done
+          ? '<div class="sendly-assist-fait">' + esc(rep.mode === 'cancel'
+            ? '✓ Envoi annulé : « ' + rep.name + ' » est dépublié.'
+            : '✓ Envoi programmé ' + rep.send_at_label + ' : « ' + rep.name + ' ».') + '</div>'
+          : '<div class="sendly-assist-mut">' + esc('✗ La programmation n’a pas abouti : la réponse du serveur était incomplète.') + '</div>';
+        c.tour.html = c.tour.html.replace(/<div class="sendly-assist-mut sendly-assist-encours">[^<]*<\/div>/, html);
+        c.tour.result = (c.tour.result ? c.tour.result + '; ' : '') + (rep && rep.done ? (rep.mode === 'cancel' ? 'send cancelled' : 'send scheduled ' + rep.send_at) : 'schedule failed');
+        if (rep && rep.done) { synchroniserFormulaireEmail(rep); }
+        renderConv();
+      },
+      error: function (xhr) {
+        var code = xhr && xhr.responseJSON ? xhr.responseJSON.error : null;
+        c.tour.html = c.tour.html.replace(/<div class="sendly-assist-mut sendly-assist-encours">[^<]*<\/div>/,
+          '<div class="sendly-assist-mut">' + esc('✗ La programmation n’a pas abouti : ' + ((code && MOTIFS_CREATION[code]) || 'le serveur a refusé la demande') + '.') + '</div>');
+        c.tour.result = (c.tour.result ? c.tour.result + '; ' : '') + 'schedule failed: ' + (code || (xhr ? xhr.status : 0));
+        renderConv();
+      }
+    });
+  }
+
+  // Exposée pour les tests et les autres contextes : le panneau l'appelle
+  // depuis les boutons de la carte. N'ouvre aucun droit nouveau (l'endpoint
+  // revalide tout, droits compris).
+  window.SendlyAssistant.repondreConfirmation = repondreConfirmation;
+
   /** Joue les actions du serveur.
    *
    *  Renvoie {note, undoable, resume} : `note` ne dit QUE ce qui est fait ou
    *  en cours (jamais un ✓ d'avance), `resume` raconte au modèle, au tour
    *  suivant, ce qui s'est réellement passé. `apresCoup(texte, resume)` est
    *  appelé si une création échoue après la réponse. */
-  function executerActions(actions, turnId, apresCoup) {
+  function executerActions(actions, turnId, apresCoup, ajoutHtml) {
     var form = formulaireTravail();
     var tentes = 0, remplis = 0, releve = [], differes = [], creationsEntite = [];
     var resume = [];
+    var notes = [];
     (actions || []).forEach(function (a) {
       if (a.type === 'fill_field') {
         tentes++;
@@ -883,6 +982,67 @@
         creationsEntite.push({ url: '/s/ai/report/create', spec: a, edition: '/s/reports/edit/', quoi: 'create_report' });
       } else if (a.type === 'create_form' && a.name && a.fields) {
         creationsEntite.push({ url: (cfg().formCreateEndpoint || '/s/ai/form/create'), spec: a, edition: '/s/forms/edit/', quoi: 'create_form' });
+      } else if (a.type === 'schedule_email') {
+        // Jamais exécuté d'emblée : PRÉVISUALISATION, puis carte de
+        // confirmation. C'est le clic de l'utilisateur qui programme.
+        var payload = { cancel: a.cancel === '1' };
+        if (a.email) { payload.email = a.email; } else if (emailCourant()) { payload.email_id = emailCourant(); }
+        if (a.send_at) { payload.send_at = a.send_at; }
+        resume.push((payload.cancel ? 'cancel' : 'schedule') + ' prepared, waiting for the user confirmation');
+        mQuery.ajax({
+          url: cfg().scheduleEndpoint, type: 'POST', dataType: 'json', contentType: 'application/json',
+          data: JSON.stringify(payload),
+          success: function (rep) {
+            if (!rep || !rep.id) {
+              apresCoup('✗ La programmation n’a pas abouti : la réponse du serveur était incomplète.', 'schedule preview failed');
+              return;
+            }
+            var id = 'c' + (++confirmationSeq);
+            payload.email_id = rep.id;
+            delete payload.email;
+            payload.mode = rep.mode;
+            var texte = rep.mode === 'cancel'
+              ? 'Annuler l’envoi de « ' + rep.name + ' » ? L’e-mail sera dépublié et ne partira plus.'
+              : 'Programmer l’envoi de « ' + rep.name + ' » (objet : « ' + rep.subject + ' ») ' + rep.send_at_label +
+                ' aux segments ' + rep.segments.join(', ') + ' : ' +
+                (rep.recipients === null || rep.recipients === undefined
+                  ? 'nombre de destinataires indisponible.'
+                  : rep.recipients + ' destinataire' + (rep.recipients > 1 ? 's' : '') + ' à ce jour.');
+            confirmations[id] = { id: id, payload: payload };
+            ajoutHtml(carteConfirmation(id, texte, rep.mode === 'cancel' ? 'Confirmer l’annulation' : 'Confirmer l’envoi'),
+              'confirmation card shown: ' + rep.mode + ' « ' + rep.name + ' »', function (tour) { confirmations[id].tour = tour; });
+          },
+          error: function (xhr) {
+            var rep = xhr && xhr.responseJSON;
+            var code = rep && rep.error;
+            apresCoup('✗ Programmation impossible : ' + ((code && MOTIFS_CREATION[code]) || 'le serveur a refusé la demande') +
+              (rep && rep.ref ? ' (« ' + rep.ref + ' »)' : '') + '.', 'schedule refused: ' + (code || xhr.status));
+          }
+        });
+      } else if (a.type === 'create_ab_test' && a.subjects && a.subjects.length && emailEnEdition()) {
+        resume.push('A/B test requested (' + a.subjects.length + ' subject(s))');
+        mQuery.ajax({
+          url: cfg().abtestEndpoint, type: 'POST', dataType: 'json',
+          data: { emailId: emailEnEdition(), subjects: a.subjects },
+          success: function (rep) {
+            var n = rep && rep.created ? rep.created.length : 0;
+            if (!n) {
+              apresCoup('✗ Aucune variante créée : ces objets existent déjà ou sont identiques à l’objet actuel.', 'A/B test: nothing created');
+              return;
+            }
+            if (window.SendlyAssistant) { window.SendlyAssistant.credit('create_ab_test', 1); }
+            ajoutHtml('<div class="sendly-assist-fait">' + esc('✓ Test A/B créé : ' + n + ' variante' + (n > 1 ? 's' : '') + ' d’objet' +
+              (rep && false === rep.published ? ' (en brouillon : votre compte n’a pas le droit de les publier)' : '') + '.') + '</div>',
+              'A/B test created: ' + n + ' variant(s)');
+          },
+          error: function (xhr) {
+            var code = xhr && xhr.responseJSON ? xhr.responseJSON.error : null;
+            apresCoup('✗ Le test A/B n’a pas été créé : ' + ((code && MOTIFS_CREATION[code]) || 'le serveur a refusé la demande') + '.', 'A/B test failed: ' + (code || xhr.status));
+          }
+        });
+      } else if (a.type === 'create_ab_test') {
+        notes.push('✗ Test A/B non créé : ouvrez d’abord l’e-mail concerné en édition.');
+        resume.push('A/B test not created: no email open in edition');
       } else if (a.type === 'create_landing_page' && a.description && a.name) {
         // Le brief voyage jusqu'à l'écran « nouvelle page », qui crée la
         // page, ouvre le builder et génère les sections (ai-page-builder).
@@ -897,7 +1057,6 @@
     if (releve.length) { snapshots[turnId] = { champs: releve }; }
     if (remplis && window.SendlyAssistant) { window.SendlyAssistant.credit('fill_field', remplis); }
 
-    var notes = [];
     if (tentes) {
       if (!remplis) {
         notes.push('✗ Aucun champ rempli : le champ demandé est introuvable sur cet écran.');
@@ -1044,6 +1203,8 @@
       var ecranDepart = ecranCourant();
       var capacites = ['navigate', 'create_segment', 'create_landing_page', 'create_email', 'create_form', 'create_campaign', 'create_report'];
       if (etat.champs > 0) { capacites.push('fill_field'); }
+      if (cfg().scheduleEndpoint) { capacites.push('schedule_email'); }
+      if (emailEnEdition() && cfg().abtestEndpoint) { capacites.push('create_ab_test'); }
       mQuery.ajax({
         url: cfg().assistEndpoint,
         type: 'POST',
@@ -1073,7 +1234,15 @@
             resultat = executerActions(actions, res.turnId || null, function (texte, suite) {
               if (!tour) { return; }
               tour.result = (tour.result ? tour.result + '; ' : '') + suite;
+              // La ligne « Création en cours » ne reste pas au-dessus d'un échec.
+              tour.html = tour.html.replace(/<div class="sendly-assist-mut sendly-assist-encours">[^<]*<\/div>/, '');
               api.note(tour, texte);
+            }, function (html, suite, quandPose) {
+              if (!tour) { return; }
+              tour.result = (tour.result ? tour.result + '; ' : '') + suite;
+              tour.html += html;
+              if (quandPose) { quandPose(tour); }
+              renderConv();
             });
             lignes = resultat.notes.slice();
           }
@@ -1084,7 +1253,8 @@
           }
           var html = answer ? rendreAide(answer) : '';
           lignes.forEach(function (l) {
-            var classe = l.charAt(0) === '✓' ? 'sendly-assist-fait' : 'sendly-assist-mut';
+            var classe = l.charAt(0) === '✓' ? 'sendly-assist-fait'
+              : (l.indexOf('Création en cours') === 0 ? 'sendly-assist-mut sendly-assist-encours' : 'sendly-assist-mut');
             html += '<div class="' + classe + '">' + esc(l) + '</div>';
           });
           tour = api.ia(html, {

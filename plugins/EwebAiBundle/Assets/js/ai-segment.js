@@ -127,6 +127,42 @@
    * entre deux tours — l'historique de conversation ne prouve rien, constat
    * proprio 27/08 : « mairies de France » après annulation ne redonnait rien).
    */
+  /** Les lignes de critères qui portent un champ, dans l'ordre exact de
+   *  etatFiltres() : le numéro N renvoyé par le serveur désigne la N-ième. */
+  function lignesFiltres() {
+    return mQuery('#leadlist_filters').find('.filter--row').filter(function () {
+      return !!mQuery(this).find('input[id$="_field"]').val();
+    });
+  }
+
+  /** Ce qu'il faut pour REMETTRE une ligne retirée (annulation). */
+  function specLigne($r) {
+    var v = $r.find('[id$="_properties_filter"]').val();
+    return {
+      glue: $r.find('select[id$="_glue"]').val() || 'and',
+      object: $r.find('input[id$="_object"]').val(),
+      field: $r.find('input[id$="_field"]').val(),
+      operator: $r.find('select[id$="_operator"]').val(),
+      value: v == null ? '' : v
+    };
+  }
+
+  /** Retire les lignes numérotées (1 = première) par le bouton « supprimer »
+   *  NATIF, de la dernière à la première (la renumérotation ne décale pas
+   *  celles qui restent à retirer). Renvoie leurs specs, dans l'ordre. */
+  function retirerLignes(numeros) {
+    var $lignes = lignesFiltres();
+    var retires = [];
+    numeros.slice().sort(function (a, b) { return b - a; }).forEach(function (n) {
+      var el = $lignes.get(n - 1);
+      if (!el) { return; }
+      var $r = mQuery(el);
+      retires.unshift(specLigne($r));
+      $r.find('a.remove-selected').trigger('click');
+    });
+    return retires;
+  }
+
   function etatFiltres() {
     var lignes = [];
     mQuery('#leadlist_filters').find('.filter--row').each(function () {
@@ -372,6 +408,17 @@
     next();
   }
 
+  /** Ligne « Critères retirés » d'un tour (lot 2). */
+  function resumeRetraits(retires) {
+    if (!retires || !retires.length) { return ''; }
+    return '<div class="sendly-assist-fait">' + esc('Critères retirés : ' + retires.map(function (f) {
+      return fieldLabel(f) + (f.value !== '' && f.value != null ? ' ' + (Array.isArray(f.value) ? f.value.join(', ') : f.value) : '');
+    }).join(' · ')) + '</div>';
+  }
+
+  /** Les tours qui ont RETIRÉ des lignes : turnId → specs à remettre. */
+  var retraitsParTour = {};
+
   /** Le résumé d'un tour : ce qui a été RÉELLEMENT appliqué, en libellés natifs. */
   function turnSummary(result, dropped) {
     var html = '';
@@ -460,30 +507,35 @@
         success: function (res) {
           var filters = (res && res.filters) || [];
           var dropped = (res && res.dropped) || [];
-          if (!filters.length) {
+          var aRetirer = (res && res.remove) || [];
+          if (!filters.length && !aRetirer.length) {
             api.fail(dropped.length
               ? dropped.map(function (d) { return (d.label || t('mautic.lead_list.ai.unknown_criterion', 'un critère')) + ' : ' + d.message; }).join(' · ')
               : t('mautic.lead_list.ai.none', 'Aucun critère exploitable n\u2019a pu être déduit. Reformulez en nommant les informations dont vous disposez sur vos contacts.'));
             return;
           }
           var turnId = ++turnSeq;
-          applyTurn(filters, turnId, function (result) {
+          var retires = aRetirer.length ? retirerLignes(aRetirer) : [];
+          if (retires.length) { retraitsParTour[turnId] = retires; }
+          // L'animation de suppression native dure ~200 ms : on laisse la
+          // renumérotation se faire avant d'ajouter les nouvelles lignes.
+          setTimeout(function () { applyTurn(filters, turnId, function (result) {
             // Compteur de temps gagné : UNE fois par écran (les tours
             // suivants raffinent le même segment, ils ne recréditent pas).
             if (result.applied.length && !window.__sendlySegmentCredite && window.SendlyAssistant) {
               window.__sendlySegmentCredite = true;
               window.SendlyAssistant.credit('create_segment', 1);
             }
-            var resume = turnSummary(result, dropped);
+            var resume = (filters.length || !retires.length ? turnSummary(result, dropped) : '') + resumeRetraits(retires);
             var nommes = remplirDetails(res);
             if (nommes.length) {
               resume += '<div class="sendly-assist-fait">' +
                 esc(t('mautic.lead_list.ai.named', 'Nom du segment rempli :')) + ' <b>' + esc(nommes[0]) + '</b></div>';
             }
             api.ia(resume,
-              result.applied.length ? { turnId: turnId, undoable: true } : null);
+              (result.applied.length || retires.length) ? { turnId: turnId, undoable: true } : null);
             api.finish();
-          });
+          }); }, retires.length ? 350 : 0);
         },
         error: function (xhr) {
           api.fail(window.SendlyAssistant && window.SendlyAssistant.messageErreur
@@ -498,7 +550,19 @@
       mQuery('#leadlist_filters .filter--row[data-sendly-turn="' + turnId + '"] a.remove-selected').each(function () {
         mQuery(this).trigger('click');
       });
-      api.markUndone(esc(t('mautic.lead_list.ai.undone', 'Modifications annulées')));
+      var aRemettre = retraitsParTour[turnId] || [];
+      delete retraitsParTour[turnId];
+      if (!aRemettre.length) {
+        api.markUndone(esc(t('mautic.lead_list.ai.undone', 'Modifications annulées.')));
+        return;
+      }
+      // Les lignes RETIRÉES par ce tour reviennent, par le même chemin natif
+      // que les ajouts (après l'animation de suppression des lignes ajoutées).
+      setTimeout(function () {
+        applyTurn(aRemettre, 'remis-' + turnId, function () {
+          api.markUndone(esc(t('mautic.lead_list.ai.undone', 'Modifications annulées.')));
+        });
+      }, 350);
     }
   });
 

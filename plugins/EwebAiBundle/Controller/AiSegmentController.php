@@ -123,6 +123,7 @@ final class AiSegmentController
         // ÉTAPE 4 — la barrière. Tout ce qui sort d'ici est exploitable, et rien
         // d'autre ne l'est.
         $sanitized = $this->validator->sanitize($raw['filters']);
+        $nbActuels = is_array($payload['current'] ?? null) ? count($payload['current']) : 0;
         $filters   = $sanitized['filters'];
         $catalog   = $this->schema->getCatalog();
 
@@ -151,6 +152,12 @@ final class AiSegmentController
             'ignored' => $preview['ignored'],
             'failed'  => $preview['failed'],
             'dropped' => $this->describeDropped($sanitized['dropped']),
+            // Lignes à RETIRER (lot 2, 12/11/2026) : seulement des numéros
+            // qui existent dans la liste que le navigateur a envoyée.
+            'remove'  => array_values(array_filter(
+                $raw['remove'] ?? [],
+                static fn (int $n): bool => $n <= $nbActuels,
+            )),
             // Le geste complet : nom et description proposés pour les champs
             // Détails (le formulaire ne reste plus muet — constat 27/08).
             // Des VALEURS de champ, jamais du HTML : le service les a bornées.
