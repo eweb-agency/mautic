@@ -41,7 +41,7 @@ const champs = (sc.champs || []).map(function (c) {
   const el = {
     tagName: c.tag || 'INPUT', name: c.name, id: c.id || '', masque: !!c.masque,
     type: c.tag === 'TEXTAREA' ? 'textarea' : (c.type || 'text'),
-    value: c.value || '', checked: false,
+    value: c.value || '', checked: !!c.checked,
     getAttribute: function (k) { return attrs[k] ? attrs[k] : null; },
     options: []
   };
@@ -101,16 +101,19 @@ function enveloppe(liste) {
 const requetes = [];
 function mQuery(x) {
   if (x === 'form') { return enveloppe([formulaire]); }
+  const parNom = typeof x === 'string' ? /^input\[name="(.*)"\]$/.exec(x) : null;
+  if (parNom) { return enveloppe(champs.filter(function (e) { return e.name === parNom[1]; })); }
   if (x && typeof x === 'object') { return enveloppe([x]); }
   return enveloppe([]);
 }
 mQuery.ajax = function (o) { requetes.push(o); return { done: rien }; };
+mQuery.extend = function () { return Object.assign.apply(Object, arguments); };
 
 const location = { pathname: sc.chemin || '/s/forms/new', search: '', assign: function (u) { navigations.push(u); } };
 const navigations = [];
 const minuteries = [];
 const bac = {
-  window: { SendlyAiConfig: { enabled: true, assistEndpoint: '/s/ai/assist' }, location: location },
+  window: { SendlyAiConfig: { enabled: true, assistEndpoint: '/s/ai/assist', scheduleEndpoint: '/s/ai/email/schedule', abtestEndpoint: '/s/ai/email/abtest' }, location: location },
   document: doc,
   Mautic: { translate: function (k) { return k; } },
   mQuery: mQuery,
@@ -162,6 +165,27 @@ if (sc.annuler) {
   aide.onUndo(sc.reponse.turnId, { markUndone: rien });
   sortie.annule = {};
   champs.forEach(function (e) { sortie.annule[e.name] = editeurs.get(e) ? editeurs.get(e).getData() : e.value; });
+}
+
+// Étapes après la réponse : réponses du serveur aux requêtes suivantes, et
+// clics sur la carte de confirmation.
+const repondues = new Set();
+(sc.etapes || []).forEach(function (e) {
+  if (e.confirmer) { SA.repondreConfirmation(e.confirmer, !!e.ok); return; }
+  const r = requetes.filter(function (q) { return q.url === e.url && !repondues.has(q); })[0];
+  if (!r) { throw new Error('aucune requête en attente vers ' + e.url); }
+  repondues.add(r);
+  if (e.erreur) { r.error(e.erreur); } else { r.success(e.rep); }
+});
+if (sc.etapes) {
+  sortie.tourFinal = tours[0];
+  sortie.requetes = requetes.filter(function (r) { return r.url !== '/s/ai/assist'; }).map(function (r) {
+    return { url: r.url, data: typeof r.data === 'string' ? JSON.parse(r.data) : r.data };
+  });
+  sortie.champsFinal = {};
+  champs.forEach(function (e) {
+    if (e.type === 'radio') { sortie.champsFinal[e.id] = e.checked ? 'coché' : 'libre'; } else { sortie.champsFinal[e.name] = e.value; }
+  });
 }
 
 if (sc.tourSuivant) {
@@ -260,6 +284,7 @@ JS;
 
         $texte = self::texte($r['tourApresEchec']);
         self::assertStringContainsString('✗ La création n’a pas abouti : votre compte n’a pas le droit de créer cet élément.', $texte);
+        self::assertStringNotContainsString('Création en cours', $texte, 'la ligne d’attente ne reste pas au-dessus de l’échec');
         self::assertStringContainsString('creation failed: forbidden', (string) $r['tourApresEchec']['result'], 'le tour suivant le saura');
     }
 
@@ -389,5 +414,134 @@ JS;
             // Mautic.translate du banc renvoie la clé : le repli s'applique.
             'Le service est momentanément indisponible. Réessayez dans un instant.',
         ], $r['erreurs']);
+    }
+
+    // ── Programmer un envoi : jamais sans le clic (lot 2) ─────────────────
+
+    /**
+     * L'écran d'édition d'un e-mail, avec ses champs de publication.
+     *
+     * @return array<string, mixed>
+     */
+    private function ecranEmail(): array
+    {
+        return [
+            'chemin' => '/s/emails/edit/7',
+            'champs' => [
+                ['name' => 'emailform[name]', 'id' => 'emailform_name', 'type' => 'text', 'value' => 'Newsletter'],
+                ['name' => 'emailform[isPublished]', 'id' => 'emailform_isPublished_0', 'type' => 'radio', 'value' => '0', 'checked' => true],
+                ['name' => 'emailform[isPublished]', 'id' => 'emailform_isPublished_1', 'type' => 'radio', 'value' => '1'],
+                ['name' => 'emailform[publishUp]', 'id' => 'emailform_publishUp', 'type' => 'text', 'value' => ''],
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private static function apercu(): array
+    {
+        return ['id'   => 7, 'mode' => 'schedule', 'name' => 'Newsletter', 'subject' => 'Nos nouveautés',
+            'segments' => ['Clients'], 'recipients' => 42, 'send_at' => '2026-11-13 09:00', 'send_at_label' => 'le 13/11/2026 à 09:00'];
+    }
+
+    /** @return array<string, mixed> */
+    private function demandeDeProgrammation(): array
+    {
+        return ['answer' => 'J’ai préparé la programmation, à confirmer.', 'turnId' => 't1', 'dropped' => [],
+            'actions'    => [['type' => 'schedule_email', 'send_at' => '2026-11-13T09:00']]];
+    }
+
+    public function testLaProgrammationAfficheUneCarteEtNEnvoieRienSansClic(): void
+    {
+        $r = $this->executer($this->ecranEmail() + [
+            'reponse' => $this->demandeDeProgrammation(),
+            'etapes'  => [['url' => '/s/ai/email/schedule', 'rep' => self::apercu()]],
+        ]);
+
+        // Une seule requête : la PRÉVISUALISATION, sans confirmation.
+        self::assertCount(1, $r['requetes']);
+        self::assertSame(['cancel' => false, 'email_id' => 7, 'send_at' => '2026-11-13T09:00'], $r['requetes'][0]['data']);
+        $texte = self::texte($r['tourFinal']);
+        self::assertStringContainsString('Programmer l’envoi de « Newsletter » (objet : « Nos nouveautés ») le 13/11/2026 à 09:00 aux segments Clients : 42 destinataires à ce jour.', $texte);
+        self::assertStringContainsString('Confirmer l’envoi', $texte);
+        self::assertStringContainsString('Ne rien faire', $texte);
+        self::assertStringNotContainsString('✓', $texte);
+        self::assertSame('coché', $r['champsFinal']['emailform_isPublished_0'], 'rien n’a bougé à l’écran');
+        self::assertSame('', $r['champsFinal']['emailform[publishUp]']);
+    }
+
+    public function testConfirmerProgrammeEtSynchroniseLEcranDEdition(): void
+    {
+        $r = $this->executer($this->ecranEmail() + [
+            'reponse' => $this->demandeDeProgrammation(),
+            'etapes'  => [
+                ['url' => '/s/ai/email/schedule', 'rep' => self::apercu()],
+                ['confirmer' => 'c1', 'ok' => true],
+                ['url'       => '/s/ai/email/schedule', 'rep' => self::apercu() + ['done' => true]],
+            ],
+        ]);
+
+        self::assertCount(2, $r['requetes']);
+        self::assertTrue($r['requetes'][1]['data']['confirm']);
+        self::assertSame(7, $r['requetes'][1]['data']['email_id']);
+        $texte = self::texte($r['tourFinal']);
+        self::assertStringContainsString('✓ Envoi programmé le 13/11/2026 à 09:00 : « Newsletter ».', $texte);
+        self::assertStringNotContainsString('Confirmer l’envoi', $texte, 'la carte disparaît une fois confirmée');
+        self::assertStringContainsString('send scheduled 2026-11-13 09:00', (string) $r['tourFinal']['result']);
+        // Un « Enregistrer » ultérieur n'écrasera pas la programmation.
+        self::assertSame('2026-11-13 09:00', $r['champsFinal']['emailform[publishUp]']);
+        self::assertSame(['libre', 'coché'], [$r['champsFinal']['emailform_isPublished_0'], $r['champsFinal']['emailform_isPublished_1']]);
+    }
+
+    public function testNeRienFaireNEnvoieAucuneRequete(): void
+    {
+        $r = $this->executer($this->ecranEmail() + [
+            'reponse' => $this->demandeDeProgrammation(),
+            'etapes'  => [
+                ['url' => '/s/ai/email/schedule', 'rep' => self::apercu()],
+                ['confirmer' => 'c1', 'ok' => false],
+                ['confirmer' => 'c1', 'ok' => true],
+            ],
+        ]);
+
+        self::assertCount(1, $r['requetes'], 'ni le refus ni un second clic ne programment');
+        self::assertStringContainsString('✗ Rien n’a été programmé : vous avez choisi de ne rien faire.', self::texte($r['tourFinal']));
+    }
+
+    public function testUneProgrammationRefuseeDitSaRaison(): void
+    {
+        $r = $this->executer($this->ecranEmail() + [
+            'reponse' => $this->demandeDeProgrammation(),
+            'etapes'  => [['url' => '/s/ai/email/schedule', 'erreur' => ['status' => 422, 'responseJSON' => ['error' => 'not_segment_email', 'ref' => 'Newsletter']]]],
+        ]);
+
+        self::assertStringContainsString('✗ Programmation impossible : seul un e-mail de segment se programme', self::texte($r['tourFinal']));
+    }
+
+    // ── Test A/B depuis le panneau ────────────────────────────────────────
+
+    public function testLeTestABCreeLesVariantesDeLEmailOuvert(): void
+    {
+        $r = $this->executer($this->ecranEmail() + [
+            'reponse' => ['answer' => 'Je crée le test A/B.', 'turnId' => 't1', 'dropped' => [],
+                'actions'          => [['type' => 'create_ab_test', 'subjects' => ['Objet B', 'Objet C']]]],
+            'etapes' => [['url' => '/s/ai/email/abtest', 'rep' => ['created' => [['id' => 8], ['id' => 9]], 'published' => true]]],
+        ]);
+
+        self::assertSame(['emailId' => 7, 'subjects' => ['Objet B', 'Objet C']], $r['requetes'][0]['data']);
+        self::assertStringContainsString('✓ Test A/B créé : 2 variantes d’objet.', self::texte($r['tourFinal']));
+    }
+
+    public function testSansEmailOuvertLeTestABEstDitNonCree(): void
+    {
+        $scenario           = $this->ecranEmail();
+        $scenario['chemin'] = '/s/emails';
+        $r                  = $this->executer($scenario + [
+            'reponse' => ['answer' => 'Je crée le test A/B.', 'turnId' => 't1', 'dropped' => [],
+                'actions'          => [['type' => 'create_ab_test', 'subjects' => ['Objet B']]]],
+            'etapes' => [],
+        ]);
+
+        self::assertSame([], $r['requetes']);
+        self::assertStringContainsString('✗ Test A/B non créé : ouvrez d’abord l’e-mail concerné en édition.', self::texte($r['tourFinal']));
     }
 }

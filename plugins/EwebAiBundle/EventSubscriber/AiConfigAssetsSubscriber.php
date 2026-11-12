@@ -88,11 +88,12 @@ class AiConfigAssetsSubscriber implements EventSubscriberInterface
 
         // Ici, isTeaser() faux ⇒ isEnabled() vrai : l'IA est active.
         $config = [
-            'enabled'         => true,
-            'endpoint'        => $this->router->generate('eweb_ai_generate', [], UrlGeneratorInterface::ABSOLUTE_PATH),
-            'segmentEndpoint' => $this->router->generate('eweb_ai_segment_suggest', [], UrlGeneratorInterface::ABSOLUTE_PATH),
-            'assistEndpoint'  => $this->router->generate('eweb_ai_assist', [], UrlGeneratorInterface::ABSOLUTE_PATH),
-            'abtestEndpoint'  => $this->router->generate('eweb_ai_email_abtest', [], UrlGeneratorInterface::ABSOLUTE_PATH),
+            'enabled'          => true,
+            'endpoint'         => $this->router->generate('eweb_ai_generate', [], UrlGeneratorInterface::ABSOLUTE_PATH),
+            'segmentEndpoint'  => $this->router->generate('eweb_ai_segment_suggest', [], UrlGeneratorInterface::ABSOLUTE_PATH),
+            'assistEndpoint'   => $this->router->generate('eweb_ai_assist', [], UrlGeneratorInterface::ABSOLUTE_PATH),
+            'abtestEndpoint'   => $this->router->generate('eweb_ai_email_abtest', [], UrlGeneratorInterface::ABSOLUTE_PATH),
+            'scheduleEndpoint' => $this->router->generate('eweb_ai_email_schedule', [], UrlGeneratorInterface::ABSOLUTE_PATH),
         ];
 
         $assetsEvent->addScriptDeclaration(

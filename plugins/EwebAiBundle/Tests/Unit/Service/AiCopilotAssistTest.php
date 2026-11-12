@@ -658,4 +658,52 @@ final class AiCopilotAssistTest extends TestCase
         self::assertStringContainsString('Rich text fields such as a description take plain text', $system);
         self::assertStringNotContainsString('Twilio', $system);
     }
+
+    // ── Lot 2 : programmer un envoi, test A/B (12/11/2026) ────────────────
+
+    public function testProgrammerUnEnvoiNeDemandeQueDesReferences(): void
+    {
+        $out = $this->serviceOutil([
+            'answer'  => 'J\'ai préparé la programmation, à confirmer.',
+            'actions' => [
+                ['type' => 'schedule_email', 'send_at' => '2026-11-13T09:00'],
+                ['type' => 'schedule_email', 'email' => 'Newsletter', 'cancel' => true],
+            ],
+        ])->assist(['question' => 'programme-le demain 9 h', 'actions' => ['schedule_email'], 'context' => '']);
+
+        self::assertSame([
+            ['type' => 'schedule_email', 'send_at' => '2026-11-13T09:00'],
+            ['type' => 'schedule_email', 'email' => 'Newsletter', 'cancel' => '1'],
+        ], $out['actions']);
+        self::assertSame([], $out['dropped']);
+    }
+
+    public function testLeTestABGardeUnAQuatreObjetsDistincts(): void
+    {
+        $out = $this->serviceOutil([
+            'answer'  => 'Je crée le test A/B.',
+            'actions' => [
+                ['type' => 'create_ab_test', 'subjects' => ['A', 'B', 'A', ' ', 'C', 'D', 'E']],
+                ['type' => 'create_ab_test', 'subjects' => []],
+            ],
+        ])->assist(['question' => 'test A/B', 'actions' => ['create_ab_test'], 'context' => '']);
+
+        self::assertSame([['type' => 'create_ab_test', 'subjects' => ['A', 'B', 'C', 'D']]], $out['actions']);
+        self::assertSame(['create_ab_test'], $out['dropped'], 'un test sans objet est dit non exécuté');
+    }
+
+    public function testLaConsigneExigeLaConfirmationEtDitBrouillon(): void
+    {
+        $this->serviceOutil(['answer' => 'ok', 'actions' => []])->assist([
+            'question' => 'x', 'actions' => ['schedule_email', 'create_ab_test'], 'context' => '',
+        ]);
+
+        $system = (string) $this->sent['system'][0]['text'];
+        self::assertStringContainsString('the user must CONFIRM it in the panel', $system);
+        self::assertStringContainsString('never that it is scheduled', $system);
+        self::assertStringContainsString('« en brouillon »', $system);
+        $props = $this->sent['tools'][0]['input_schema']['properties']['actions']['items']['properties'];
+        self::assertArrayHasKey('cancel', $props);
+        self::assertArrayHasKey('subjects', $props);
+    }
 }

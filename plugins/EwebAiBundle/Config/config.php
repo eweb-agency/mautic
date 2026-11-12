@@ -60,6 +60,15 @@ return [
                 'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiCampaignController::createAction',
                 'method'     => 'POST',
             ],
+            // Lot 2 du plan Copilot (12/11/2026) : programmer ou annuler
+            // l'envoi d'un e-mail de segment. Prévisualisation sans écriture,
+            // puis exécution SEULEMENT sur confirmation de l'utilisateur
+            // (garde : voir + publier l'e-mail).
+            'eweb_ai_email_schedule' => [
+                'path'       => '/ai/email/schedule',
+                'controller' => 'MauticPlugin\EwebAiBundle\Controller\AiEmailScheduleController::scheduleAction',
+                'method'     => 'POST',
+            ],
             // Lot 6 : rapport à la demande — source en liste blanche,
             // colonnes réelles de la source, rapport DÉPUBLIÉ.
             'eweb_ai_report_create' => [
