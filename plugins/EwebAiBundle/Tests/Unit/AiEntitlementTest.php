@@ -153,7 +153,8 @@ final class AiEntitlementTest extends TestCase
         // Prix du plan Pro — boussole tarifaire validée le 17/08/2026 :
         // 290 €/mois (le 29 € historique est mort, il rendait la grille
         // agence 199-129 € absurde).
-        self::assertStringContainsString('€<b>290</b>/mois', $upsell);
+        // Format français (12/11/2026) : le montant, puis l'unité.
+        self::assertStringContainsString('<b>290</b>&nbsp;€/mois', $upsell);
         self::assertStringContainsString('marque-r', $upsell);
         // Marquage de conversion par porte d'entrée (validé 14/08).
         self::assertStringContainsString("'utm_source', 'copilot-upsell'", $upsell);

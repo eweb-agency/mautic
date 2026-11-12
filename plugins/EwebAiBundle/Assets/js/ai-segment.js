@@ -83,7 +83,9 @@
 
   function fieldLabel(f) {
     var $o = option(f);
-    var raw = ($o.length && ($o.data('field-label') || $o.text().trim())) || f.field;
+    // Sans option à l'écran, jamais le nom technique du champ
+    // (« email_clicked_link_date ») : un libellé neutre.
+    var raw = ($o.length && ($o.data('field-label') || $o.text().trim())) || t('mautic.lead_list.ai.unknown_criterion', 'un critère');
     return stripTags(raw).trim();
   }
 
@@ -164,11 +166,18 @@
         $desc.val(res.description).trigger('change');
         derniereDescIA = res.description;
         // L'éditeur riche (s'il est monté) a sa propre copie du texte.
+        // Le moteur range ses éditeurs dans `ckEditors` (textarea → éditeur) ;
+        // l'ancienne voie (CKEDITOR 4, instance sur le textarea) ne trouvait
+        // rien avec l'éditeur actuel : le texte n'apparaissait pas à l'écran.
         try {
-          if (window.CKEDITOR && window.CKEDITOR.instances && window.CKEDITOR.instances.leadlist_description) {
-            window.CKEDITOR.instances.leadlist_description.setData(res.description);
-          } else if ($desc[0] && $desc[0].ckeditorInstance) {
-            $desc[0].ckeditorInstance.setData(res.description);
+          /* global ckEditors */
+          var ed = (typeof ckEditors !== 'undefined' && ckEditors && $desc[0]) ? ckEditors.get($desc[0]) : null;
+          if (!ed && window.CKEDITOR && window.CKEDITOR.instances && window.CKEDITOR.instances.leadlist_description) {
+            ed = window.CKEDITOR.instances.leadlist_description;
+          }
+          if (ed) {
+            ed.setData('<p>' + esc(res.description) + '</p>');
+            if (typeof ed.updateSourceElement === 'function') { ed.updateSourceElement(); }
           }
         } catch (e) { /* le textarea porte déjà la valeur soumise */ }
       }
@@ -186,7 +195,7 @@
         }
       }
     }
-    return f.operator;
+    return '';
   }
 
   function valueLabel(f) {
@@ -383,7 +392,7 @@
       html += esc(t('mautic.lead_list.ai.added_none', 'Aucun nouveau critère à ajouter.'));
     }
     if (result.dups.length) {
-      html += '<div class="sendly-assist-mut">' + esc(t('mautic.lead_list.ai.already_present', 'déjà présent — ne sera pas ajouté en double')) +
+      html += '<div class="sendly-assist-mut">' + esc(t('mautic.lead_list.ai.already_present', 'déjà présent, non ajouté en double')) +
         ' : ' + esc(result.dups.map(fieldLabel).join(', ')) + '</div>';
     }
     if (result.missed.length) {
@@ -392,7 +401,7 @@
     }
     if (dropped && dropped.length) {
       html += '<div class="sendly-assist-mut">' + esc(t('mautic.lead_list.ai.dropped.title', 'Non retenu dans votre demande')) + ' : ';
-      html += esc(dropped.map(function (d) { return d.label + ' — ' + d.message; }).join(' · ')) + '</div>';
+      html += esc(dropped.map(function (d) { return (d.label || t('mautic.lead_list.ai.unknown_criterion', 'un critère')) + ' : ' + d.message; }).join(' · ')) + '</div>';
     }
     return html;
   }
@@ -418,14 +427,14 @@
         && mQuery('#leadlist_filters').length);
     },
     title: function () {
-      return t('mautic.lead_list.ai.panel_title', 'Assistant de segment');
+      return t('mautic.lead_list.ai.panel_title', 'Sendly Copilot · Segment');
     },
     welcome: function () {
       return t('mautic.lead_list.ai.welcome',
         'Bonjour, quel segment souhaitez-vous créer aujourd\u2019hui ? Décrivez-moi précisément les contacts que vous souhaitez cibler, je m\u2019occupe du reste !');
     },
     placeholder: function () {
-      return t('mautic.lead_list.ai.input_placeholder', 'Décrivez vos filtres…');
+      return t('mautic.lead_list.ai.input_placeholder', 'Décrivez les contacts à cibler…');
     },
     thinking: function () {
       return t('mautic.lead_list.ai.generating', 'Analyse…');
@@ -453,7 +462,7 @@
           var dropped = (res && res.dropped) || [];
           if (!filters.length) {
             api.fail(dropped.length
-              ? dropped.map(function (d) { return d.label + ' — ' + d.message; }).join(' · ')
+              ? dropped.map(function (d) { return (d.label || t('mautic.lead_list.ai.unknown_criterion', 'un critère')) + ' : ' + d.message; }).join(' · ')
               : t('mautic.lead_list.ai.none', 'Aucun critère exploitable n\u2019a pu être déduit. Reformulez en nommant les informations dont vous disposez sur vos contacts.'));
             return;
           }
@@ -476,8 +485,10 @@
             api.finish();
           });
         },
-        error: function () {
-          api.fail(t('mautic.lead_list.ai.error', 'La requête a échoué. Réessayez.'));
+        error: function (xhr) {
+          api.fail(window.SendlyAssistant && window.SendlyAssistant.messageErreur
+            ? window.SendlyAssistant.messageErreur(xhr)
+            : t('mautic.lead_list.ai.error', 'Le service est momentanément indisponible. Réessayez dans un instant.'));
         }
       });
     },
@@ -511,6 +522,20 @@
   mQuery(function () {
     var brief = null;
     try { brief = sessionStorage.getItem('sendlyAiSegmentBrief'); } catch (e) {}
+    if (!brief) { return; }
+    // Durée de vie de 3 minutes, comme les briefs page et e-mail : une
+    // demande restée en mémoire ne se rejoue pas des heures plus tard sur un
+    // segment ouvert pour autre chose. (Une ancienne chaîne nue reste lue.)
+    try {
+      var lu = JSON.parse(brief);
+      if (lu && typeof lu === 'object') {
+        if (!lu.ts || Date.now() - lu.ts > 180000) {
+          sessionStorage.removeItem('sendlyAiSegmentBrief');
+          return;
+        }
+        brief = String(lu.brief || '');
+      }
+    } catch (e) { /* ancienne forme : chaîne nue */ }
     if (!brief) { return; }
     var tenter = function (restants) {
       var ctx = (window.SendlyAssistantContexts || []).filter(function (c) {

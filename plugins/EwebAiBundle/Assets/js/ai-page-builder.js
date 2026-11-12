@@ -40,7 +40,7 @@
   }
 
   var RACCOURCIS = [
-    'Une section hero avec un titre fort et un bouton',
+    'Une section d’en-tête avec un titre fort et un bouton',
     'Une section « 3 avantages » avec icônes',
     'Une bande de témoignages clients',
     'Un appel à l\'action final avec bouton',
@@ -103,8 +103,8 @@
 
   function messageErreur(err) {
     return 'desactive' === err.message
-      ? 'L\'assistant n\'est pas activé sur cette instance.'
-      : 'La génération a échoué — réessaie dans un instant.';
+      ? 'Sendly Copilot n’est pas activé sur votre espace.'
+      : 'La génération a échoué. Réessayez dans un instant.';
   }
 
   window.MauticGrapesJsPlugins.push({
@@ -185,7 +185,7 @@
         var boite = blinder(idoc.createElement('div'));
         boite.className = 'sendly-ia-invite';
         boite.innerHTML = '<button class="fermer" title="Fermer">✕</button>'
-          + '<div class="ligne"><input type="text" placeholder="Décris la section à générer…"><button class="envoyer">' + ICONE_IA + ' Générer</button></div>'
+          + '<div class="ligne"><input type="text" placeholder="Décrivez la section à générer…"><button class="envoyer">' + ICONE_IA + ' Générer</button></div>'
           + '<div class="chips"></div>';
         var champ = boite.querySelector('input');
         champ.value = valeur;

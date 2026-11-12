@@ -405,4 +405,32 @@ final class SegmentFilterValidatorTest extends TestCase
         self::assertSame('email_clicked_link_date', $out['filters'][0]['field']);
         self::assertSame('le mois dernier', $out['filters'][0]['properties']['filter']);
     }
+
+    // ── Libellés des critères écartés (12/11/2026) ────────────────────────
+
+    public function testUnCritereEcarteSeNommeParSonLibelleJamaisParSonNomTechnique(): void
+    {
+        // Avant : « email_clicked_link_date gte » affiché tel quel au client.
+        $out = $this->validator()->sanitize([
+            ['object' => 'behaviors', 'field' => 'email_clicked_link_date', 'operator' => 'gte', 'value' => 'last month'],
+        ]);
+
+        self::assertSame('bad_date', $out['dropped'][0]['reason']);
+        self::assertSame('A cliqué dans un e-mail (date)', $out['dropped'][0]['label']);
+    }
+
+    public function testUnChampInventeNAffichePasDeNomTechnique(): void
+    {
+        $out = $this->validator()->sanitize([$this->filter(['field' => 'favorite_wine'])]);
+
+        self::assertSame('unknown_field', $out['dropped'][0]['reason']);
+        self::assertSame('', $out['dropped'][0]['label'], 'le panneau affiche alors « un critère »');
+    }
+
+    public function testUnCritereRefuseParLeMoteurGardeSonLibelle(): void
+    {
+        $out = $this->validator(engineAccepts: false)->sanitize([$this->filter()]);
+
+        self::assertSame('Ville', $out['dropped'][0]['label']);
+    }
 }

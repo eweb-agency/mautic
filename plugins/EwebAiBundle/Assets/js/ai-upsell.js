@@ -205,7 +205,7 @@
       }).join('')
       + '</ul>'
       + '<div class="filet"></div>'
-      + '<div class="plan">' + COURONNE + '<span class="txt"><span class="nom">Plan Pro</span><span class="det">Toutes les fonctionnalités avancées incluses</span></span><span class="prix">€<b>290</b>/mois</span></div>'
+      + '<div class="plan">' + COURONNE + '<span class="txt"><span class="nom">Plan Pro</span><span class="det">Toutes les fonctionnalités avancées incluses</span></span><span class="prix"><b>290</b>&nbsp;€/mois</span></div>'
       + cta
       + '</div>';
     voile.addEventListener('click', function (e) { if (e.target === voile) { fermer(); } });

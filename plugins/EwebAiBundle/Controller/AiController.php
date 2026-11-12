@@ -156,6 +156,7 @@ final class AiController
             return new JsonResponse([
                 'answer'   => $result['answer'],
                 'actions'  => $result['actions'],
+                'dropped'  => $result['dropped'],
                 'turnId'   => bin2hex(random_bytes(8)),
                 'undoable' => $undoable,
             ]);

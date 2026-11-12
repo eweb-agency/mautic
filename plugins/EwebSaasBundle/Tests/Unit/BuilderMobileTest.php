@@ -51,8 +51,8 @@ final class BuilderMobileTest extends TestCase
         self::assertStringContainsString('editor.BlockManager.getAll()', $js);
         self::assertStringContainsString('sel.index() + 1', $js);
         self::assertStringContainsString("parent.append(bloc.get('content'), { at: index })", $js);
-        // La tuile Assistant IA garde son parcours P7 (invite en place).
-        self::assertStringContainsString("'Assistant IA' === libelle", $js);
+        // La tuile Sendly Copilot garde son parcours P7 (invite en place).
+        self::assertStringContainsString("'Sendly Copilot' === libelle", $js);
         self::assertStringContainsString('fermerFeuille(); return;', $js);
     }
 

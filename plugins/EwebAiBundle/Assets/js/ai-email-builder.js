@@ -117,6 +117,13 @@
     name: 'sendly-ai-email',
     context: ['email-html', 'email-mjml'],
     plugin: function (editor) {
+      function signalerEchec() {
+        var texte = 'Sendly Copilot n’a pas pu rédiger le contenu de l’e-mail. Utilisez la tuile Sendly Copilot de l’éditeur pour le générer.';
+        if (typeof Mautic.addErrorFlashMessage === 'function' && typeof Mautic.setFlashes === 'function') {
+          Mautic.setFlashes(Mautic.addErrorFlashMessage(texte));
+        }
+      }
+
       editor.on('load', function () {
         var brief = lireBrief();
         if (!brief) { return; }
@@ -136,7 +143,7 @@
           data: { mode: 'generate', instruction: consigne, format: enMjml ? 'mjml' : 'html' },
           success: function (rep) {
             var corps = rep && rep.text;
-            if (!corps) { return; }
+            if (!corps) { signalerEchec(); return; }
             // Discipline writeContent sans MjmlService : instantané AVANT,
             // pose, re-parse par resérialisation, restauration si échec —
             // le canvas de départ n'est qu'un squelette, mais on ne laisse
@@ -149,10 +156,13 @@
               editor.setComponents(editor.getHtml());
               if (window.SendlyAssistant) { window.SendlyAssistant.credit('create_email', 1); }
             } catch (e) {
-              try { editor.setComponents(avant); } catch (e2) { /* squelette perdu — canvas vide */ }
+              try { editor.setComponents(avant); } catch (e2) { /* squelette perdu, canvas vide */ }
+              signalerEchec();
             }
           },
-          error: function () { /* l'éditeur garde son squelette — la modale IA existante prend le relais */ }
+          // L'éditeur garde son squelette ; on le DIT (avant le 12/11, l'échec
+          // était muet : l'utilisateur attendait un corps qui ne venait pas).
+          error: function () { signalerEchec(); }
         });
       });
     },

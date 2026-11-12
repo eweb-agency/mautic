@@ -74,7 +74,8 @@ final class AiPageBuilderTest extends TestCase
         self::assertStringContainsString('sel.index() + 1', $js);
         self::assertStringContainsString('editor.getWrapper().components().length', $js);
         // Champ + raccourcis, Entrée déclenche.
-        self::assertStringContainsString('Décris la section à générer…', $js);
+        // Vouvoiement, comme le reste du produit (12/11/2026).
+        self::assertStringContainsString('Décrivez la section à générer…', $js);
         self::assertStringContainsString('RACCOURCIS', $js);
         self::assertStringContainsString("'Enter' === e.key", $js);
     }
@@ -137,7 +138,7 @@ final class AiPageBuilderTest extends TestCase
         self::assertStringContainsString('window.SendlyAiConfig.endpoint', $js);
         self::assertStringContainsString("'X-Requested-With': 'XMLHttpRequest'", $js);
         self::assertStringContainsString('rep.text', $js);
-        self::assertStringContainsString("L\\'assistant n\\'est pas activé sur cette instance.", $js);
+        self::assertStringContainsString('Sendly Copilot n’est pas activé sur votre espace.', $js);
     }
 
     public function testLesResidusDInterfaceNePartentJamaisEnBase(): void
@@ -182,11 +183,14 @@ final class AiPageBuilderTest extends TestCase
     {
         // Capture proprio 12/08 : l'aide NIAIT l'envoi de SMS (« nous ne
         // proposons pas ») alors que Sendly le propose via un connecteur de
-        // transport (Twilio…) — une fausse réponse dessert l'assistant.
+        // transport, une fausse réponse dessert l'assistant. Le nom du
+        // connecteur n'est PLUS cité (12/11/2026) : la même consigne interdit
+        // de nommer une autre marque, l'exemple poussait à la contradiction.
         $service = (string) file_get_contents(__DIR__.'/../../Service/AiCopilotService.php');
 
         self::assertStringContainsString('SMS / text messages: fully supported', $service);
-        self::assertStringContainsString('Twilio', $service);
+        self::assertStringContainsString('transport connector configured by the administrator', $service);
+        self::assertStringNotContainsString('Twilio', $service);
         self::assertStringContainsString('never DENY one from the capability list', $service);
     }
 }

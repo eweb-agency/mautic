@@ -107,13 +107,13 @@ class SegmentFilterValidator
 
         foreach ($aiFilters as $raw) {
             if (count($kept) >= self::MAX_FILTERS) {
-                $dropped[] = ['label' => $this->describe($raw), 'reason' => 'too_many'];
+                $dropped[] = ['label' => $this->describe($raw, $catalog), 'reason' => 'too_many'];
                 continue;
             }
 
             $result = $this->sanitizeOne(is_array($raw) ? $raw : [], $catalog, $dateMap);
             if (isset($result['reason'])) {
-                $dropped[] = ['label' => $this->describe($raw), 'reason' => (string) $result['reason']];
+                $dropped[] = ['label' => $this->describe($raw, $catalog), 'reason' => (string) $result['reason']];
                 continue;
             }
 
@@ -404,7 +404,7 @@ class SegmentFilterValidator
                     ['field' => (string) ($filter['field'] ?? '?'), 'msg' => $e->getMessage()]
                 );
                 $dropped[] = [
-                    'label'  => $this->describe($filter),
+                    'label'  => $this->describe($filter, $this->schema->getCatalog()),
                     'reason' => 'engine_rejected',
                 ];
             }
@@ -413,15 +413,32 @@ class SegmentFilterValidator
         return [$kept, $dropped];
     }
 
-    /** Libellé court d'un filtre, pour l'expliquer au client sans jargon. */
-    private function describe(mixed $filter): string
+    /**
+     * Libellé d'un filtre écarté, pour l'expliquer au client SANS JARGON : le
+     * libellé du catalogue (« A cliqué dans un e-mail (date) »), jamais le nom
+     * technique (« email_clicked_link_date gte », affiché tel quel jusqu'au
+     * 12/11/2026). Champ inconnu du catalogue (inventé par le modèle) : chaîne
+     * vide, le panneau affiche alors un libellé neutre.
+     *
+     * @param array<string, array<string, array<string, mixed>>> $catalog
+     */
+    private function describe(mixed $filter, array $catalog): string
     {
         if (!is_array($filter)) {
-            return '?';
+            return '';
         }
-        $field    = isset($filter['field']) && is_scalar($filter['field']) ? (string) $filter['field'] : '?';
-        $operator = isset($filter['operator']) && is_scalar($filter['operator']) ? (string) $filter['operator'] : '';
+        $field  = isset($filter['field']) && is_scalar($filter['field']) ? (string) $filter['field'] : '';
+        $object = isset($filter['object']) && is_scalar($filter['object']) ? (string) $filter['object'] : '';
 
-        return trim($field.' '.$operator);
+        foreach ([$object, ContactSegmentFilterCrate::CONTACT_OBJECT, ContactSegmentFilterCrate::BEHAVIORS_OBJECT] as $candidate) {
+            $label = $catalog[$candidate][$field]['label'] ?? null;
+            if (is_string($label) && '' !== $label) {
+                // Le libellé du cœur peut porter des balises (« <em>%object%</em> ») :
+                // retirées avant l'affichage, qui échappe de toute façon.
+                return trim(strip_tags($label));
+            }
+        }
+
+        return '';
     }
 }

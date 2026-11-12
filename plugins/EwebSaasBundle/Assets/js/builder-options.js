@@ -60,7 +60,7 @@
   function optionsDe(sel) {
     if (!sel) { return ''; }
     return Array.prototype.map.call(sel.options, function (o) {
-      return '<option value="' + o.value + '">' + (o.textContent.trim() || '—') + '</option>';
+      return '<option value="' + o.value + '">' + (o.textContent.trim() || '…') + '</option>';
     }).join('');
   }
 

@@ -103,9 +103,8 @@ final class AiCopilotAssistTest extends TestCase
                 ['role' => 'system', 'content' => 'rôle inconnu → user'],
                 ['role' => 'user', 'content' => '   '],
                 ['role' => 'assistant', 'content' => 'réponse'],
-                // Deux tours assistant CONSÉCUTIFS (cas réel : le client
-                // filtre ses tours d'erreur avant l'envoi) : le second doit
-                // être écarté, l'API refuse la répétition de rôle.
+                // Deux tours assistant CONSÉCUTIFS : l'API refuse la
+                // répétition de rôle, on garde le PLUS RÉCENT (12/11/2026).
                 ['role' => 'assistant', 'content' => 're-réponse'],
             ],
         ]);
@@ -114,10 +113,35 @@ final class AiCopilotAssistTest extends TestCase
         self::assertSame(
             [
                 ['role' => 'user', 'content' => 'rôle inconnu → user'],
-                ['role' => 'assistant', 'content' => 'réponse'],
+                ['role' => 'assistant', 'content' => 're-réponse'],
                 ['role' => 'user', 'content' => 'q'],
             ],
             $messages
+        );
+    }
+
+    public function testApresUneQuestionEchoueeLaReponseSuivanteSuitLaBonneQuestion(): void
+    {
+        // Cas réel : une question échoue (aucune réponse), l'utilisateur en
+        // pose une autre, qui reçoit sa réponse. Deux tours utilisateur se
+        // suivent. Garder le PREMIER (avant le 12/11) rattachait la réponse
+        // à la question qui avait échoué.
+        $this->service('ok')->assist([
+            'question' => 'et maintenant ?',
+            'history'  => [
+                ['role' => 'user', 'content' => 'question qui a échoué'],
+                ['role' => 'user', 'content' => 'crée un segment des inactifs'],
+                ['role' => 'assistant', 'content' => 'Je crée le segment des inactifs.'],
+            ],
+        ]);
+
+        self::assertSame(
+            [
+                ['role' => 'user', 'content' => 'crée un segment des inactifs'],
+                ['role' => 'assistant', 'content' => 'Je crée le segment des inactifs.'],
+                ['role' => 'user', 'content' => 'et maintenant ?'],
+            ],
+            $this->sent['messages']
         );
     }
 
@@ -569,5 +593,69 @@ final class AiCopilotAssistTest extends TestCase
 
         self::assertSame('Réponse en clair de Sendly.', $result['answer']);
         self::assertSame([], $result['actions']);
+    }
+
+    // ── Ce qui n'a pas été fait est DIT (12/11/2026) ──────────────────────
+
+    public function testLesActionsEcarteesSontRemonteesAuPanneau(): void
+    {
+        // Le modèle « crée » un formulaire sans champ et une campagne sans
+        // e-mail : la validation les écarte. Avant, seul un journal le savait
+        // et le client lisait « je crée » sans aucun effet.
+        $out = $this->serviceOutil([
+            'answer'  => 'Je crée le formulaire et la campagne.',
+            'actions' => [
+                ['type' => 'create_form', 'name' => 'Devis'],
+                ['type' => 'create_campaign', 'name' => 'Relance', 'segment' => 'Inactifs'],
+                ['type' => 'navigate', 'target' => 'segments'],
+            ],
+        ])->assist([
+            'question' => 'crée un formulaire de devis et une campagne de relance',
+            'actions'  => ['navigate', 'create_form', 'create_campaign'],
+            'context'  => '',
+        ]);
+
+        self::assertSame(['create_form', 'create_campaign'], $out['dropped']);
+        self::assertSame([['type' => 'navigate', 'target' => 'segments']], $out['actions']);
+    }
+
+    public function testUneActionHorsDesCapacitesDeLEcranEstAussiSignalee(): void
+    {
+        $out = $this->serviceOutil([
+            'answer'  => 'J\'ai rempli le nom.',
+            'actions' => [
+                ['type' => 'fill_field', 'field' => 'x', 'value' => 'y'],
+                ['type' => 'invente_quelque_chose'],
+            ],
+        ])->assist(['question' => 'remplis le nom', 'actions' => ['navigate'], 'context' => '']);
+
+        // fill_field n'était pas proposé sur cet écran : signalé. Un type
+        // inventé n'a pas de libellé client : ignoré sans bruit.
+        self::assertSame(['fill_field'], $out['dropped']);
+        self::assertSame([], $out['actions']);
+    }
+
+    public function testRienDEcarteDonneUneListeVide(): void
+    {
+        $out = $this->serviceOutil([
+            'answer'  => 'J\'ouvre vos segments.',
+            'actions' => [['type' => 'navigate', 'target' => 'segments']],
+        ])->assist(['question' => 'ouvre mes segments', 'actions' => ['navigate'], 'context' => '']);
+
+        self::assertSame([], $out['dropped']);
+    }
+
+    public function testLaConsigneFaitFoiDuResultatReelEtLimiteAUneCreation(): void
+    {
+        $this->serviceOutil(['answer' => 'ok', 'actions' => []])->assist([
+            'question' => 'x', 'actions' => ['navigate', 'create_form'], 'context' => '',
+        ]);
+
+        $system = (string) $this->sent['system'][0]['text'];
+        self::assertStringContainsString('You are Sendly Copilot', $system);
+        self::assertStringContainsString('[What actually happened on screen: ...]', $system);
+        self::assertStringContainsString('Queue at most ONE creation or navigation per message', $system);
+        self::assertStringContainsString('Rich text fields such as a description take plain text', $system);
+        self::assertStringNotContainsString('Twilio', $system);
     }
 }

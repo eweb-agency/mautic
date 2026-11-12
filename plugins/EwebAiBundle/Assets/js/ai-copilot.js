@@ -397,12 +397,17 @@
       success: function (res) {
         closeModal();
         var n = res && res.created ? res.created.length : 0;
-        if (typeof Mautic.flashMessage === 'function') {
-          Mautic.flashMessage(t('mautic.email.ai.ab_created', 'Test A/B créé : ')
-            + n + ' ' + t('mautic.email.ai.ab_variants', 'variante(s) d’objet.')
+        // `Mautic.flashMessage` n'existe pas dans le moteur : ce message ne
+        // s'est jamais affiché (constat du 12/11). L'API réelle est
+        // addInfoFlashMessage + setFlashes.
+        if (typeof Mautic.addInfoFlashMessage === 'function' && typeof Mautic.setFlashes === 'function') {
+          Mautic.setFlashes(Mautic.addInfoFlashMessage(t('mautic.email.ai.ab_created', 'Test A/B créé : ')
+            + n + ' ' + (n > 1
+              ? t('mautic.email.ai.ab_variants', 'variantes d’objet.')
+              : t('mautic.email.ai.ab_variant', 'variante d’objet.'))
             + (res && false === res.published
-              ? ' ' + t('mautic.email.ai.ab_unpublished', 'Variantes créées dépubliées (droit de publication requis).')
-              : ''));
+              ? ' ' + t('mautic.email.ai.ab_unpublished', 'Variantes créées en brouillon : leur publication demande un droit que votre compte n’a pas.')
+              : '')));
         }
       },
       error: function () {
@@ -423,7 +428,7 @@
   function showErr() {
     var e = document.getElementById('sendly-ai-err');
     if (e) {
-      e.textContent = t('mautic.email.ai.error', "La requête IA a échoué. Réessayez.");
+      e.textContent = t('mautic.email.ai.error', 'Sendly Copilot n’a pas pu répondre. Réessayez dans un instant.');
       e.style.display = 'block';
     }
   }

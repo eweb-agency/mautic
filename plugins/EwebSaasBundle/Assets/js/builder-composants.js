@@ -173,7 +173,7 @@
     // d'un mj-body —, div dans l'e-mail HTML.
     if (mode !== 'page') {
       if (window.SendlyAiConfig && (window.SendlyAiConfig.enabled || window.SendlyAiConfig.teaser)) {
-        bm.add('sendly-ia', { label: 'Assistant IA', media: ICONS['ASSISTANT IA'], category: BASIQUE, order: 17,
+        bm.add('sendly-ia', { label: 'Sendly Copilot', media: ICONS['ASSISTANT IA'], category: BASIQUE, order: 17,
           content: mode === 'email-mjml' ? '<mj-raw data-sendly-ia-drop="1"></mj-raw>' : '<div data-sendly-ia-drop="1"></div>' });
       }
       trierBlocs(bm);
@@ -187,7 +187,7 @@
     // data-sendly="form" = le marqueur que builder-styles.js (P3a) détecte
     // pour proposer le sélecteur de formulaires dans le panneau Styles.
     bm.add('sendly-form', { label: 'Formulaire', media: ICONS['FORMULAIRE'], category: BASIQUE, order: 16,
-      content: '<div data-sendly="form" style="padding:16px;text-align:center;color:#6a7486">Formulaire — choisissez le formulaire dans l\'onglet Styles</div>' });
+      content: '<div data-sendly="form" style="padding:16px;text-align:center;color:#6a7486">Formulaire : choisissez le formulaire dans l\'onglet Styles</div>' });
     // La tuile IA n'apparaît QUE si le copilote est activé sur l'instance
     // (même gating 3 niveaux que les boutons IA des e-mails) : sans clé,
     // le panneau n'existe pas — une tuile qui n'ouvre rien serait une
@@ -200,7 +200,7 @@
       // composant, et le glisser-déposer ne savait pas OÙ ouvrir l'invite
       // (recette proprio 13/08 — le clic marchait, le drag ne faisait
       // rien). Le repère est remplacé par l'invite dès le dépôt.
-      bm.add('sendly-ia', { label: 'Assistant IA', media: ICONS['ASSISTANT IA'], category: BASIQUE, order: 17, content: '<div data-sendly-ia-drop="1"></div>' });
+      bm.add('sendly-ia', { label: 'Sendly Copilot', media: ICONS['ASSISTANT IA'], category: BASIQUE, order: 17, content: '<div data-sendly-ia-drop="1"></div>' });
     }
 
     trierBlocs(bm);

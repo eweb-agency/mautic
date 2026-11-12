@@ -113,7 +113,7 @@
     lastPayload = payload;
 
     if (!payload) {
-      render('—', t('mautic.lead_list.live_count.pill_other', 'contacts correspondants'), true);
+      render('…', t('mautic.lead_list.live_count.pill_other', 'contacts correspondants'), true);
       return;
     }
 
@@ -131,7 +131,7 @@
           return; // une saisie plus récente a relancé le calcul
         }
         if (!res || res.count === null || res.count === undefined) {
-          render('—', t('mautic.lead_list.live_count.unavailable', 'Nombre indisponible'), true);
+          render('…', t('mautic.lead_list.live_count.unavailable', 'Nombre indisponible'), true);
           return;
         }
         var label = Number(res.count) === 1
@@ -144,7 +144,7 @@
       },
       error: function () {
         if (mySeq === seq) {
-          render('—', t('mautic.lead_list.live_count.unavailable', 'Nombre indisponible'), true);
+          render('…', t('mautic.lead_list.live_count.unavailable', 'Nombre indisponible'), true);
         }
       }
     });
@@ -180,7 +180,7 @@
     // Insérée DANS la zone du formulaire (la navigation ajax l'emporte avec
     // la page) mais affichée en position fixe, centrée en bas d'écran.
     $available.closest('.available-filters').before(pill);
-    render('—', t('mautic.lead_list.live_count.pill_other', 'contacts correspondants'), true);
+    render('…', t('mautic.lead_list.live_count.pill_other', 'contacts correspondants'), true);
 
     // Une seule délégation par surface : les lignes vont et viennent, le
     // conteneur reste. `filter.properties.form.loaded` est l'événement que

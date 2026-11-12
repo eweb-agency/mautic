@@ -106,9 +106,10 @@
           if (!tuile || !conteneurVues.contains(tuile)) { return; }
           var libelleEl = tuile.querySelector('.gjs-block-label');
           var libelle = libelleEl ? libelleEl.textContent.trim() : '';
-          // La tuile Assistant IA a son propre parcours (invite en place,
-          // P7) : on referme seulement la feuille pour dégager le canvas.
-          if ('Assistant IA' === libelle) { fermerFeuille(); return; }
+          // La tuile Sendly Copilot (ex « Assistant IA », renommée le
+          // 12/11/2026) a son propre parcours (invite en place, P7) : on
+          // referme seulement la feuille pour dégager le canvas.
+          if ('Sendly Copilot' === libelle) { fermerFeuille(); return; }
           var bloc = editor.BlockManager.getAll().find(function (b) {
             var l = String(b.get('label') || '').replace(/<[^>]*>/g, '').trim();
             return l === libelle;
