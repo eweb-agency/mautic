@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\EwebAiBundle\EventSubscriber;
 
 use Mautic\LeadBundle\Event\LeadListFiltersChoicesEvent;
+use Mautic\LeadBundle\Event\SegmentDictionaryGenerationEvent;
 use Mautic\LeadBundle\LeadEvents;
 use Mautic\LeadBundle\Segment\OperatorOptions;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -39,6 +40,17 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *
  * Priorité -500 : après le cœur (0) qui crée le champ, avant sa normalisation
  * des libellés de date (-1000), qui ne touche pas à ces deux opérateurs.
+ *
+ * ⚠️ PIÈGE SILENCIEUX N°8, CONSTATÉ EN RECETTE LE 12/11/2026 : « vide » donnait
+ * 0 contact sur eweb-agency, alors que 3 contacts seulement avaient reçu un
+ * e-mail. `email_stats.lead_id` est NULLABLE (`addLead(true, 'SET NULL')` dans
+ * EmailBundle/Entity/Stat) : supprimer un contact garde ses lignes d'envoi avec
+ * un contact vide. Or le moteur écrit `l.id NOT IN (SELECT lead_id FROM
+ * email_stats)`, et une seule valeur NULL dans la liste rend `NOT IN` faux pour
+ * TOUS les contacts. D'où `addLeadNotNullGuard()` : la condition `where` du
+ * dictionnaire, que le moteur applique à la sous-requête quel que soit
+ * l'opérateur, écarte ces lignes. Sans effet sur les autres opérateurs (une
+ * ligne sans contact ne désigne de toute façon personne).
  */
 final class SegmentNeverReceivedSubscriber implements EventSubscriberInterface
 {
@@ -54,7 +66,26 @@ final class SegmentNeverReceivedSubscriber implements EventSubscriberInterface
     {
         return [
             LeadEvents::LIST_FILTERS_CHOICES_ON_GENERATE => ['addNeverReceivedOperators', -500],
+            LeadEvents::SEGMENT_DICTIONARY_ON_GENERATE   => ['addLeadNotNullGuard', 0],
         ];
+    }
+
+    /** Condition ajoutée à la sous-requête des envois (voir piège n°8). */
+    public const LEAD_NOT_NULL = 'email_stats.lead_id IS NOT NULL';
+
+    public function addLeadNotNullGuard(SegmentDictionaryGenerationEvent $event): void
+    {
+        $translations = $event->getTranslations();
+        $entry        = $translations[self::FIELD] ?? null;
+
+        // Entrée absente ou déjà conditionnée par ailleurs : on ne remplace
+        // jamais une condition existante (elle pourrait être indispensable).
+        if (!is_array($entry) || isset($entry['where'])) {
+            return;
+        }
+
+        $entry['where'] = self::LEAD_NOT_NULL;
+        $event->addTranslation(self::FIELD, $entry);
     }
 
     public function addNeverReceivedOperators(LeadListFiltersChoicesEvent $event): void
