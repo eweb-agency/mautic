@@ -1071,7 +1071,7 @@ class AiCopilotService
         ?string $model = null,
         ?array $messages = null,
     ): string {
-        $model   = $model ?? $this->model;
+        $model ??= $this->model;
         $payload = $this->buildPayload($system, $userContent, $maxTokens, $tool, $model, $messages);
 
         $decoded = $this->send($payload);
@@ -1148,7 +1148,7 @@ class AiCopilotService
         ?array $messages,
     ): array {
         if (null !== $tool && !$this->forcesTool($model)) {
-            $system .= "\n\nALWAYS answer by calling the `".(string) $tool['name'].'` tool exactly once. Never answer in plain text.';
+            $system .= "\n\nALWAYS answer by calling the `".$tool['name'].'` tool exactly once. Never answer in plain text.';
         }
 
         $payload = [
@@ -1225,11 +1225,10 @@ class AiCopilotService
                 // On journalise le statut et le TYPE d'erreur renvoyé par l'API
                 // (jamais la clé ni le corps de la requête) : un 400 de forme
                 // devient diagnosticable sans rejouer l'appel.
-                $type = '';
-                $err  = json_decode($raw, true);
-                if (is_array($err) && is_array($err['error'] ?? null)) {
-                    $type = mb_substr((string) ($err['error']['type'] ?? '').' '.(string) ($err['error']['message'] ?? ''), 0, 300);
-                }
+                $err     = json_decode($raw, true);
+                $errType = is_array($err) && is_string($err['error']['type'] ?? null) ? $err['error']['type'] : '';
+                $errText = is_array($err) && is_string($err['error']['message'] ?? null) ? $err['error']['message'] : '';
+                $type    = mb_substr(trim($errType.' '.$errText), 0, 300);
                 $this->logger->warning('EwebAiBundle: Anthropic returned HTTP {status} {type}', ['status' => $status, 'type' => $type]);
                 throw new \RuntimeException('AI request failed.');
             }
