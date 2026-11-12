@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\EwebAiBundle\Tests\Unit\EventSubscriber;
 
 use Mautic\LeadBundle\Event\LeadListFiltersChoicesEvent;
+use Mautic\LeadBundle\Event\SegmentDictionaryGenerationEvent;
 use Mautic\LeadBundle\LeadEvents;
 use MauticPlugin\EwebAiBundle\EventSubscriber\SegmentNeverReceivedSubscriber;
 use PHPUnit\Framework\TestCase;
@@ -106,5 +107,49 @@ final class SegmentNeverReceivedSubscriberTest extends TestCase
         self::assertSame('addNeverReceivedOperators', $subscribed[0]);
         self::assertLessThan(0, $subscribed[1], 'après FilterOperatorSubscriber (0)');
         self::assertGreaterThan(-1000, $subscribed[1], 'avant la normalisation des libellés de date (-1000)');
+    }
+
+    // ── Condition « contact non vide » dans le dictionnaire (piège n°8) ──
+
+    public function testAjouteLaConditionContactNonVideAuCritereDEnvoi(): void
+    {
+        $event = new SegmentDictionaryGenerationEvent([
+            'lead_email_sent_date' => ['type' => 'mautic.lead.query.builder.foreign.value', 'foreign_table' => 'email_stats', 'field' => 'date_sent'],
+            'lead_email_read_date' => ['type' => 'mautic.lead.query.builder.foreign.value', 'foreign_table' => 'email_stats', 'field' => 'date_read'],
+        ]);
+
+        (new SegmentNeverReceivedSubscriber($this->createMock(TranslatorInterface::class)))->addLeadNotNullGuard($event);
+
+        $t = $event->getTranslations();
+        self::assertSame('email_stats.lead_id IS NOT NULL', $t['lead_email_sent_date']['where']);
+        self::assertSame('date_sent', $t['lead_email_sent_date']['field'], 'le reste de l\'entrée est conservé');
+        self::assertArrayNotHasKey('where', $t['lead_email_read_date'], 'seul le critère d\'envoi est concerné');
+    }
+
+    public function testNeRemplaceJamaisUneConditionExistante(): void
+    {
+        $event = new SegmentDictionaryGenerationEvent([
+            'lead_email_sent_date' => ['field' => 'date_sent', 'where' => 'email_stats.is_failed = 0'],
+        ]);
+
+        (new SegmentNeverReceivedSubscriber($this->createMock(TranslatorInterface::class)))->addLeadNotNullGuard($event);
+
+        self::assertSame('email_stats.is_failed = 0', $event->getTranslations()['lead_email_sent_date']['where']);
+    }
+
+    public function testSansEntreeRienNestAjoute(): void
+    {
+        $event = new SegmentDictionaryGenerationEvent(['city' => ['field' => 'city']]);
+
+        (new SegmentNeverReceivedSubscriber($this->createMock(TranslatorInterface::class)))->addLeadNotNullGuard($event);
+
+        self::assertSame(['city' => ['field' => 'city']], $event->getTranslations());
+    }
+
+    public function testEcouteLaGenerationDuDictionnaire(): void
+    {
+        $subscribed = SegmentNeverReceivedSubscriber::getSubscribedEvents();
+
+        self::assertSame(['addLeadNotNullGuard', 0], $subscribed[LeadEvents::SEGMENT_DICTIONARY_ON_GENERATE]);
     }
 }

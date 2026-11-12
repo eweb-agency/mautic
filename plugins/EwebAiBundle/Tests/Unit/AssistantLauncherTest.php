@@ -82,8 +82,11 @@ final class AssistantLauncherTest extends TestCase
 
         self::assertStringContainsString('var SECTIONS_AIDE = [', $js);
         self::assertStringContainsString('function sectionCourante()', $js);
-        self::assertStringContainsString("'Assistant ' + s.nom", $js);
-        self::assertStringContainsString('Vous êtes dans « ', $js);
+        // Nom unique « Sendly Copilot » (décision proprio 11/11/2026), et un
+        // accueil qui propose d'AGIR plutôt que de répondre à des questions.
+        self::assertStringContainsString("nom + ' · ' + s.nom", $js);
+        self::assertStringContainsString('Dites-moi ce que vous voulez faire dans « ', $js);
+        self::assertStringNotContainsString('posez-moi une question', $js);
         self::assertStringContainsString('return s.raccourcis;', $js);
         self::assertStringContainsString("section: (sectionCourante() || {}).nom || ''", $js);
         // Les 13 sections cartographiées, dont les SMS.

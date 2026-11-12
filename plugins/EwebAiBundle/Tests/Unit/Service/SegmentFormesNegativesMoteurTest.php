@@ -20,8 +20,11 @@ use Mautic\LeadBundle\Segment\Query\QueryBuilder;
 use Mautic\LeadBundle\Segment\RandomParameterName;
 use Mautic\LeadBundle\Segment\TableSchemaColumnsCache;
 use Mautic\LeadBundle\Services\ContactSegmentFilterDictionary;
+use MauticPlugin\EwebAiBundle\EventSubscriber\SegmentNeverReceivedSubscriber;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Ce que le MOTEUR fait réellement des critères que l'assistant pose pour
@@ -75,8 +78,11 @@ final class SegmentFormesNegativesMoteurTest extends TestCase
         return $names;
     }
 
-    /** @param array<string, mixed> $filter critère tel que l'assistant l'enregistre */
-    private function sql(array $filter, string $builderClass): string
+    /**
+     * @param array<string, mixed> $filter         critère tel que l'assistant l'enregistre
+     * @param bool                 $withSubscriber dictionnaire complété par l'abonné du plugin, comme en production
+     */
+    private function sql(array $filter, string $builderClass, bool $withSubscriber = true): string
     {
         $crate = new ContactSegmentFilterCrate($filter);
 
@@ -84,7 +90,7 @@ final class SegmentFormesNegativesMoteurTest extends TestCase
             ? new BaseDecorator($this->operator())
             : new CustomMappedDecorator(
                 $this->operator(),
-                new ContactSegmentFilterDictionary($this->createMock(EventDispatcherInterface::class))
+                new ContactSegmentFilterDictionary($this->dispatcher($withSubscriber))
             );
 
         $schema = $this->createMock(TableSchemaColumnsCache::class);
@@ -104,6 +110,16 @@ final class SegmentFormesNegativesMoteurTest extends TestCase
         $builder->applyQuery($qb, $segmentFilter);
 
         return $qb->getDebugOutput();
+    }
+
+    private function dispatcher(bool $withSubscriber): EventDispatcherInterface
+    {
+        $dispatcher = new EventDispatcher();
+        if ($withSubscriber) {
+            $dispatcher->addSubscriber(new SegmentNeverReceivedSubscriber($this->createMock(TranslatorInterface::class)));
+        }
+
+        return $dispatcher;
     }
 
     /** @return array<string, mixed> */
@@ -197,9 +213,21 @@ final class SegmentFormesNegativesMoteurTest extends TestCase
         $sql = $this->sql($this->filter('lead_email_sent_date', 'datetime', 'empty', ''), ForeignValueFilterQueryBuilder::class);
 
         self::assertSame(
-            'SELECT 1 FROM '.$this->prefix.'leads l WHERE l.id NOT IN (SELECT p2.lead_id FROM '.$this->prefix.'email_stats p2)',
+            'SELECT 1 FROM '.$this->prefix.'leads l WHERE l.id NOT IN (SELECT p2.lead_id FROM '.$this->prefix.'email_stats p2 WHERE p2.lead_id IS NOT NULL)',
             $sql
         );
+    }
+
+    public function testSansLaConditionUneLigneDEnvoiSansContactViderait(): void
+    {
+        // PIÈGE N°8 (recette du 12/11 : 0 contact « jamais reçu » sur 5 467).
+        // `email_stats.lead_id` est NULLABLE (contact supprimé → SET NULL) et
+        // `NOT IN` sur une liste contenant NULL ne renvoie PERSONNE. Le moteur
+        // seul produit cette requête-là ; seule la condition ajoutée par
+        // l'abonné la rend juste.
+        $sql = $this->sql($this->filter('lead_email_sent_date', 'datetime', 'empty', ''), ForeignValueFilterQueryBuilder::class, false);
+
+        self::assertStringNotContainsString('IS NOT NULL', $sql);
     }
 
     public function testDejaRecuGardeLesContactsAyantAuMoinsUneLigneDEnvoi(): void
@@ -207,8 +235,18 @@ final class SegmentFormesNegativesMoteurTest extends TestCase
         $sql = $this->sql($this->filter('lead_email_sent_date', 'datetime', '!empty', ''), ForeignValueFilterQueryBuilder::class);
 
         self::assertSame(
-            'SELECT 1 FROM '.$this->prefix.'leads l WHERE l.id IN (SELECT p2.lead_id FROM '.$this->prefix.'email_stats p2)',
+            'SELECT 1 FROM '.$this->prefix.'leads l WHERE l.id IN (SELECT p2.lead_id FROM '.$this->prefix.'email_stats p2 WHERE p2.lead_id IS NOT NULL)',
             $sql
         );
+    }
+
+    public function testUneDateDEnvoiDansUnePeriodeResteUneComparaison(): void
+    {
+        // La condition s'ajoute sans changer le sens des autres opérateurs.
+        $sql = $this->sql($this->filter('lead_email_sent_date', 'datetime', 'gte', '2026-10-01'), ForeignValueFilterQueryBuilder::class);
+
+        self::assertStringContainsString('p2.lead_id IS NOT NULL', $sql);
+        self::assertStringContainsString('p2.date_sent >= ', $sql);
+        self::assertStringContainsString('l.id IN (SELECT p2.lead_id', $sql);
     }
 }

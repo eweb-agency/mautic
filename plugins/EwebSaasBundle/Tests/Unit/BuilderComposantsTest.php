@@ -41,7 +41,7 @@ final class BuilderComposantsTest extends TestCase
         foreach (['Texte', 'Citation', 'Lien', 'Lien encadré', 'Image', 'Vidéo',
             'Section de texte', 'Bouton', 'Carte', 'Compte à rebours', 'Code',
             'Barre de navigation', 'Séparateur', 'Réseaux sociaux', 'Formulaire',
-            'Assistant IA', '1 colonne', '2 colonnes', '3 colonnes', '30 / 70'] as $libelle) {
+            'Sendly Copilot', '1 colonne', '2 colonnes', '3 colonnes', '30 / 70'] as $libelle) {
             self::assertStringContainsString("'".$libelle."'", $js, 'tuile absente : '.$libelle);
         }
 

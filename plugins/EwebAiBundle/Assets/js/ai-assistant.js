@@ -199,6 +199,7 @@
   /** convStore[id] = [{role:'user', text} | {role:'ia', html, turnId?, undoable?}] */
   var convStore = {};
   var busy = false;
+  var enCours = null;
   var openCtx = null;
 
   function conv() {
@@ -243,22 +244,38 @@
     el.scrollTop = el.scrollHeight;
   }
 
-  /** L'api donnée aux contextes pour un tour d'envoi. */
+  /** L'api donnée aux contextes pour un tour d'envoi.
+   *
+   *  La conversation du tour est CAPTURÉE à l'envoi : fermer le panneau
+   *  pendant la requête ne perd plus la réponse (avant le 12/11, elle partait
+   *  dans un tableau jetable et l'on pouvait renvoyer la même demande). */
   function sendApi() {
+    var maConv = conv();
     return {
       history: function (n) {
-        return conv()
+        return maConv
           .filter(function (turn) { return turn.role === 'user'; })
           .slice(-n)
           .map(function (turn) { return turn.text; });
       },
+      /** Pousse un tour assistant ; extra = {turnId, undoable, plain, result}.
+       *  Renvoie le tour, que l'appelant peut compléter plus tard (le
+       *  résultat d'une création arrive après la réponse). */
       ia: function (html, extra) {
         var turn = { role: 'ia', html: html };
         if (extra && extra.turnId) {
           turn.turnId = extra.turnId;
           turn.undoable = !!extra.undoable;
         }
-        conv().push(turn);
+        if (extra && extra.plain) { turn.plain = extra.plain; }
+        if (extra && extra.result) { turn.result = extra.result; }
+        maConv.push(turn);
+        return turn;
+      },
+      /** Ligne d'état ajoutée au tour (échec de création arrivé plus tard). */
+      note: function (turn, texte) {
+        turn.html += '<div class="sendly-assist-mut">' + esc(texte) + '</div>';
+        renderConv();
       },
       finish: function () {
         busy = false;
@@ -266,7 +283,7 @@
       },
       fail: function (msg) {
         busy = false;
-        conv().push({ role: 'ia', html: esc(msg) });
+        maConv.push({ role: 'ia', html: esc(msg) });
         renderConv();
       }
     };
@@ -283,11 +300,19 @@
     var api = sendApi();
     conv().push({ role: 'user', text: q });
     busy = true;
+    // Filet : une requête qui ne revient jamais ne bloque pas le panneau.
+    var jeton = {};
+    enCours = jeton;
+    setTimeout(function () {
+      if (busy && enCours === jeton) { busy = false; renderConv(); }
+    }, 120000);
     renderConv();
     var input = document.getElementById('sendly-assist-input');
     if (input) {
       input.value = '';
     }
+    var ex = document.getElementById('sendly-assist-ex');
+    if (ex) { ex.style.display = 'none'; }
     openCtx.onSend(q, api);
   }
 
@@ -299,7 +324,8 @@
       setTimeout(function () { if (p.parentNode) { p.parentNode.removeChild(p); } }, 160);
     }
     openCtx = null;
-    busy = false;
+    // `busy` reste tel quel : une requête en cours n'est pas annulée par la
+    // fermeture, et rouvrir le panneau ne doit pas permettre de la renvoyer.
   }
 
   function openPanel(ctx) {
@@ -322,7 +348,9 @@
       esc(t('mautic.core.form.close', 'Fermer')) + '">✕</button>' +
       '</div>' +
       '<div class="sendly-assist-conv" id="sendly-assist-conv"></div>' +
-      '<div class="sendly-assist-ex" id="sendly-assist-ex" style="display:none">' +
+      // Raccourcis visibles d'emblée tant que la conversation est vide : un
+      // clic suffit pour lancer une action (ensuite, sous « Raccourcis »).
+      '<div class="sendly-assist-ex" id="sendly-assist-ex" style="display:' + (conv().length ? 'none' : 'flex') + '">' +
       ctx.shortcuts().map(function (ex) {
         return '<button type="button">' + esc(ex) + '</button>';
       }).join('') + '</div>' +
@@ -358,10 +386,11 @@
         var titre = el.querySelector('#sendly-assist-title');
         if (!tete || !titre) { return; }
         var h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
-        var texte = h > 0 ? ('~' + h + ' h' + (m ? ' ' + (m < 10 ? '0' : '') + m : '')) : ('~' + m + ' min');
+        var texte = h > 0 ? (h + ' h' + (m ? ' ' + (m < 10 ? '0' : '') + m : '')) : (m + ' min');
         var ligne = document.createElement('div');
         ligne.className = 'sendly-assist-temps';
-        ligne.textContent = '⏱ ' + texte + ' rendues ce mois-ci';
+        // « gagné », comme la tuile du tableau de bord (et plus « rendues »).
+        ligne.textContent = '⏱ environ ' + texte + ' gagnées ce mois-ci';
         titre.appendChild(ligne);
       });
 
@@ -423,15 +452,15 @@
     }
   }
 
-  // L'info-bulle du lanceur suit l'onglet (« Assistant de segment » sur
-  // l'écran segment, « Assistant IA » ailleurs) — comme le titre du panneau.
+  // L'info-bulle du lanceur suit l'onglet (« Sendly Copilot · Segment » sur
+  // l'écran segment, « Sendly Copilot » ailleurs), comme le titre du panneau.
   function refreshLabel() {
     var fab = document.getElementById('sendly-assist-fab');
     if (!fab) {
       return;
     }
     var ctx = activeContext();
-    var label = ctx ? ctx.title() : t('mautic.core.ai.assistant.button', 'Assistant IA');
+    var label = ctx ? ctx.title() : t('mautic.core.ai.assistant.button', 'Sendly Copilot');
     fab.setAttribute('aria-label', label);
     fab.setAttribute('title', label);
   }
@@ -483,26 +512,29 @@
   // de cet assistant ») : le titre, l'accueil et les raccourcis de l'aide
   // se calquent sur la section où l'utilisateur se trouve, et la section
   // part AU SERVEUR pour des réponses contextualisées.
+  // Raccourcis à l'IMPÉRATIF, et seulement ce que le Copilot sait FAIRE
+  // (directive du 26/08 : exécuter, pas guider). Avant le 12/11 c'étaient
+  // une trentaine de « Comment … ? », le contre-modèle exact.
   var SECTIONS_AIDE = [
-    [/\/s\/contacts/, 'Contacts', 'vos contacts : création, import CSV, historique, dédoublonnage', ['Comment importer des contacts en CSV ?', 'Comment fusionner des doublons ?', 'Comment voir l\'historique d\'un contact ?']],
-    [/\/s\/companies/, 'Sociétés', 'vos sociétés : création, association de contacts', ['Comment associer un contact à une société ?', 'Comment importer des sociétés ?']],
-    [/\/s\/segments/, 'Segments', 'vos segments : filtres, combinaisons, mise à jour', ['Comment créer un segment dynamique ?', 'Pourquoi mon segment est-il vide ?', 'Comment combiner plusieurs filtres ?']],
-    [/\/s\/campaigns/, 'Campagnes', 'vos campagnes : scénarios, déclencheurs, planification', ['Comment lancer ma première campagne ?', 'Comment ajouter une condition dans un scénario ?', 'Pourquoi ma campagne ne se déclenche pas ?']],
-    [/\/s\/emails/, 'E-mails', 'vos e-mails : création, envoi, A/B test, délivrabilité', ['Comment faire un A/B test d\'objet ?', 'Comment améliorer ma délivrabilité ?', 'Quelle différence entre e-mail segment et e-mail modèle ?']],
-    [/\/s\/sms/, 'SMS', 'vos SMS : rédaction, envoi via votre connecteur (Twilio…)', ['Comment envoyer un SMS à un segment ?', 'Comment configurer le connecteur SMS ?', 'Comment personnaliser un SMS avec des jetons ?']],
-    [/\/s\/forms/, 'Formulaires', 'vos formulaires : champs, actions, intégration', ['Comment intégrer un formulaire sur mon site ?', 'Comment déclencher une action après soumission ?']],
-    [/\/s\/pages/, 'Pages', 'vos pages d\'atterrissage : générateur, publication, aperçu', ['Comment publier ma page ?', 'Comment ajouter un formulaire à ma page ?', 'Comment dupliquer une page ?']],
-    [/\/s\/assets/, 'Ressources', 'vos ressources : fichiers téléchargeables et suivi', ['Comment suivre les téléchargements d\'un fichier ?']],
-    [/\/s\/dwc/, 'Contenu web dynamique', 'le contenu web dynamique : blocs personnalisés par segment', ['Comment afficher un contenu différent selon le segment ?', 'Comment intégrer un bloc dynamique sur mon site ?']],
-    [/\/s\/points/, 'Points', 'les points : scoring des contacts et déclencheurs', ['Comment attribuer des points à une ouverture d\'e-mail ?', 'Comment créer un déclencheur de points ?']],
-    [/\/s\/stages/, 'Stages', 'les stages : étapes du cycle de vie de vos contacts', ['Comment faire avancer un contact de stage ?']],
-    [/\/s\/reports/, 'Rapports', 'vos rapports : sources de données, colonnes, planification', ['Comment créer un rapport d\'ouvertures ?', 'Comment recevoir un rapport par e-mail chaque semaine ?']],
+    [/\/s\/contacts/, 'Contacts', ['Ouvrir l’import de contacts', 'Créer un segment des contacts ajoutés ce mois-ci', 'Créer un formulaire d’inscription à la newsletter']],
+    [/\/s\/companies/, 'Sociétés', ['Ouvrir la liste des contacts', 'Créer un rapport des contacts créés ce mois-ci']],
+    [/\/s\/segments/, 'Segments', ['Créer un segment des contacts qui n’ont jamais cliqué', 'Créer un segment des contacts ajoutés ce mois-ci', 'Créer un segment des contacts sans ville renseignée']],
+    [/\/s\/campaigns/, 'Campagnes', ['Ouvrir une nouvelle campagne', 'Rédiger un e-mail de bienvenue', 'Créer un segment des contacts ajoutés ce mois-ci']],
+    [/\/s\/emails/, 'E-mails', ['Rédiger un e-mail de bienvenue', 'Rédiger une newsletter mensuelle', 'Rédiger un e-mail de relance pour les contacts inactifs']],
+    [/\/s\/sms/, 'SMS', ['Ouvrir la liste des SMS', 'Créer un segment des contacts qui ont un numéro de mobile']],
+    [/\/s\/forms/, 'Formulaires', ['Créer un formulaire de demande de devis', 'Créer un formulaire d’inscription à la newsletter']],
+    [/\/s\/pages/, 'Pages', ['Créer une page d’inscription à un webinaire', 'Créer une page de présentation de mon offre']],
+    [/\/s\/assets/, 'Ressources', ['Créer une page de téléchargement d’un livre blanc']],
+    [/\/s\/dwc/, 'Contenu web dynamique', ['Ouvrir la liste des segments', 'Créer un segment des contacts ajoutés ce mois-ci']],
+    [/\/s\/points/, 'Points', ['Créer un segment des contacts de plus de 50 points', 'Ouvrir la liste des points']],
+    [/\/s\/stages/, 'Stages', ['Ouvrir la liste des stages']],
+    [/\/s\/reports/, 'Rapports', ['Créer un rapport des ouvertures et des clics d’e-mails', 'Créer un rapport des soumissions de formulaires']],
   ];
   function sectionCourante() {
     var chemin = window.location.pathname;
     for (var i = 0; i < SECTIONS_AIDE.length; i++) {
       if (SECTIONS_AIDE[i][0].test(chemin)) {
-        return { nom: SECTIONS_AIDE[i][1], sujet: SECTIONS_AIDE[i][2], raccourcis: SECTIONS_AIDE[i][3] };
+        return { nom: SECTIONS_AIDE[i][1], raccourcis: SECTIONS_AIDE[i][2] };
       }
     }
     return null;
@@ -536,9 +568,33 @@
   function champVisible(el) {
     var $el = mQuery(el);
     if ($el.is(':visible')) { return true; }
+    // Éditeur de texte enrichi (Description d'un formulaire, d'un segment…) :
+    // le <textarea> est masqué, l'éditeur affiché à sa place. Recette du
+    // 12/11 : « cet écran n'affiche aucun champ Description ».
+    if (el.tagName === 'TEXTAREA' && editeurRiche(el)) { return true; }
     if (el.tagName !== 'SELECT') { return false; }
     var chosen = el.id ? document.getElementById(el.id + '_chosen') : null;
     return !!(chosen && mQuery(chosen).is(':visible')) || $el.next('.chosen-container').is(':visible');
+  }
+
+  /** L'éditeur riche attaché à un <textarea>, ou null. Le moteur range ses
+   *  éditeurs dans `ckEditors` (Map textarea → éditeur, 1a.content.js) ;
+   *  à défaut, l'élément éditable porte lui-même son instance. */
+  function editeurRiche(el) {
+    try {
+      /* global ckEditors */
+      if (typeof ckEditors !== 'undefined' && ckEditors && ckEditors.get(el)) { return ckEditors.get(el); }
+    } catch (e) { /* registre absent : repli ci-dessous */ }
+    var suivant = el.nextElementSibling;
+    var editable = suivant && suivant.querySelector ? suivant.querySelector('.ck-editor__editable') : null;
+    return editable && editable.ckeditorInstance ? editable.ckeditorInstance : null;
+  }
+
+  /** Texte brut d'un éditeur riche (le relevé ne transporte pas de HTML). */
+  function texteRiche(ed) {
+    var div = document.createElement('div');
+    div.innerHTML = String(ed.getData() || '');
+    return (div.textContent || '').replace(/\s+/g, ' ').trim();
   }
 
   function formulaireTravail() {
@@ -669,7 +725,8 @@
           formulaire: form.getAttribute('name') || ''
         };
         if (valeurMasquee(champ)) {
-          var brut = mQuery(this).val();
+          var edMasque = this.tagName === 'TEXTAREA' ? editeurRiche(this) : null;
+          var brut = edMasque ? texteRiche(edMasque) : mQuery(this).val();
           var rempli = (this.type === 'checkbox' || this.type === 'radio')
             ? !!this.checked
             : String(brut == null ? '' : brut) !== '';
@@ -677,7 +734,8 @@
           count++;
           return;
         }
-        var v = String(mQuery(this).val() == null ? '' : mQuery(this).val()).slice(0, 160);
+        var ed = this.tagName === 'TEXTAREA' ? editeurRiche(this) : null;
+        var v = (ed ? texteRiche(ed) : String(mQuery(this).val() == null ? '' : mQuery(this).val())).slice(0, 160);
         var lab = libelleChamp(this);
         var ref = this.tagName === 'SELECT' ? refListe(this) : '';
         lignes.push('- name="' + this.name + '"' + (lab ? ' label="' + lab + '"' : '') +
@@ -717,6 +775,14 @@
   function poserChamp(form, name, value, releve) {
     var el = mQuery(form).find('[name="' + name + '"]').filter(':not([type=hidden])').first();
     if (!el.length) { return false; }
+    var ed = el.is('textarea') ? editeurRiche(el.get(0)) : null;
+    if (ed) {
+      // La valeur du modèle est du TEXTE : échappée, un paragraphe par ligne.
+      releve.push({ name: name, old: ed.getData(), riche: true });
+      ed.setData(String(value).split(/\n+/).map(function (l) { return '<p>' + esc(l) + '</p>'; }).join(''));
+      if (typeof ed.updateSourceElement === 'function') { ed.updateSourceElement(); }
+      return true;
+    }
     if (el.is('select')) {
       value = resoudreValeurSelect(el.get(0), value);
       if (null === value) { return false; }
@@ -728,18 +794,76 @@
     return true;
   }
 
-  /** Joue les actions du serveur ; renvoie {note, undoable} pour le tour. */
-  function executerActions(actions, turnId) {
+  /** Ce qu'une action aurait fait, en mots de client : pour dire ce qui n'a
+   *  PAS été fait (recette du 11/11 : « je crée » sans aucun effet). */
+  var LIBELLES_ACTIONS = {
+    fill_field: 'remplir un champ',
+    navigate: 'ouvrir l’écran demandé',
+    create_segment: 'créer le segment',
+    create_email: 'créer l’e-mail',
+    create_form: 'créer le formulaire',
+    create_campaign: 'créer la campagne',
+    create_report: 'créer le rapport',
+    create_landing_page: 'créer la page'
+  };
+
+  /** Motif d'échec d'une création, par code renvoyé par le serveur. Tout
+   *  code inconnu a un motif générique : plus jamais d'échec muet. */
+  var MOTIFS_CREATION = {
+    email_not_found: 'e-mail introuvable',
+    email_ambiguous: 'plusieurs e-mails portent ce nom',
+    segment_not_found: 'segment introuvable',
+    segment_ambiguous: 'plusieurs segments portent ce nom',
+    bad_send_at: 'horaire invalide (passé ou trop lointain)',
+    forbidden: 'votre compte n’a pas le droit de créer cet élément',
+    save_failed: 'l’enregistrement a échoué',
+    source_unavailable: 'cette source de données n’est pas disponible sur votre espace',
+    entitlement: 'cette action fait partie de l’offre Pro',
+    disabled: 'Sendly Copilot n’est pas activé sur votre espace',
+    bad_request: 'la demande était incomplète',
+    not_found: 'élément introuvable'
+  };
+
+  /** Message d'échec d'un appel au Copilot, selon la cause : l'offre, le
+   *  service, la demande ou le réseau. Exposé aux autres contextes. */
+  function messageErreur(xhr) {
+    var code = xhr && xhr.responseJSON ? xhr.responseJSON.error : null;
+    var statut = xhr ? xhr.status : 0;
+    if ('entitlement' === code || 403 === statut) {
+      return 'Sendly Copilot fait partie de l’offre Pro de votre espace.';
+    }
+    if ('disabled' === code || 503 === statut) {
+      return 'Sendly Copilot n’est pas activé sur votre espace.';
+    }
+    if ('bad_request' === code || 400 === statut) {
+      return 'Je n’ai pas compris la demande. Reformulez-la en une phrase.';
+    }
+    if (!statut) {
+      return 'La connexion a été interrompue. Vérifiez votre réseau, puis réessayez.';
+    }
+    return t('mautic.core.ai.assistant.error', 'Le service est momentanément indisponible. Réessayez dans un instant.');
+  }
+  window.SendlyAssistant.messageErreur = messageErreur;
+
+  /** Joue les actions du serveur.
+   *
+   *  Renvoie {note, undoable, resume} : `note` ne dit QUE ce qui est fait ou
+   *  en cours (jamais un ✓ d'avance), `resume` raconte au modèle, au tour
+   *  suivant, ce qui s'est réellement passé. `apresCoup(texte, resume)` est
+   *  appelé si une création échoue après la réponse. */
+  function executerActions(actions, turnId, apresCoup) {
     var form = formulaireTravail();
-    var remplis = 0, releve = [], differes = [], creationsEntite = [];
+    var tentes = 0, remplis = 0, releve = [], differes = [], creationsEntite = [];
+    var resume = [];
     (actions || []).forEach(function (a) {
-      if (a.type === 'fill_field' && form) {
-        if (poserChamp(form, a.field, a.value, releve)) { remplis++; }
+      if (a.type === 'fill_field') {
+        tentes++;
+        if (form && poserChamp(form, a.field, a.value, releve)) { remplis++; }
       } else if (a.type === 'navigate' && NAV_CIBLES[a.target]) {
-        differes.push(NAV_CIBLES[a.target]);
+        differes.push({ url: NAV_CIBLES[a.target], quoi: 'navigate', cible: a.target });
       } else if (a.type === 'create_segment' && a.description) {
-        try { sessionStorage.setItem('sendlyAiSegmentBrief', a.description); } catch (e) {}
-        differes.push(NAV_CIBLES.segments_new);
+        try { sessionStorage.setItem('sendlyAiSegmentBrief', JSON.stringify({ brief: a.description, ts: Date.now() })); } catch (e) {}
+        differes.push({ url: NAV_CIBLES.segments_new, quoi: 'create_segment' });
       } else if (a.type === 'create_email' && a.description && a.name && a.subject) {
         // Même patron que la landing page : le brief voyage jusqu'à l'écran
         // « nouvel e-mail », qui choisit le type segment, remplit nom/objet,
@@ -750,18 +874,15 @@
             segment: a.segment || '', ts: Date.now()
           }));
         } catch (e) {}
-        differes.push(NAV_CIBLES.emails_new);
+        differes.push({ url: NAV_CIBLES.emails_new, quoi: 'create_email' });
       } else if (a.type === 'create_campaign' && a.name && a.email && a.segment) {
-        // Même voie que create_form : endpoint gardé, entité DÉPUBLIÉE,
-        // écran d'édition ouvert pour relecture du canvas.
-        creationsEntite.push({ url: '/s/ai/campaign/create', spec: a, edition: '/s/campaigns/edit/' });
+        // Endpoint gardé, entité en BROUILLON, écran d'édition ouvert pour
+        // relecture du canvas.
+        creationsEntite.push({ url: '/s/ai/campaign/create', spec: a, edition: '/s/campaigns/edit/', quoi: 'create_campaign' });
       } else if (a.type === 'create_report' && a.name && a.source) {
-        creationsEntite.push({ url: '/s/ai/report/create', spec: a, edition: '/s/reports/edit/' });
+        creationsEntite.push({ url: '/s/ai/report/create', spec: a, edition: '/s/reports/edit/', quoi: 'create_report' });
       } else if (a.type === 'create_form' && a.name && a.fields) {
-        // La création passe par l'endpoint gardé (form:forms:create) : le
-        // formulaire naît DÉPUBLIÉ, puis on ouvre son écran d'édition pour
-        // la relecture. Même barrière de validation côté serveur.
-        creationsEntite.push({ url: (cfg().formCreateEndpoint || '/s/ai/form/create'), spec: a, edition: '/s/forms/edit/' });
+        creationsEntite.push({ url: (cfg().formCreateEndpoint || '/s/ai/form/create'), spec: a, edition: '/s/forms/edit/', quoi: 'create_form' });
       } else if (a.type === 'create_landing_page' && a.description && a.name) {
         // Le brief voyage jusqu'à l'écran « nouvelle page », qui crée la
         // page, ouvre le builder et génère les sections (ai-page-builder).
@@ -770,55 +891,64 @@
             name: a.name, brief: a.description, sections: a.sections || [], ts: Date.now()
           }));
         } catch (e) {}
-        differes.push(NAV_CIBLES.pages_new);
+        differes.push({ url: NAV_CIBLES.pages_new, quoi: 'create_landing_page' });
       }
     });
     if (releve.length) { snapshots[turnId] = { champs: releve }; }
     if (remplis && window.SendlyAssistant) { window.SendlyAssistant.credit('fill_field', remplis); }
-    if (creationsEntite.length) {
-      // La création (endpoint gardé) prime sur toute autre navigation du
-      // tour : l'entité naît dépubliée, on ouvre son écran d'édition. En
-      // échec de résolution (référence introuvable/ambiguë), la raison est
-      // DITE dans le panneau — jamais d'invention.
-      var creation = creationsEntite[0];
+
+    var notes = [];
+    if (tentes) {
+      if (!remplis) {
+        notes.push('✗ Aucun champ rempli : le champ demandé est introuvable sur cet écran.');
+      } else {
+        notes.push('✓ ' + remplis + ' ' + (remplis > 1 ? 'champs remplis' : 'champ rempli') +
+          (tentes > remplis ? ' · ' + (tentes - remplis) + ' introuvable' + (tentes - remplis > 1 ? 's' : '') : ''));
+      }
+      resume.push('filled ' + remplis + ' of ' + tentes + ' field(s)');
+    }
+
+    // UNE création ou UNE navigation par message (elles quittent l'écran) :
+    // les suivantes sont DITES non lancées, jamais tues.
+    var enAttente = creationsEntite.concat(differes);
+    var lancee = enAttente[0];
+    enAttente.slice(1).forEach(function (x) {
+      notes.push('✗ Non lancé dans ce message : ' + (LIBELLES_ACTIONS[x.quoi] || x.quoi) + '. Redemandez-le ensuite.');
+      resume.push('not started: ' + x.quoi);
+    });
+
+    if (lancee && lancee.spec) {
+      notes.push('Création en cours (en brouillon), ouverture de l’écran…');
+      resume.push('creation requested: ' + lancee.quoi);
       mQuery.ajax({
-        url: creation.url,
+        url: lancee.url,
         type: 'POST',
         dataType: 'json',
-        data: JSON.stringify(creation.spec),
+        data: JSON.stringify(lancee.spec),
         contentType: 'application/json',
         success: function (rep) {
-          if (rep && rep.id) { window.location.assign(creation.edition + rep.id); }
+          if (rep && rep.id) {
+            window.location.assign(lancee.edition + rep.id);
+            return;
+          }
+          apresCoup('✗ La création n’a pas abouti : la réponse du serveur était incomplète.', 'creation failed: no id');
         },
         error: function (xhr) {
           var rep = xhr && xhr.responseJSON;
-          var raisons = {
-            email_not_found: 'e-mail introuvable',
-            email_ambiguous: 'plusieurs e-mails portent ce nom',
-            segment_not_found: 'segment introuvable',
-            segment_ambiguous: 'plusieurs segments portent ce nom',
-            bad_send_at: 'horaire invalide (passé ou trop lointain)'
-          };
-          var motif = rep && raisons[rep.error];
-          if (motif && window.SendlyAssistant && window.SendlyAssistant.note) {
-            window.SendlyAssistant.note('✗ ' + motif + (rep.ref ? ' : « ' + rep.ref + ' »' : ''));
-          }
+          var code = rep && rep.error;
+          var motif = (code && MOTIFS_CREATION[code]) || 'le serveur a refusé la demande';
+          apresCoup('✗ La création n’a pas abouti : ' + motif + (rep && rep.ref ? ' (« ' + rep.ref + ' »)' : '') + '.',
+            'creation failed: ' + (code || xhr.status));
         }
       });
-    } else if (differes.length) {
+    } else if (lancee) {
       // Une seule navigation par tour, après un court instant de lecture.
-      setTimeout(function () { window.location.assign(differes[0]); }, 1200);
+      setTimeout(function () { window.location.assign(lancee.url); }, 1200);
+      notes.push('→ ' + t('mautic.core.ai.assistant.opening', 'Ouverture de l’écran…'));
+      resume.push('opening screen' + (lancee.cible ? ' ' + lancee.cible : '') + ' for ' + lancee.quoi);
     }
-    var notes = [];
-    if (remplis) {
-      notes.push('✓ ' + remplis + ' ' + (remplis > 1 ? 'champs remplis' : 'champ rempli'));
-    }
-    if (creationsEntite.length) {
-      notes.push('✓ ' + t('mautic.core.ai.assistant.entity_created', 'création en cours (dépubliée) — relecture…'));
-    } else if (differes.length) {
-      notes.push('→ ' + t('mautic.core.ai.assistant.opening', 'ouverture de l\'écran…'));
-    }
-    return { note: notes.join(' · '), undoable: releve.length > 0 };
+
+    return { note: notes.join(' · '), notes: notes, undoable: releve.length > 0, resume: resume.join('; ') };
   }
 
   function annulerTour(turnId) {
@@ -827,6 +957,12 @@
     var form = formulaireTravail();
     (snap.champs || []).forEach(function (c) {
       var el = mQuery(form || document).find('[name="' + c.name + '"]').first();
+      var ed = c.riche && el.length ? editeurRiche(el.get(0)) : null;
+      if (ed) {
+        ed.setData(c.old);
+        if (typeof ed.updateSourceElement === 'function') { ed.updateSourceElement(); }
+        return;
+      }
       if (el.length) {
         el.val(c.old).trigger('change');
         if (el.is('select')) { el.trigger('chosen:updated'); }
@@ -834,6 +970,32 @@
     });
     delete snapshots[turnId];
     return true;
+  }
+
+  /** L'historique envoyé au serveur : les 6 derniers tours, sans le tour
+   *  courant (le serveur reçoit la question à part). Fonction pure, testée. */
+  function historiqueAide(tours, q) {
+    var history = [];
+    tours.slice(-6).forEach(function (turn) {
+      if (turn.role === 'user') {
+        history.push({ role: 'user', content: turn.text });
+      } else if (turn.plain || turn.result) {
+        history.push({
+          role: 'assistant',
+          content: (turn.plain || '') + (turn.result ? '\n[What actually happened on screen: ' + turn.result + ']' : '')
+        });
+      }
+    });
+    return history.filter(function (h, i, arr) {
+      return !(i === arr.length - 1 && h.role === 'user' && h.content === q);
+    });
+  }
+  window.SendlyAssistant.historiqueAide = historiqueAide;
+
+  /** L'écran courant, pour ne jamais exécuter une réponse sur un AUTRE
+   *  écran que celui de la question (réponse lente + navigation). */
+  function ecranCourant() {
+    return window.location.pathname + window.location.search;
   }
 
   window.SendlyAssistantContexts = window.SendlyAssistantContexts || [];
@@ -846,49 +1008,40 @@
     },
     title: function () {
       var s = sectionCourante();
-      return s ? 'Assistant ' + s.nom : t('mautic.core.ai.assistant.button', 'Assistant IA');
+      var nom = t('mautic.core.ai.assistant.button', 'Sendly Copilot');
+      return s ? nom + ' · ' + s.nom : nom;
     },
     welcome: function () {
       var s = sectionCourante();
       if (s) {
-        return 'Bonjour ! Vous êtes dans « ' + s.nom + ' » — posez-moi une question sur ' + s.sujet + '.';
+        return 'Bonjour ! Dites-moi ce que vous voulez faire dans « ' + s.nom + ' », je m’en occupe.';
       }
       return t('mautic.core.ai.assistant.welcome',
-        'Bonjour ! Posez-moi une question sur Sendly : segments, campagnes, e-mails, délivrabilité…');
+        'Bonjour ! Dites-moi ce que vous voulez faire, je m’en occupe : un segment, un e-mail, un formulaire, une page…');
     },
     placeholder: function () {
-      return t('mautic.core.ai.assistant.placeholder', 'Posez votre question…');
+      return t('mautic.core.ai.assistant.placeholder', 'Que voulez-vous faire ?');
     },
     thinking: function () {
-      return t('mautic.core.ai.assistant.thinking', 'Je réfléchis…');
+      return t('mautic.core.ai.assistant.thinking', 'Je m’en occupe…');
     },
     shortcuts: function () {
       var s = sectionCourante();
       if (s) { return s.raccourcis; }
       return [
-        t('mautic.core.ai.assistant.suggest1', 'Comment créer un segment ?'),
-        t('mautic.core.ai.assistant.suggest2', 'Comment améliorer ma délivrabilité ?'),
-        t('mautic.core.ai.assistant.suggest3', 'Comment lancer ma première campagne ?')
+        t('mautic.core.ai.assistant.suggest1', 'Créer un segment des contacts qui n’ont jamais cliqué'),
+        t('mautic.core.ai.assistant.suggest2', 'Rédiger un e-mail de bienvenue'),
+        t('mautic.core.ai.assistant.suggest3', 'Créer un formulaire de demande de devis')
       ];
     },
     onSend: function (q, api) {
-      // L'historique du service d'aide alterne user/assistant : on reconstruit
-      // les tours assistant depuis leur texte (les réponses d'aide sont du
-      // texte brut échappé, jamais du balisage riche).
-      var history = [];
-      conv().slice(-6).forEach(function (turn) {
-        if (turn.role === 'user') {
-          history.push({ role: 'user', content: turn.text });
-        } else if (turn.plain) {
-          history.push({ role: 'assistant', content: turn.plain });
-        }
-      });
-      // Le tour utilisateur courant est déjà dans conv() : on le retire de
-      // l'historique envoyé, le serveur reçoit la question séparément.
-      history = history.filter(function (h, i, arr) {
-        return !(i === arr.length - 1 && h.role === 'user' && h.content === q);
-      });
+      // L'historique alterne user/assistant. Un tour assistant porte sa
+      // réponse ET ce qui s'est réellement passé à l'écran (`result`) : sans
+      // cette trace, le modèle relisait « j'ai créé » et se croyait passé à
+      // l'acte, même quand rien n'avait été fait.
+      var history = historiqueAide(conv(), q);
       var etat = etatEcran();
+      var ecranDepart = ecranCourant();
       var capacites = ['navigate', 'create_segment', 'create_landing_page', 'create_email', 'create_form', 'create_campaign', 'create_report'];
       if (etat.champs > 0) { capacites.push('fill_field'); }
       mQuery.ajax({
@@ -903,27 +1056,47 @@
           actions: capacites
         },
         success: function (res) {
-          if (res && res.answer) {
-            var answer = String(res.answer);
-            var turnId = res.turnId || null;
-            var resultat = executerActions(res.actions, turnId);
-            var html = rendreAide(answer);
-            if (resultat.note) {
-              html += '<div class="sendly-assist-fait">' + esc(resultat.note) + '</div>';
-            }
-            conv().push({
-              role: 'ia', html: html, plain: answer,
-              turnId: resultat.undoable ? turnId : null,
-              undoable: resultat.undoable
-            });
-            busy = false;
-            renderConv();
-          } else {
-            api.fail(t('mautic.core.ai.assistant.error', 'La requête a échoué. Réessayez.'));
+          var actions = (res && res.actions) || [];
+          var ecartees = (res && res.dropped) || [];
+          var answer = String((res && res.answer) || '');
+          if (!answer && !actions.length && !ecartees.length) {
+            api.fail(messageErreur(null));
+            return;
           }
+          var tour = null;
+          var lignes = [];
+          var resultat = { notes: [], undoable: false, resume: '' };
+          if (ecranCourant() !== ecranDepart) {
+            lignes.push('Rien n’a été exécuté : vous avez changé d’écran pendant ma réponse. Redemandez ici si besoin.');
+            resultat.resume = 'nothing executed: the user changed screen meanwhile';
+          } else {
+            resultat = executerActions(actions, res.turnId || null, function (texte, suite) {
+              if (!tour) { return; }
+              tour.result = (tour.result ? tour.result + '; ' : '') + suite;
+              api.note(tour, texte);
+            });
+            lignes = resultat.notes.slice();
+          }
+          if (ecartees.length) {
+            lignes.push('✗ Non exécuté : ' + ecartees.map(function (x) { return LIBELLES_ACTIONS[x] || x; }).join(', ') +
+              '. Précisez votre demande (nom, contenu, destinataires…).');
+            resultat.resume = (resultat.resume ? resultat.resume + '; ' : '') + 'rejected as incomplete: ' + ecartees.join(', ');
+          }
+          var html = answer ? rendreAide(answer) : '';
+          lignes.forEach(function (l) {
+            var classe = l.charAt(0) === '✓' ? 'sendly-assist-fait' : 'sendly-assist-mut';
+            html += '<div class="' + classe + '">' + esc(l) + '</div>';
+          });
+          tour = api.ia(html, {
+            turnId: resultat.undoable ? res.turnId : null,
+            undoable: resultat.undoable,
+            plain: answer,
+            result: resultat.resume
+          });
+          api.finish();
         },
-        error: function () {
-          api.fail(t('mautic.core.ai.assistant.error', 'La requête a échoué. Réessayez.'));
+        error: function (xhr) {
+          api.fail(messageErreur(xhr));
         }
       });
     },
@@ -951,8 +1124,8 @@
     var fab = document.createElement('button');
     fab.type = 'button';
     fab.id = 'sendly-assist-fab';
-    fab.setAttribute('aria-label', t('mautic.core.ai.assistant.button', 'Assistant IA'));
-    fab.setAttribute('title', t('mautic.core.ai.assistant.button', 'Assistant IA'));
+    fab.setAttribute('aria-label', t('mautic.core.ai.assistant.button', 'Sendly Copilot'));
+    fab.setAttribute('title', t('mautic.core.ai.assistant.button', 'Sendly Copilot'));
     fab.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M9.1071 5.448C9.7051 3.698 12.1231 3.645 12.8321 5.289L12.8921 5.449L13.6991 7.809C13.884 8.35023 14.1829 8.84551 14.5755 9.26142C14.9682 9.67734 15.4454 10.0042 15.9751 10.22L16.1921 10.301L18.5521 11.107C20.3021 11.705 20.3551 14.123 18.7121 14.832L18.5521 14.892L16.1921 15.699C15.6507 15.8838 15.1552 16.1826 14.7391 16.5753C14.323 16.9679 13.996 17.4452 13.7801 17.975L13.6991 18.191L12.8931 20.552C12.2951 22.302 9.8771 22.355 9.1691 20.712L9.1071 20.552L8.3011 18.192C8.11628 17.6506 7.81748 17.1551 7.42485 16.739C7.03221 16.3229 6.5549 15.9959 6.0251 15.78L5.8091 15.699L3.4491 14.893C1.6981 14.295 1.6451 11.877 3.2891 11.169L3.4491 11.107L5.8091 10.301C6.35034 10.1161 6.84562 9.81719 7.26153 9.42457C7.67744 9.03195 8.00432 8.55469 8.2201 8.025L8.3011 7.809L9.1071 5.448ZM19.0001 2C19.1872 2 19.3705 2.05248 19.5293 2.15147C19.688 2.25046 19.8158 2.392 19.8981 2.56L19.9461 2.677L20.2961 3.703L21.3231 4.053C21.5106 4.1167 21.6749 4.23462 21.7953 4.39182C21.9157 4.54902 21.9867 4.73842 21.9994 4.93602C22.012 5.13362 21.9657 5.33053 21.8663 5.50179C21.7669 5.67304 21.6189 5.81094 21.4411 5.898L21.3231 5.946L20.2971 6.296L19.9471 7.323C19.8833 7.51043 19.7653 7.6747 19.608 7.79499C19.4508 7.91529 19.2613 7.98619 19.0637 7.99872C18.8662 8.01125 18.6693 7.96484 18.4981 7.86538C18.3269 7.76591 18.1891 7.61787 18.1021 7.44L18.0541 7.323L17.7041 6.297L16.6771 5.947C16.4896 5.8833 16.3253 5.76538 16.2049 5.60819C16.0845 5.45099 16.0135 5.26158 16.0008 5.06398C15.9882 4.86638 16.0345 4.66947 16.1339 4.49821C16.2333 4.32696 16.3813 4.18906 16.5591 4.102L16.6771 4.054L17.7031 3.704L18.0531 2.677C18.1205 2.47943 18.2481 2.30791 18.4179 2.1865C18.5878 2.06509 18.7913 1.99987 19.0001 2Z" fill="currentColor"></path></svg>';
     fab.addEventListener('click', function () {
       // Teaser (plan gratuit) : le lanceur existe, l'action propose le plan.
