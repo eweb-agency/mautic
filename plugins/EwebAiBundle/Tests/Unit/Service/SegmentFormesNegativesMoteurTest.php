@@ -42,7 +42,8 @@ final class SegmentFormesNegativesMoteurTest extends TestCase
 
     protected function setUp(): void
     {
-        defined('MAUTIC_TABLE_PREFIX') || define('MAUTIC_TABLE_PREFIX', '');
+        // Défini par l'amorce de test (config_test.php / DbPrefix) ; la CI
+        // interdit de le définir dans un test.
         $this->prefix = MAUTIC_TABLE_PREFIX;
     }
 

@@ -74,7 +74,7 @@ final class SegmentNeverReceivedSubscriberTest extends TestCase
         )]])->getChoices();
 
         $tokens = array_values($choices['behaviors']['lead_email_sent_date']['operators']);
-        self::assertSame(1, count(array_keys($tokens, 'empty', true)));
+        self::assertCount(1, array_keys($tokens, 'empty', true));
         self::assertContains('!empty', $tokens);
     }
 
