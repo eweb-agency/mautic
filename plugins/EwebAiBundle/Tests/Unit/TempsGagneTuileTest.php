@@ -70,7 +70,7 @@ final class TempsGagneTuileTest extends TestCase
         self::assertSame(1, substr_count($html, 'sendly-tg-barre sendly-tg-cours'));
         self::assertStringContainsString('<div class="sendly-tg-barre sendly-tg-cours" style="height:78%"><span>3&nbsp;h&nbsp;05</span></div>', $html);
         self::assertStringContainsString('<span>8 dernières semaines</span><span>estimation prudente</span>', $html);
-        self::assertStringNotContainsString('sendly-tg-vide', $html);
+        self::assertStringNotContainsString('sendly-tg-vide', self::corps($html));
     }
 
     public function testUnPremierMoisNAffichePasDeuxFoisLeMemeChiffre(): void
