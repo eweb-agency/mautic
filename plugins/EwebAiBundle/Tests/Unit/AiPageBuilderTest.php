@@ -92,9 +92,20 @@ final class AiPageBuilderTest extends TestCase
         self::assertStringContainsString('Génération en cours…', $js);
         self::assertStringContainsString('rgba(127,140,160', $js);
         self::assertStringNotContainsString('dashed #b9c3d2', $js);
-        foreach (['↻ Régénérer', '✎ Ajuster', '✓ Garder'] as $bouton) {
+        // Refonte du 26/11 : libellés écrits et icônes dessinées (les
+        // caractères ↻ ✎ ✓ ✕ rendaient différemment d'un poste à l'autre),
+        // « Garder » est le bouton plein.
+        foreach (['<span>Régénérer</span>', '<span>Ajuster</span>', '<span>Garder</span>', '>Annuler</button>'] as $bouton) {
             self::assertStringContainsString($bouton, $js);
         }
+        foreach (['↻', '✎', '✓', '✕', '↩'] as $caractere) {
+            self::assertStringNotContainsString($caractere, $js);
+        }
+        self::assertStringContainsString('.sendly-ia-barre button.garder { color: #fff; background-color: #004FFF;', $js);
+        // Les idées de l'invite : une rangée qui défile, un pictogramme chacune.
+        self::assertStringContainsString('.sendly-ia-invite .chips { display: flex; flex-wrap: nowrap;', $js);
+        self::assertStringContainsString("c.innerHTML = '<span class=\"ico\">' + dessin(DESSINS[r[0]], 14) + '</span><span></span>';", $js);
+        self::assertStringContainsString("boite.querySelector('.suite').addEventListener('click'", $js);
         // « Ajuster » rouvre la saisie PRÉ-REMPLIE de la dernière consigne.
         self::assertStringContainsString('ouvrirInvite(p, i, consigne)', $js);
         // La barre vit dans un composant dédié, purgeable.

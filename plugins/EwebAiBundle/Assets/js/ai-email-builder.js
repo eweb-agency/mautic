@@ -39,6 +39,19 @@
 
   function cfg() { return window.SendlyAiConfig || null; }
 
+  // Les cinq gestes enchaînés, annoncés à la pastille du Copilot : elle
+  // compte les étapes sans rien couvrir (avant le 26/11, rien ne disait où
+  // en était le travail d'un écran à l'autre).
+  var ETAPES = ['Type : e-mail de segment', 'Nom et objet', 'Segment destinataire', 'Éditeur ouvert', 'Corps de l’e-mail rédigé'];
+  function etape(n, libelle) {
+    if (window.SendlyAssistant && typeof window.SendlyAssistant.etape === 'function') {
+      window.SendlyAssistant.etape(libelle || 'Création de l’e-mail', n, ETAPES.length);
+    }
+  }
+  function repos() {
+    if (window.SendlyAssistant && typeof window.SendlyAssistant.repos === 'function') { window.SendlyAssistant.repos(); }
+  }
+
   function lireBrief() {
     var brut = null;
     try { brut = sessionStorage.getItem(CLE); } catch (e) {}
@@ -75,6 +88,7 @@
       if ('function' === typeof window.Mautic.selectEmailType) {
         window.Mautic.selectEmailType('list');
       }
+      etape(2);
 
       if (!$nom.val()) { $nom.val(brief.name || '').trigger('change').trigger('keyup'); }
       if (!$objet.val()) { $objet.val(brief.subject || '').trigger('change').trigger('keyup'); }
@@ -96,6 +110,7 @@
           }
         }
       }
+      etape(3);
 
       // Thème blank de préférence — le bouton éditeur est inerte sans thème.
       var $theme = mQuery('#emailform_template');
@@ -105,7 +120,7 @@
         if (v) { $theme.val(v).trigger('change').trigger('chosen:updated'); }
       }
 
-      setTimeout(function () { window.Mautic.launchBuilder('emailform'); }, 500);
+      setTimeout(function () { etape(4); window.Mautic.launchBuilder('emailform'); }, 500);
     }, 500);
   });
 
@@ -122,6 +137,8 @@
         if (typeof Mautic.addErrorFlashMessage === 'function' && typeof Mautic.setFlashes === 'function') {
           Mautic.setFlashes(Mautic.addErrorFlashMessage(texte));
         }
+        // La pastille ne reste pas sur « Rédaction du corps » après un échec.
+        repos();
       }
 
       editor.on('load', function () {
@@ -136,6 +153,7 @@
         var enMjml = !!(champMjml && /<mjml/i.test(champMjml.value || ''));
 
         var consigne = 'Objet de l’e-mail : « ' + (brief.subject || '') + ' ». ' + (brief.brief || '');
+        etape(5, 'Rédaction du corps');
         mQuery.ajax({
           url: cfg().endpoint,
           type: 'POST',
@@ -154,7 +172,12 @@
               editor.DomComponents.getWrapper().set('content', '');
               editor.setComponents(corps);
               editor.setComponents(editor.getHtml());
-              if (window.SendlyAssistant) { window.SendlyAssistant.credit('create_email', 1); }
+              if (window.SendlyAssistant) {
+                window.SendlyAssistant.credit('create_email', 1);
+                if (typeof window.SendlyAssistant.termine === 'function') {
+                  window.SendlyAssistant.termine('E-mail prêt, en brouillon', { type: 'create_email', etapes: ETAPES });
+                }
+              }
             } catch (e) {
               try { editor.setComponents(avant); } catch (e2) { /* squelette perdu, canvas vide */ }
               signalerEchec();

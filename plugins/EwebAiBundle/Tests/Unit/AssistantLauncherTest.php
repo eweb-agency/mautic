@@ -27,9 +27,9 @@ final class AssistantLauncherTest extends TestCase
     {
         $js = $this->source('ai-assistant.js');
 
-        // Le panneau unique et ses éléments de référence (capture Webmecanik).
+        // La carte unique et ses éléments (direction « Pastille », 26/11/2026).
         foreach (['sendly-assist-panel', 'sendly-assist-title', 'sendly-assist-clear',
-            'sendly-assist-ex', 'assistant.private', 'assistant.shortcuts', 'sendly-assist-undo'] as $piece) {
+            'sendly-assist-ex', 'assistant.draft', 'assistant.shortcuts', 'sendly-assist-undo'] as $piece) {
             self::assertStringContainsString($piece, $js);
         }
         // Le contenu vient du contexte actif, jamais de la coquille.
