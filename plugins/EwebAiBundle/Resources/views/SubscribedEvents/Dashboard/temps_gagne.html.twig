@@ -1,53 +1,157 @@
 {#
-  Tuile « Temps gagné avec l'assistant » — design « rythme » (variante A
-  du board du 28/08), choisi par le proprio après prototypage en direct
-  dans la tuile réelle : en-tête symétrique (étincelle + phrase à gauche,
-  pilule du mois à droite), le TOTAL en héros aligné sur l'axe du texte
-  de la phrase (retrait 33px = badge 24px + espace 9px), et les
-  8 dernières semaines en barres pleine largeur, la semaine en cours en
-  vedette avec sa valeur. Le retrait -14px resserre l'écart sous
-  l'en-tête natif de la carte (validé à l'écran).
-#}
-{% macro duree(seconds) -%}
-  {%- set h = (seconds // 3600) -%}
-  {%- set m = ((seconds % 3600) / 60)|round -%}
-  {%- if h > 0 -%}{{ h }} h{% if m > 0 %} {{ '%02d'|format(m) }}{% endif %}{%- else -%}{{ m }} min{%- endif -%}
-{%- endmacro %}
+  Tuile « Temps gagné avec Sendly Copilot », direction « Vague », retenue
+  par le propriétaire le 25/11/2026 (« B, Vague ») : la jumelle de la carte du
+  Copilot. Une bande de vague porte le chiffre du MOIS en blanc ; dessous, le
+  total depuis le début et les 8 dernières semaines, la semaine en cours en
+  bleu avec sa valeur.
 
-{% if not actif %}
-  <div style="padding:18px 8px"><p style="color:#8b95a7;font-size:13px;margin:0">{{ 'mautic.eweb.ai.temps.inactif'|trans }}</p></div>
-{% elseif secondsTotal < 60 %}
-  <div style="padding:18px 8px"><p style="color:#8b95a7;font-size:13px;margin:0">{{ 'mautic.eweb.ai.temps.vide'|trans }}</p></div>
-{% else %}
-  {% set hmax = semaines|sort|last %}
-  <div style="display:flex;flex-direction:column;flex:1;min-height:0;padding:0 8px 4px;margin-top:-14px">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <span style="display:inline-flex;align-items:center;gap:9px;min-width:0">
-        <span style="width:24px;height:24px;border-radius:7px;background:radial-gradient(circle at 50% 22%, #0a52d8, #05215c);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:11px;flex-shrink:0">✦</span>
-        <span style="font-size:13px;color:#5b6472">{{ 'mautic.eweb.ai.temps.phrase'|trans }}</span>
-      </span>
-      {% if secondsMonth >= 60 %}
-        <span style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 11px;background:#DFEAFF;color:#001248;font-size:11.5px;font-weight:600;flex-shrink:0"><span style="width:6px;height:6px;border-radius:50%;background:#004FFF"></span>{{ _self.duree(secondsMonth) }} {{ 'mautic.eweb.ai.temps.ce.mois'|trans }}</span>
+  La tuile prend toute la carte du widget (règles `.tile:has(.sendly-tg)`).
+  Le titre natif reste dans la page, invisible : c'est la POIGNÉE qui déplace
+  le widget et son nom pour les lecteurs d'écran ; le menu natif (modifier,
+  retirer) reste à sa place, en blanc sur la vague.
+
+  Elle mesure sa propre place (requêtes de conteneur) : le tableau de bord la
+  sert en quart, en moitié ou en pleine largeur, de 215 à 445 px de haut.
+  Le chiffre du mois porte `data-sendly-temps-mois` : la coquille du Copilot
+  le met à jour à l'instant d'un gain (ai-assistant.js, rafraichirTuile).
+#}
+{% macro grand(seconds) -%}
+  {%- set tm = (seconds / 60)|round -%}
+  {%- set h = (tm // 60) -%}
+  {%- set m = (tm % 60) -%}
+  {%- if h > 0 -%}{{ h }}<small>h</small>{% if m > 0 %} {{ '%02d'|format(m) }}{% endif %}{%- else -%}{{ m }}<small>min</small>{%- endif -%}
+{%- endmacro %}
+{% macro duree(seconds) -%}
+  {%- set tm = (seconds / 60)|round -%}
+  {%- set h = (tm // 60) -%}
+  {%- set m = (tm % 60) -%}
+  {%- if h > 0 -%}{{ h }}&nbsp;h{% if m > 0 %}&nbsp;{{ '%02d'|format(m) }}{% endif %}{%- else -%}{{ m }}&nbsp;min{%- endif -%}
+{%- endmacro %}
+{% set plein = actif and secondsTotal >= 60 %}
+{% set minutesMois = (secondsMonth / 60)|round %}
+{% set vague = getAssetUrl('plugins/EwebAiBundle/Assets/img/copilot-vague.jpg') %}
+{% set grain = getAssetUrl('plugins/EwebAiBundle/Assets/img/copilot-grain.jpg') %}
+<style>
+  @font-face { font-family: "Helvena"; font-weight: 300; font-display: swap; src: url("{{ getAssetUrl('plugins/EwebAiBundle/Assets/fonts/Helvena_Light.woff2') }}") format("woff2"); }
+  @font-face { font-family: "Helvena"; font-weight: 400; font-display: swap; src: url("{{ getAssetUrl('plugins/EwebAiBundle/Assets/fonts/Helvena_Regular.woff2') }}") format("woff2"); }
+  @font-face { font-family: "Helvena"; font-weight: 500; font-display: swap; src: url("{{ getAssetUrl('plugins/EwebAiBundle/Assets/fonts/Helvena_Medium.woff2') }}") format("woff2"); }
+
+  /* La carte du widget laisse toute sa place à la tuile. */
+  .tile:has(.sendly-tg) { padding: 0; overflow: hidden; border-radius: 24px; }
+  .tile:has(.sendly-tg) > .card-header { position: absolute; z-index: 3; top: 12px; left: 0; right: 12px; gap: 8px; }
+  .tile:has(.sendly-tg) > .card-header h4 { flex: 1; height: 36px; margin: 0; overflow: hidden; color: transparent; font-size: 0; }
+  .tile:has(.sendly-tg) > .card-header .dropdown-toggle { width: 36px; height: 36px; border-radius: 50%; }
+  .tile:has(.sendly-tg) > .card-header .dropdown-toggle, .tile:has(.sendly-tg) > .card-header .dropdown-toggle i { color: #fff; }
+  .tile:has(.sendly-tg) > .card-header .dropdown-toggle:hover,
+  .tile:has(.sendly-tg) > .card-header .dropdown-toggle:focus { background: rgba(255,255,255,.14); color: #fff; }
+  .tile:has(.sendly-tg) > hr { display: none; }
+  .tile:has(.sendly-tg) > .card-body { padding: 0; min-height: 0; }
+
+  .sendly-tg { container-type: size; position: relative; box-sizing: border-box; flex: 1; width: 100%; min-height: 0; overflow: hidden; background: #fff;
+    display: flex; flex-direction: column; font: 400 14px/1.3 "Helvena", "Helvetica Neue", -apple-system, "Segoe UI", sans-serif; letter-spacing: -.005em;
+    color: #000617; text-align: left; -webkit-font-smoothing: antialiased; }
+  .sendly-tg *, .sendly-tg *::before, .sendly-tg *::after { box-sizing: border-box; }
+  .sendly-tg p { margin: 0; padding: 0; font: inherit; color: inherit; text-transform: none; }
+  .sendly-tg svg { display: block; flex: none; }
+
+  .sendly-tg-bande { position: relative; flex: none; height: 52%; min-height: 132px; padding: 16px 60px 18px 22px; color: #fff; display: flex; flex-direction: column; overflow: hidden;
+    background-color: #001248; background-image: linear-gradient(180deg, rgba(0,18,72,.62), rgba(0,18,72,.18) 55%, rgba(0,79,255,.16)), url("{{ vague }}");
+    background-size: cover, cover; background-position: center, center; }
+  .sendly-tg-bande::after { content: ""; position: absolute; inset: 0; background: url("{{ grain }}") repeat; background-size: 240px; mix-blend-mode: overlay; opacity: .3; pointer-events: none; }
+  .sendly-tg-bande > * { position: relative; z-index: 1; }
+  .sendly-tg-pastille { position: relative; align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 5px 12px 5px 10px;
+    font-size: 11.5px; font-weight: 500; line-height: 1.3; color: #fff; white-space: nowrap;
+    background: linear-gradient(120deg, rgba(255,255,255,.10), rgba(255,255,255,.03) 40%, rgba(255,255,255,.08)); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    box-shadow: 0 6px 16px rgba(0,6,23,.24), inset 0 1px 0 rgba(255,255,255,.18); }
+  .sendly-tg-pastille::before { content: ""; position: absolute; inset: 0; border-radius: 999px; padding: 1px; pointer-events: none;
+    background: linear-gradient(130deg, rgba(255,255,255,.75), rgba(255,255,255,.08) 35%, rgba(255,255,255,.06) 62%, rgba(255,255,255,.55));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  .sendly-tg-chiffre { margin-top: auto; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+  .sendly-tg p.sendly-tg-grand { font-size: 64px; font-weight: 300; line-height: 1; letter-spacing: -.04em; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .sendly-tg-grand small { font-size: .46em; font-weight: 400; letter-spacing: -.02em; margin-left: .16em; }
+  .sendly-tg-chiffre p:not(.sendly-tg-grand) { font-size: 15px; color: rgba(255,255,255,.88); }
+
+  .sendly-tg-bas { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 24px; padding: 16px 20px 14px 22px; }
+  .sendly-tg-bas.sendly-tg-seul { grid-template-columns: minmax(0, 1fr); }
+  .sendly-tg-total { align-self: end; padding-bottom: 20px; font-size: 12.5px; color: #5B6478; }
+  .sendly-tg-total b { display: block; margin-top: 2px; font-size: 22px; font-weight: 400; letter-spacing: -.02em; color: #001248; white-space: nowrap; }
+  .sendly-tg-graph { display: flex; flex-direction: column; min-height: 0; padding-top: 18px; }
+  .sendly-tg-barres { flex: 1; display: flex; align-items: flex-end; gap: 8px; min-height: 0; border-bottom: 1px solid #E4E8EF; padding-bottom: 1px; }
+  .sendly-tg-barre { position: relative; flex: 1; min-height: 5px; border-radius: 6px 6px 2px 2px; background: #C9D9FF; }
+  .sendly-tg-barre.sendly-tg-nulle { background: #E9EEF7; }
+  .sendly-tg-barre.sendly-tg-cours { background: linear-gradient(180deg, #2E6BFF, #004FFF); }
+  .sendly-tg-barre.sendly-tg-cours span { position: absolute; bottom: calc(100% + 5px); right: 0; font-size: 11.5px; font-weight: 500; color: #004FFF; white-space: nowrap; }
+  .sendly-tg-pied { display: flex; justify-content: space-between; gap: 12px; margin-top: 7px; font-size: 11.5px; color: #5B6478; white-space: nowrap; }
+
+  /* États vide et inactif : une phrase et un geste, jamais une ligne grise. */
+  .sendly-tg-vide { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 4px 20px 16px 22px; }
+  .sendly-tg p.sendly-tg-titre { font-size: 22px; line-height: 1.15; letter-spacing: -.02em; color: #001248; max-width: 22em; }
+  .sendly-tg-essai { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; max-width: 100%; min-height: 40px; margin: 0; border: 0; border-radius: 12px;
+    background: #F5F7F9; padding: 0 14px; font: 500 13.5px "Helvena", "Helvetica Neue", sans-serif; letter-spacing: inherit; text-transform: none; color: #001248; cursor: pointer; }
+  .sendly-tg-essai:hover { background: #EAF0FA; }
+  .sendly-tg-essai:focus-visible { outline: 3px solid rgba(0,79,255,.45); outline-offset: 2px; }
+  .sendly-tg-essai svg { color: #004FFF; }
+
+  /* Le chiffre vient de changer : une action du Copilot vient d'être créditée. */
+  .sendly-tg-neuf .sendly-tg-grand { animation: sendly-tg-neuf 1.2s cubic-bezier(.22, .9, .3, 1) both; }
+  @keyframes sendly-tg-neuf { 0% { opacity: .2; transform: translateY(6px); } 100% { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .sendly-tg-neuf .sendly-tg-grand { animation: none; } }
+
+  /* Tuile étroite : le chiffre d'abord, le total se retire. */
+  @container (max-width: 430px) {
+    .sendly-tg-bas { grid-template-columns: minmax(0, 1fr); padding-top: 12px; }
+    .sendly-tg-total { display: none; }
+    .sendly-tg p.sendly-tg-grand { font-size: 50px; }
+    .sendly-tg-chiffre p:not(.sendly-tg-grand) { font-size: 13.5px; }
+  }
+  /* Tuile basse (215 px, la plus petite du tableau de bord) : la bande seule. */
+  @container (max-height: 260px) {
+    .sendly-tg-bande { flex: 1; height: auto; min-height: 0; }
+    .sendly-tg-bas { display: none; }
+    .sendly-tg-bande:has(+ .sendly-tg-vide) { flex: none; height: 76px; }
+    .sendly-tg-bande:has(+ .sendly-tg-vide) .sendly-tg-chiffre { display: none; }
+    .sendly-tg-vide { gap: 8px; }
+    .sendly-tg p.sendly-tg-titre { font-size: 17px; }
+  }
+  @container (max-height: 260px) and (max-width: 430px) { .sendly-tg-essai { display: none; } }
+</style>
+<section class="sendly-tg" aria-label="{{ 'mautic.widget.eweb.ai.temps.gagne'|trans }}">
+  <div class="sendly-tg-bande">
+    <span class="sendly-tg-pastille"><svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M9.1 5.45c.6-1.75 3.02-1.8 3.73-.16l.06.16.8 2.36a4 4 0 0 0 2.28 2.41l.22.08 2.36.8c1.75.6 1.8 3.02.16 3.73l-.16.06-2.36.8a4 4 0 0 0-2.41 2.28l-.08.22-.8 2.36c-.6 1.75-3.02 1.8-3.73.16l-.06-.16-.8-2.36a4 4 0 0 0-2.28-2.41l-.22-.08-2.36-.8c-1.75-.6-1.8-3.02-.16-3.73l.16-.06 2.36-.8A4 4 0 0 0 8.22 8.03l.08-.22.8-2.36ZM19 2c.38 0 .73.22.9.56l.05.12.35 1.02 1.02.35a1 1 0 0 1 .12 1.85l-.12.05-1.02.35-.35 1.02a1 1 0 0 1-1.85.12l-.05-.12-.35-1.02-1.02-.35a1 1 0 0 1-.12-1.85l.12-.05 1.02-.35.35-1.02A1 1 0 0 1 19 2Z"/></svg>Sendly Copilot</span>
+    <div class="sendly-tg-chiffre">
+      {% if plein %}
+        <p class="sendly-tg-grand" data-sendly-temps-mois>{{ _self.grand(secondsMonth) }}</p>
+        <p>{{ (1 == minutesMois or 60 == minutesMois ? 'mautic.eweb.ai.temps.gagnee.mois' : 'mautic.eweb.ai.temps.gagnees.mois')|trans }}</p>
+      {% else %}
+        <p>{{ 'mautic.widget.eweb.ai.temps.gagne'|trans }}</p>
       {% endif %}
     </div>
-    <div style="margin-top:12px;padding-left:33px">
-      <span style="font-size:44px;font-weight:700;letter-spacing:-.025em;line-height:1;color:#001248;font-variant-numeric:tabular-nums">{{ _self.duree(secondsTotal) }}</span>
-    </div>
-    <div style="flex:1;min-height:14px"></div>
-    <div style="display:flex;align-items:flex-end;justify-content:space-between;height:78px;border-bottom:1px solid #e4e8ef;padding-bottom:1px">
-      {% for v in semaines %}
-        {% if v >= 60 %}
-          <div style="width:24px;border-radius:6px 6px 3px 3px;position:relative;height:{{ max(10, (72 * v / hmax)|round) }}px;background:{{ loop.last ? 'linear-gradient(180deg,#2E6BFF,#004FFF)' : '#9db9ff' }}">
-            {% if loop.last %}<span style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:10.5px;font-weight:700;color:#004FFF;white-space:nowrap">{{ _self.duree(v) }}</span>{% endif %}
-          </div>
-        {% else %}
-          <div style="width:24px;border-radius:6px 6px 3px 3px;height:6px;background:#E9EEF7"></div>
-        {% endif %}
-      {% endfor %}
-    </div>
-    <div style="font-size:10.5px;color:#8b95a7;margin-top:7px;display:flex;justify-content:space-between">
-      <span>{{ 'mautic.eweb.ai.temps.huit.semaines'|trans }}</span>
-      <span>{{ 'mautic.eweb.ai.temps.estimation'|trans }}</span>
-    </div>
   </div>
-{% endif %}
+  {% if plein %}
+    {% set hmax = max(semaines|sort|last, 1) %}
+    <div class="sendly-tg-bas{{ secondsTotal == secondsMonth ? ' sendly-tg-seul' : '' }}">
+      {% if secondsTotal != secondsMonth %}
+        <div class="sendly-tg-total">{{ 'mautic.eweb.ai.temps.depuis.debut'|trans }}<b>{{ _self.duree(secondsTotal) }}</b></div>
+      {% endif %}
+      <div class="sendly-tg-graph">
+        <div class="sendly-tg-barres" role="img" aria-label="{{ 'mautic.eweb.ai.temps.graphe'|trans }}">
+          {% for v in semaines %}
+            {% if v >= 60 %}
+              <div class="sendly-tg-barre{{ loop.last ? ' sendly-tg-cours' : '' }}" style="height:{{ max(10, (78 * v / hmax)|round) }}%">{% if loop.last %}<span>{{ _self.duree(v) }}</span>{% endif %}</div>
+            {% else %}
+              <div class="sendly-tg-barre sendly-tg-nulle"></div>
+            {% endif %}
+          {% endfor %}
+        </div>
+        <div class="sendly-tg-pied"><span>{{ 'mautic.eweb.ai.temps.huit.semaines'|trans }}</span><span>{{ 'mautic.eweb.ai.temps.estimation'|trans }}</span></div>
+      </div>
+    </div>
+  {% elseif not actif %}
+    <div class="sendly-tg-vide"><p class="sendly-tg-titre">{{ 'mautic.eweb.ai.temps.inactif'|trans }}</p></div>
+  {% else %}
+    <div class="sendly-tg-vide">
+      <p class="sendly-tg-titre">{{ 'mautic.eweb.ai.temps.vide'|trans }}</p>
+      <button type="button" class="sendly-tg-essai" onclick="if (window.SendlyAssistant) { window.SendlyAssistant.open('help'); }"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M9.1 5.45c.6-1.75 3.02-1.8 3.73-.16l.06.16.8 2.36a4 4 0 0 0 2.28 2.41l.22.08 2.36.8c1.75.6 1.8 3.02.16 3.73l-.16.06-2.36.8a4 4 0 0 0-2.41 2.28l-.08.22-.8 2.36c-.6 1.75-3.02 1.8-3.73.16l-.06-.16-.8-2.36a4 4 0 0 0-2.28-2.41l-.22-.08-2.36-.8c-1.75-.6-1.8-3.02-.16-3.73l.16-.06 2.36-.8A4 4 0 0 0 8.22 8.03l.08-.22.8-2.36Z"/></svg><span>{{ 'mautic.eweb.ai.temps.ouvrir'|trans }}</span></button>
+    </div>
+  {% endif %}
+</section>

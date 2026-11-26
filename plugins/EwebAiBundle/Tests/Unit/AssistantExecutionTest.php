@@ -534,8 +534,8 @@ JS;
             'reponse' => $this->demandeDeProgrammation(),
             'etapes'  => [
                 ['url' => '/s/ai/email/schedule', 'rep' => self::apercu()],
-                ['confirmer' => 'c1', 'ok' => true],
-                ['url'       => '/s/ai/email/schedule', 'rep' => self::apercu() + ['done' => true]],
+                ['confirmer'    => 'c1', 'ok' => true],
+                ['url'          => '/s/ai/email/schedule', 'rep' => self::apercu() + ['done' => true]],
                 ['annulerEnvoi' => 7, 'tour' => 't1'],
                 ['url'          => '/s/ai/email/schedule', 'rep' => ['mode' => 'cancel'] + self::apercu()],
             ],
@@ -558,12 +558,12 @@ JS;
             'reponse' => $this->demandeDeProgrammation(),
             'etapes'  => [
                 ['url' => '/s/ai/email/schedule', 'rep' => self::apercu()],
-                ['confirmer' => 'c1', 'ok' => true],
-                ['url'       => '/s/ai/email/schedule', 'rep' => self::apercu() + ['done' => true]],
+                ['confirmer'    => 'c1', 'ok' => true],
+                ['url'          => '/s/ai/email/schedule', 'rep' => self::apercu() + ['done' => true]],
                 ['annulerEnvoi' => 7, 'tour' => 't1'],
                 ['url'          => '/s/ai/email/schedule', 'rep' => ['mode' => 'cancel'] + self::apercu()],
-                ['confirmer' => 'c2', 'ok' => true],
-                ['url'       => '/s/ai/email/schedule', 'rep' => ['mode' => 'cancel', 'done' => true] + self::apercu()],
+                ['confirmer'    => 'c2', 'ok' => true],
+                ['url'          => '/s/ai/email/schedule', 'rep' => ['mode' => 'cancel', 'done' => true] + self::apercu()],
             ],
         ]);
 

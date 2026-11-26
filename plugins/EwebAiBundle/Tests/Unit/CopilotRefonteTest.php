@@ -146,7 +146,7 @@ JS;
         $js = self::source('Assets/js/ai-assistant.js');
 
         self::assertStringContainsString('max-height:calc(100vh - 72px)', $js);
-        self::assertStringNotContainsString("el.style.top = ", $js, 'plus de colonne ancrée sous la barre haute');
+        self::assertStringNotContainsString('el.style.top = ', $js, 'plus de colonne ancrée sous la barre haute');
         // Téléphone : feuille du bas, champ en 16 px, cibles de 44 px.
         self::assertStringContainsString('@media (max-width:600px){', $js);
         self::assertStringContainsString('border-radius:24px 24px 0 0', $js);
@@ -296,6 +296,10 @@ JS;
         $js = self::source('Assets/js/ai-assistant.js');
 
         self::assertStringContainsString("var CLE_MEMOIRE = 'sendlyAssistConv';", $js);
+        // Seule la conversation générale voyage : celle d'un segment parle de
+        // lignes qui n'existent plus après un rechargement.
+        self::assertStringContainsString("var MEMOIRE_CONTEXTES = ['help'];", $js);
+        self::assertSame(3, substr_count($js, 'MEMOIRE_CONTEXTES'));
         self::assertStringContainsString('Date.now() - memo.ts > VIE_MEMOIRE', $js, 'durée de vie courte, comme les relais de création');
         // Ni l'annulation ni une confirmation en attente ne survivent à un rechargement.
         self::assertStringContainsString("return { role: 'ia', html: html, plain: turn.plain || '', result: turn.result || '' };", $js);
@@ -334,7 +338,9 @@ JS;
         self::assertStringContainsString('annulerDetails(turnId);', $js);
         // Sans écraser une valeur reprise à la main entre-temps.
         self::assertStringContainsString('if ($nom.length && $nom.val() === d.nom.pose) {', $js);
-        self::assertStringContainsString("if (\$desc.length && String(\$desc.val() || '') === d.desc.pose) {", $js);
+        // L'éditeur riche range du HTML dans le textarea : on compare le texte.
+        self::assertStringContainsString('if ($desc.length && texteBrut($desc.val()) === texteBrut(d.desc.pose)) {', $js);
+        self::assertStringContainsString('function texteBrut(html) {', $js);
         // Un tour qui n'a fait que nommer est annulable, lui aussi.
         self::assertStringContainsString('var annulable = !!(result.applied.length || retires.length || nommes.nom || nommes.description);', $js);
         // Le résumé est un reçu, et la page s'allume.
@@ -355,6 +361,18 @@ JS;
         self::assertStringContainsString("'body.sendly-builder-ouvert ' + F + '.sendly-assist-rond{display:none}'", $coquille);
         // La tuile de la bibliothèque reste l'unique entrée : ni clic ni ⌘J n'ouvrent la carte.
         self::assertSame(2, substr_count($coquille, 'editeurOuvert()) {'));
+
+        // Le clic sur la tuile ouvre l'invite : le câblage reconnaît le libellé
+        // RÉEL de la tuile (il cherchait « Assistant IA » après le renommage du
+        // 11/11, et le clic ne faisait plus rien).
+        $page  = self::source('Assets/js/ai-page-builder.js');
+        $tuile = (string) file_get_contents(__DIR__.'/../../../EwebSaasBundle/Assets/js/builder-composants.js');
+        self::assertSame(1, preg_match('#var LIBELLE_TUILE = /([^/]+)/i;#', $page, $motif));
+        self::assertGreaterThan(0, preg_match_all("/bm\.add\('sendly-ia', \{ label: '([^']+)'/", $tuile, $libelles));
+        foreach ($libelles[1] as $libelle) {
+            self::assertMatchesRegularExpression('/'.$motif[1].'/i', $libelle, 'le clic sur la tuile « '.$libelle.' » doit ouvrir l’invite');
+        }
+        self::assertStringContainsString("function (el) { return LIBELLE_TUILE.test(el.textContent || ''); }", $page);
 
         $email = self::source('Assets/js/ai-email-builder.js');
         foreach (['etape(2);', 'etape(3);', 'etape(4);', "etape(5, 'Rédaction du corps');"] as $annonce) {

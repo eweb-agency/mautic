@@ -191,6 +191,17 @@
    *  description posés par le Copilot (constat du 12/11 sur l'espace). */
   var detailsParTour = {};
 
+  /** Le texte d'une description, sans son balisage : l'éditeur riche range
+   *  « <p>…</p> » dans le textarea, la proposition du serveur est du texte nu.
+   *  Sans cette mise à plat, « est-ce encore NOTRE valeur ? » répondait
+   *  toujours non (constat en direct du 26/11 : la description restait
+   *  remplie après « Annuler »). */
+  function texteBrut(html) {
+    var div = document.createElement('div');
+    div.innerHTML = String(html == null ? '' : html);
+    return (div.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
   /** L'éditeur riche monté sur la description, ou null. */
   function editeurDescription($desc) {
     try {
@@ -231,7 +242,7 @@
     }
     if (d.desc) {
       var $desc = mQuery('#leadlist_description');
-      if ($desc.length && String($desc.val() || '') === d.desc.pose) {
+      if ($desc.length && texteBrut($desc.val()) === texteBrut(d.desc.pose)) {
         ecrireDescription($desc, d.desc.avant);
         derniereDescIA = d.desc.avant || null;
       }
@@ -253,7 +264,7 @@
     if (res && res.description) {
       var $desc = mQuery('#leadlist_description');
       var actuel = $desc.length ? String($desc.val() || '') : '';
-      if ($desc.length && (!actuel || actuel === derniereDescIA)) {
+      if ($desc.length && (!texteBrut(actuel) || texteBrut(actuel) === texteBrut(derniereDescIA))) {
         trace.desc = { avant: actuel, pose: res.description };
         $desc.val(res.description).trigger('change');
         derniereDescIA = res.description;

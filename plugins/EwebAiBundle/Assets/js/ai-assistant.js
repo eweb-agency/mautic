@@ -1,5 +1,5 @@
 /**
- * Sendly Copilot — la COQUILLE UNIQUE (directive proprio 07/08), dans sa
+ * Sendly Copilot : la COQUILLE UNIQUE (directive proprio 07/08), dans sa
  * direction « Pastille » (refonte validée par le propriétaire le 26/11/2026).
  *
  * Le bouton : au repos un rond, l'icône seule sur un fond qui vit. Il ne
@@ -278,7 +278,7 @@
       P + ' .sendly-assist-conv>*{flex:none}',
       P + '.sendly-assist-sans-saisie .sendly-assist-conv{padding-bottom:20px}',
       P + ' .sendly-assist-entre{animation:sendly-assist-monte .32s ' + COURBE + ' both}',
-      P + ' .sendly-assist-ex{display:grid;gap:10px}',
+      P + ' .sendly-assist-ex{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}',
       P + ' .sendly-assist-ex button{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:0;border-radius:12px;background:' + PERLE + ';' +
         'padding:12px 16px;min-height:56px;font-size:15px;font-weight:500;line-height:1.25;color:' + NUIT + ';transition:background .14s ease}',
       P + ' .sendly-assist-ex button:hover{background:#EAF0FA}',
@@ -403,6 +403,7 @@
         P + ' .sendly-assist-iconbtn{width:44px;height:44px}' +
         P + ' .sendly-assist-heros h2{font-size:23px}' +
         P + ' .sendly-assist-ex button{min-height:60px}' +
+        P + ' .sendly-assist-section{display:none}' +
         P + ' .sendly-assist-gain,' + P + ' .sendly-assist-long,' + P + ' .sendly-assist-clavier{display:none}' +
         P + ' .sendly-assist-ligne{grid-template-columns:88px minmax(0,1fr)}' +
         P + ' .sendly-assist-bouton{min-height:44px}' +
@@ -411,6 +412,15 @@
         P + ' .sendly-assist-meta{padding-bottom:22px}' +
       '}',
       '@supports (height:100dvh){@media (max-width:600px){' + P + '{max-height:88dvh}}}',
+      // Téléphone étroit : la ligne gagne de la place ; sous 340 px, un libellé
+      // se replie sur deux lignes plutôt que de perdre son sens dans une ellipse.
+      '@media (max-width:400px){' +
+        P + ' .sendly-assist-conv{padding-left:16px;padding-right:16px}' +
+        P + ' .sendly-assist-ex button{padding:12px;gap:10px;font-size:14px}' +
+        P + ' .sendly-assist-foot{padding-left:16px;padding-right:14px}' +
+        P + ' .sendly-assist-meta{padding-left:20px;padding-right:20px}' +
+      '}',
+      '@media (max-width:340px){' + P + ' .sendly-assist-ex .sendly-assist-t{white-space:normal}}',
 
       // Mouvement réduit : l'état final tout de suite, rien ne tourne.
       '@media (prefers-reduced-motion:reduce){' +
@@ -624,6 +634,10 @@
   // tout était perdu à l'arrivée (constat du 12/11). Même patron que les
   // relais de création : sessionStorage, durée de vie courte.
 
+  // Seule la conversation GÉNÉRALE voyage : c'est elle qui navigue. Celle d'un
+  // écran de travail (segment) parle de lignes de CET écran ; elle ne vaut plus
+  // rien après un rechargement (constat en direct du 26/11).
+  var MEMOIRE_CONTEXTES = ['help'];
   var CLE_MEMOIRE = 'sendlyAssistConv';
   var CLE_ARRIVEE = 'sendlyAssistArrivee';
   var VIE_MEMOIRE = 1800000; // 30 min
@@ -632,7 +646,8 @@
   function memoriser() {
     try {
       var copie = {};
-      Object.keys(convStore).forEach(function (id) {
+      MEMOIRE_CONTEXTES.forEach(function (id) {
+        if (!convStore[id] || !convStore[id].length) { return; }
         copie[id] = convStore[id].slice(-12).map(function (turn) {
           if (turn.role === 'user') { return { role: 'user', text: turn.text }; }
           // Ni annulation ni confirmation ne survivent à un rechargement :
@@ -656,7 +671,7 @@
       try { sessionStorage.removeItem(CLE_MEMOIRE); } catch (e) {}
       return;
     }
-    Object.keys(memo.convs).forEach(function (id) {
+    MEMOIRE_CONTEXTES.forEach(function (id) {
       if (!convStore[id] && memo.convs[id] && memo.convs[id].length) {
         // Un reçu d'avant le rechargement ne revient pas dans la pastille.
         convStore[id] = memo.convs[id].map(function (turn) { turn.range = true; return turn; });
@@ -800,7 +815,11 @@
       return;
     }
     var enFil = conv().length > 0 || busy;
-    var titre = esc(openCtx.title()).replace(/^Sendly Copilot/, 'Sendly Copilot<sup class="sendly-assist-r">®</sup>');
+    // « Sendly Copilot · Segments » : la section suit l'écran ; au téléphone
+    // elle se retire (la place est comptée), jamais une ellipse « · … ».
+    var morceaux = String(openCtx.title()).split(' · ');
+    var titre = esc(morceaux[0]).replace(/^Sendly Copilot/, 'Sendly Copilot<sup class="sendly-assist-r">®</sup>') +
+      (morceaux.length > 1 ? '<span class="sendly-assist-section"> · ' + esc(morceaux.slice(1).join(' · ')) + '</span>' : '');
     p.querySelector('#sendly-assist-title').innerHTML = eclat(15) + '<span>' + titre + '</span>';
     p.setAttribute('aria-label', openCtx.title());
     p.querySelector('.sendly-assist-head').classList.toggle('sendly-assist-compacte', enFil);
@@ -845,7 +864,6 @@
       }
     }
     el.innerHTML = html;
-    el.scrollTop = el.scrollHeight;
 
     var p = panel();
     if (p) {
@@ -860,6 +878,9 @@
       p.querySelector('#sendly-assist-send').disabled = busy;
     }
     renderHead();
+    // Le calage en bas vient en dernier : l'en-tête et la saisie viennent de
+    // prendre (ou de rendre) leur place, la hauteur utile a pu changer.
+    el.scrollTop = el.scrollHeight;
     memoriser();
   }
 
@@ -1001,7 +1022,9 @@
           .replace(/<div class="sendly-assist-recu sendly-assist-fait sendly-assist-annulable"><span class="sendly-assist-signe">✓<\/span> <span class="sendly-assist-recu-titre">[^<]*<\/span>/g,
             '<div class="sendly-assist-recu sendly-assist-annule"><span class="sendly-assist-signe">↩</span> <span class="sendly-assist-recu-titre">' + String(noteHtml).replace(/\.$/, '') + '</span>')
           .replace(/<!--sendly-annuler-->/g, '<span class="sendly-assist-recu-note">' +
-            esc(t('mautic.core.ai.assistant.undone.note', 'Le formulaire est revenu à son état d’avant.')) + '</span>');
+            esc(t('mautic.core.ai.assistant.undone.note', 'Le formulaire est revenu à son état d’avant.')) + '</span>')
+          // Ce qui a été défait ne se « voit » plus : le lien part avec.
+          .replace(/<button type="button" class="sendly-assist-lien sendly-assist-voir"[^>]*>[^<]*<\/button>/g, '');
         if (turn.html.indexOf('sendly-assist-annule') === -1) {
           turn.html += '<div class="sendly-assist-mut">' + noteHtml + '</div>';
         }
@@ -1094,7 +1117,7 @@
       esc(t('mautic.core.ai.assistant.send', 'Envoyer')) + '">' + trace('haut', 18, 2.2) + '</button>' +
       '</div>' +
       '<div class="sendly-assist-meta">' +
-      '<span>' + esc(t('mautic.core.ai.assistant.private', 'Tout naît en brouillon. Rien ne part sans votre accord.')) + '</span>' +
+      '<span>' + esc(t('mautic.core.ai.assistant.draft', 'Tout naît en brouillon. Rien ne part sans votre accord.')) + '</span>' +
       '<span class="sendly-assist-clavier">⌘J</span>' +
       '<button type="button" class="sendly-assist-lien" id="sendly-assist-shortcuts" hidden>' +
       esc(t('mautic.core.ai.assistant.shortcuts', 'Raccourcis')) + '</button>' +
@@ -1228,7 +1251,13 @@
       tempsMois = s;
       var cible = document.querySelector('[data-sendly-temps-mois]');
       var d = dureeLisible(s);
-      if (cible && d) { cible.textContent = d; }
+      // « 27 min » → 27<small>min</small> : la forme du chiffre de la tuile.
+      var neuf = d.replace(/\u00a0(h|min)/, '<small>$1</small>').replace(/\u00a0/g, ' ');
+      if (cible && d && cible.innerHTML !== neuf) {
+        cible.innerHTML = neuf;
+        var tuile = cible.closest ? cible.closest('.sendly-tg') : null;
+        if (tuile) { tuile.classList.remove('sendly-tg-neuf'); void tuile.offsetWidth; tuile.classList.add('sendly-tg-neuf'); }
+      }
       renderHead();
     });
   }
@@ -1326,7 +1355,9 @@
     },
     secondes: secondesAction,
     allumer: allumer,
-    eteindre: eteindre
+    eteindre: eteindre,
+    /** Les dessins de la coquille, pour les autres surfaces du Copilot. */
+    dessin: { eclat: eclat, trace: trace }
   };
 
   // ── Contexte PAR DÉFAUT : l'aide générale (priorité 0) ─────────────────

@@ -39,20 +39,51 @@
     window.MauticGrapesJsPlugins = [];
   }
 
+  // Chaque idée : [pictogramme, libellé de la puce, consigne envoyée]. Le
+  // pictogramme distingue les idées d'un coup d'œil ; elles défilent sur UNE
+  // rangée (retours du propriétaire du 26/11 : un carrousel, jamais une idée
+  // seule sur sa ligne).
   var RACCOURCIS = [
-    'Une section d’en-tête avec un titre fort et un bouton',
-    'Une section « 3 avantages » avec icônes',
-    'Une bande de témoignages clients',
-    'Un appel à l\'action final avec bouton',
+    ['entete', 'En-tête avec titre et bouton', 'Une section d’en-tête avec un titre fort et un bouton'],
+    ['colonnes', 'Trois avantages', 'Une section « 3 avantages » avec icônes'],
+    ['bulle', 'Témoignages clients', 'Une bande de témoignages clients'],
+    ['clic', 'Appel à l’action final', 'Un appel à l\'action final avec bouton'],
   ];
 
+  // Les dessins de l'interface en place (plus aucun caractère en guise
+  // d'icône : flèche, crayon, coche et croix rendaient différemment d'un
+  // poste à l'autre).
+  function dessin(chemins, taille, epaisseur) {
+    return '<svg width="' + taille + '" height="' + taille + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (epaisseur || 2) +
+      '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + chemins + '</svg>';
+  }
+  var DESSINS = {
+    entete: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M7 15h6"/>',
+    colonnes: '<rect x="3" y="5" width="4.6" height="14" rx="1"/><rect x="9.7" y="5" width="4.6" height="14" rx="1"/><rect x="16.4" y="5" width="4.6" height="14" rx="1"/>',
+    bulle: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M8.5 10.5h7M8.5 14h4.5"/>',
+    clic: '<path d="M9.5 9.5l4.6 11 1.7-4.9 4.9-1.7z"/><path d="M7.5 2.5v2.5M2.5 7.5H5M3.9 3.9l1.8 1.8"/>',
+    refaire: '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>',
+    plume: '<path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L7.4 18.6 3 20l1.4-4.4z"/>',
+    coche: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    croix: '<path d="M6 6l12 12M18 6L6 18"/>',
+    suite: '<path d="M9 6l6 6-6 6"/>'
+  };
+  var CHEMIN_ASSETS = (window.mauticBasePath || '') + '/plugins/EwebAiBundle/Assets';
+
   var LANGUES = ['anglais', 'espagnol', 'allemand', 'italien', 'néerlandais'];
+
+  /** Le libellé de la tuile de la bibliothèque (builder-composants.js). */
+  var LIBELLE_TUILE = /sendly copilot|assistant ia/i;
 
   // La MÊME étincelle que la tuile « Assistant IA » (identité visuelle
   // unique de l'IA — question proprio 12/08), en currentColor pour suivre
   // la couleur du contexte ; et une icône « langues » du même trait Lucide.
   var ICONE_IA = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px"><path d="M9.1071 5.448C9.7051 3.698 12.1231 3.645 12.8321 5.289L12.8921 5.449L13.6991 7.809C13.884 8.35023 14.1829 8.84551 14.5755 9.26142C14.9682 9.67734 15.4454 10.0042 15.9751 10.22L16.1921 10.301L18.5521 11.107C20.3021 11.705 20.3551 14.123 18.7121 14.832L18.5521 14.892L16.1921 15.699C15.6507 15.8838 15.1552 16.1826 14.7391 16.5753C14.323 16.9679 13.996 17.4452 13.7801 17.975L13.6991 18.191L12.8931 20.552C12.2951 22.302 9.8771 22.355 9.1691 20.712L9.1071 20.552L8.3011 18.192C8.11628 17.6506 7.81748 17.1551 7.42485 16.739C7.03221 16.3229 6.5549 15.9959 6.0251 15.78L5.8091 15.699L3.4491 14.893C1.6981 14.295 1.6451 11.877 3.2891 11.169L3.4491 11.107L5.8091 10.301C6.35034 10.1161 6.84562 9.81719 7.26153 9.42457C7.67744 9.03195 8.00432 8.55469 8.2201 8.025L8.3011 7.809L9.1071 5.448Z"/></svg>';
   var ICONE_LANGUES = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>';
+
+  // Le libellé écrit d'un outil de la mini-barre (deux pictogrammes muets
+  // au bout de la barre native : constat du 26/11 dans l'éditeur).
+  var LIBELLE_TB = '<span style="margin-left:5px;font-size:12px;font-weight:500;white-space:nowrap;vertical-align:1px">%s</span>';
 
   function endpoint() {
     return (window.SendlyAiConfig && window.SendlyAiConfig.endpoint)
@@ -131,33 +162,59 @@
         if (!idoc || idoc.getElementById('sendly-ia-css')) { return; }
         var st = idoc.createElement('style');
         st.id = 'sendly-ia-css';
+        var POLICE = '"Helvena", "Helvetica Neue", -apple-system, "Segoe UI", sans-serif';
+        var VERRE_BLEU = 'linear-gradient(120deg, rgba(255,255,255,.10), rgba(255,255,255,.03) 40%, rgba(255,255,255,.08)), linear-gradient(180deg, #2E6BFF, #004FFF 70%, #0043E0)';
         st.textContent = ''
-          + '.sendly-ia-invite { border: 1.5px solid #004FFF; border-radius: 12px; background: #fff; padding: 14px; margin: 10px 0; box-shadow: 0 10px 28px rgba(22,35,59,.12); font-family: -apple-system, "Segoe UI", sans-serif; }'
-          + '.sendly-ia-invite .ligne { display: flex; gap: 8px; }'
-          + '.sendly-ia-invite input { flex: 1; border: 1px solid #e5e7eb; background: #f7f8fa; border-radius: 9px; padding: 10px 12px; font-size: 14px; color: #24303f; outline: none; }'
+          // La famille du Copilot (refonte du 26/11) : Helvena, bleu, glacé,
+          // perle, rayons 12 et 999. La police se charge DANS l'iframe.
+          + '@font-face { font-family: "Helvena"; font-weight: 400; font-display: swap; src: url("' + CHEMIN_ASSETS + '/fonts/Helvena_Regular.woff2") format("woff2"); }'
+          + '@font-face { font-family: "Helvena"; font-weight: 500; font-display: swap; src: url("' + CHEMIN_ASSETS + '/fonts/Helvena_Medium.woff2") format("woff2"); }'
+          + '.sendly-ia-invite, .sendly-ia-squelette, .sendly-ia-barre, .sendly-ia-menu { font-family: ' + POLICE + '; font-size: 14px; font-weight: 400; line-height: normal; letter-spacing: -.005em; text-align: left; text-transform: none; -webkit-font-smoothing: antialiased; }'
+          + '.sendly-ia-invite *, .sendly-ia-barre *, .sendly-ia-menu * { box-sizing: border-box; }'
+          + '.sendly-ia-invite button, .sendly-ia-barre button, .sendly-ia-menu button { font-family: inherit; letter-spacing: inherit; text-transform: none; cursor: pointer; margin: 0; }'
+          + '.sendly-ia-invite svg, .sendly-ia-barre svg, .sendly-ia-squelette svg { flex: none; display: block; }'
+          + '.sendly-ia-invite { position: relative; border: 0; border-radius: 12px; background: #fff; padding: 14px; margin: 10px 2px; box-shadow: 0 0 0 1.5px #004FFF, 0 14px 34px rgba(0,79,255,.16); }'
+          + '.sendly-ia-invite .ligne { display: flex; align-items: center; gap: 8px; }'
+          + '.sendly-ia-invite input { flex: 1; min-width: 0; height: 48px; margin: 0; border: 1px solid transparent; background: #F5F7F9; border-radius: 999px; padding: 0 18px; font: 400 15px ' + POLICE + '; color: #000617; outline: none; box-shadow: none; }'
+          + '.sendly-ia-invite input::placeholder { color: #5B6478; opacity: 1; }'
           + '.sendly-ia-invite input:focus { border-color: #004FFF; background: #fff; }'
-          + '.sendly-ia-invite button.envoyer { border: none; background: #004FFF; color: #fff; border-radius: 9px; padding: 10px 16px; font-weight: 600; font-size: 13.5px; cursor: pointer; }'
-          + '.sendly-ia-invite .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }'
-          + '.sendly-ia-invite .chip { border: 1px solid #cfe0ff; color: #004FFF; background: #f2f6ff; border-radius: 99px; padding: 4px 10px; font-size: 12px; cursor: pointer; }'
-          + '.sendly-ia-invite .chip:hover { background: #e3edff; }'
-          + '.sendly-ia-invite .erreur { color: #c02942; font-size: 12.5px; margin-top: 8px; }'
-          + '.sendly-ia-invite .fermer { float: right; border: none; background: none; color: #7b8698; font-size: 16px; cursor: pointer; margin: -4px -4px 0 8px; }'
+          + '.sendly-ia-invite button.envoyer { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 48px; border: 0; border-radius: 999px; padding: 0 18px; color: #fff; font-weight: 500; font-size: 13.5px; background: ' + VERRE_BLEU + '; box-shadow: 0 4px 12px rgba(0,79,255,.22), inset 0 1px 0 rgba(255,255,255,.3); }'
+          + '.sendly-ia-invite .fermer { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: #F5F7F9; color: #001248; }'
+          + '.sendly-ia-invite .fermer:hover { background: #EAF0FA; }'
+          // Les idées en carrousel : une seule rangée qui défile, un fondu à
+          // droite et une flèche pour avancer.
+          + '.sendly-ia-invite .chips { display: flex; flex-wrap: nowrap; gap: 8px; margin-top: 12px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; padding-right: 60px; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 84px), transparent calc(100% - 40px)); mask-image: linear-gradient(90deg, #000 calc(100% - 84px), transparent calc(100% - 40px)); }'
+          + '.sendly-ia-invite .chips::-webkit-scrollbar { display: none; }'
+          + '.sendly-ia-invite .chip { flex: none; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; scroll-snap-align: start; border: 0; border-radius: 999px; background: #F5F7F9; color: #001248; font-size: 13.5px; font-weight: 500; padding: 7px 14px 7px 8px; }'
+          + '.sendly-ia-invite .chip:hover { background: #EAF0FA; }'
+          + '.sendly-ia-invite .chip .ico { flex: none; width: 24px; height: 24px; border-radius: 8px; background: #DFEAFF; color: #004FFF; display: inline-flex; align-items: center; justify-content: center; }'
+          + '.sendly-ia-invite .suite { position: absolute; right: 14px; bottom: 14px; width: 36px; height: 36px; padding: 0; border-radius: 50%; border: 1px solid #D5DCED; background: #fff; color: #001248; display: inline-flex; align-items: center; justify-content: center; }'
+          + '.sendly-ia-invite .suite:hover { border-color: #004FFF; color: #004FFF; }'
+          + '.sendly-ia-invite.sans-suite .suite { display: none; }'
+          + '.sendly-ia-invite.sans-suite .chips { padding-right: 0; -webkit-mask-image: none; mask-image: none; }'
+          + '.sendly-ia-invite .erreur { color: #B42318; font-size: 13px; margin-top: 10px; }'
+          + '.sendly-ia-invite :focus-visible, .sendly-ia-barre :focus-visible, .sendly-ia-menu :focus-visible { outline: 3px solid rgba(0,79,255,.45); outline-offset: 2px; }'
           /* Squelette DISCRET et adaptatif (capture proprio 13/08 : la carte
            * blanche à pointillés flashait comme un bloc vide sur les sections
            * à fond sombre). Teintes translucides : lisibles sur clair ET
            * foncé, et un libellé dit ce qui se passe. */
-          + '.sendly-ia-squelette { border-radius: 12px; background: rgba(127,140,160,.10); padding: 16px 18px; margin: 10px 0; font-family: -apple-system, "Segoe UI", sans-serif; }'
-          + '.sendly-ia-squelette .etat { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: rgba(127,140,160,.95); margin-bottom: 12px; }'
-          + '.sendly-ia-squelette .os { height: 10px; border-radius: 5px; margin-bottom: 10px; background: linear-gradient(90deg, rgba(127,140,160,.18) 30%, rgba(127,140,160,.38) 50%, rgba(127,140,160,.18) 70%); background-size: 200% 100%; animation: sendly-shimmer 1.2s infinite linear; }'
+          + '.sendly-ia-squelette { border-radius: 12px; background: rgba(127,140,160,.10); padding: 18px 20px; margin: 10px 0; }'
+          + '.sendly-ia-squelette .etat { display: flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 500; color: rgba(127,140,160,.95); margin-bottom: 14px; }'
+          + '.sendly-ia-squelette .etat svg { animation: sendly-respire 1.4s ease-in-out infinite; }'
+          + '.sendly-ia-squelette .os { height: 10px; border-radius: 5px; margin-bottom: 11px; background: linear-gradient(90deg, rgba(127,140,160,.18) 30%, rgba(127,140,160,.38) 50%, rgba(127,140,160,.18) 70%); background-size: 200% 100%; animation: sendly-shimmer 1.2s linear infinite; }'
           + '@keyframes sendly-shimmer { to { background-position: -200% 0; } }'
-          + '.sendly-ia-barre { display: flex; gap: 6px; align-items: center; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; padding: 7px 9px; margin: 8px 0; box-shadow: 0 6px 18px rgba(22,35,59,.10); font-family: -apple-system, "Segoe UI", sans-serif; }'
-          + '.sendly-ia-barre button { border: 1px solid #e5e7eb; background: #fff; color: #24303f; border-radius: 8px; padding: 5px 10px; font-size: 12.5px; cursor: pointer; }'
-          + '.sendly-ia-barre button:hover { border-color: #004FFF; color: #004FFF; }'
-          + '.sendly-ia-barre button.garder { background: #effaf4; border-color: #bfe3d1; color: #0d9455; font-weight: 600; }'
-          + '.sendly-ia-menu { position: absolute; z-index: 60; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; box-shadow: 0 12px 30px rgba(22,35,59,.16); padding: 6px; font-family: -apple-system, "Segoe UI", sans-serif; min-width: 190px; }'
-          + '.sendly-ia-menu button { display: block; width: 100%; text-align: left; border: none; background: none; padding: 8px 10px; font-size: 13px; color: #24303f; border-radius: 7px; cursor: pointer; }'
-          + '.sendly-ia-menu button:hover { background: #f2f6ff; color: #004FFF; }'
-          + '.sendly-ia-menu .titre { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #7b8698; padding: 6px 10px 2px; }';
+          + '@keyframes sendly-respire { 0%, 100% { transform: scale(.88); opacity: .6; } 50% { transform: scale(1.08); opacity: 1; } }'
+          // La barre : une pastille blanche, « Garder » en bleu (c'est le
+          // geste attendu), le reste sans cadre.
+          + '.sendly-ia-barre { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; border: 0; border-radius: 999px; background: #fff; padding: 6px; margin: 8px 2px; box-shadow: 0 12px 30px rgba(0,6,23,.18), 0 0 0 1px rgba(0,18,72,.07); }'
+          + '.sendly-ia-barre button { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; border: 0; background: none; color: #001248; border-radius: 999px; padding: 0 14px; font-size: 13.5px; font-weight: 500; white-space: nowrap; }'
+          + '.sendly-ia-barre button:hover { background: #F5F7F9; }'
+          + '.sendly-ia-barre button.garder { color: #fff; background-color: #004FFF; background-image: linear-gradient(120deg, rgba(255,255,255,.14), rgba(255,255,255,0) 45%), linear-gradient(180deg, #2E6BFF, #004FFF 60%, #0043E0); box-shadow: 0 4px 14px rgba(0,79,255,.20), inset 0 1px 0 rgba(255,255,255,.35); }'
+          + '.sendly-ia-menu { position: absolute; z-index: 60; border: 0; border-radius: 12px; background: #fff; box-shadow: 0 16px 40px rgba(0,6,23,.2), 0 0 0 1px rgba(0,18,72,.07); padding: 6px; min-width: 190px; }'
+          + '.sendly-ia-menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 9px 12px; font-size: 13.5px; color: #000617; border-radius: 8px; }'
+          + '.sendly-ia-menu button:hover { background: #F5F7F9; color: #004FFF; }'
+          + '.sendly-ia-menu .titre { font-size: 12.5px; color: #5B6478; padding: 8px 12px 4px; }'
+          + '@media (prefers-reduced-motion: reduce) { .sendly-ia-squelette *, .sendly-ia-invite *, .sendly-ia-barre * { animation-duration: .01s !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; } }';
         idoc.head.appendChild(st);
       }
 
@@ -184,18 +241,27 @@
         el.innerHTML = '';
         var boite = blinder(idoc.createElement('div'));
         boite.className = 'sendly-ia-invite';
-        boite.innerHTML = '<button class="fermer" title="Fermer">✕</button>'
-          + '<div class="ligne"><input type="text" placeholder="Décrivez la section à générer…"><button class="envoyer">' + ICONE_IA + ' Générer</button></div>'
-          + '<div class="chips"></div>';
+        boite.innerHTML = '<div class="ligne"><input type="text" aria-label="Section à générer" placeholder="Décrivez la section à générer…">'
+          + '<button type="button" class="envoyer">' + ICONE_IA + '<span>Générer</span></button>'
+          + '<button type="button" class="fermer" aria-label="Fermer" title="Fermer">' + dessin(DESSINS.croix, 14, 2.4) + '</button></div>'
+          + '<div class="chips"></div>'
+          + '<button type="button" class="suite" aria-label="Voir d’autres idées">' + dessin(DESSINS.suite, 16, 2.2) + '</button>';
         var champ = boite.querySelector('input');
         champ.value = valeur;
         var chips = boite.querySelector('.chips');
         RACCOURCIS.forEach(function (r) {
           var c = idoc.createElement('button');
+          c.type = 'button';
           c.className = 'chip';
-          c.textContent = r;
-          c.addEventListener('click', function () { champ.value = r; lancer(); });
+          c.innerHTML = '<span class="ico">' + dessin(DESSINS[r[0]], 14) + '</span><span></span>';
+          c.lastChild.textContent = r[1];
+          c.addEventListener('click', function () { champ.value = r[2]; lancer(); });
           chips.appendChild(c);
+        });
+        // La flèche avance d'une vue ; au bout, elle revient au début.
+        boite.querySelector('.suite').addEventListener('click', function () {
+          var fin = chips.scrollLeft + chips.clientWidth >= chips.scrollWidth - 4;
+          chips.scrollTo({ left: fin ? 0 : chips.scrollLeft + Math.round(chips.clientWidth * 0.7), behavior: 'smooth' });
         });
         function lancer() {
           var consigne = champ.value.trim();
@@ -206,6 +272,9 @@
         champ.addEventListener('keydown', function (e) { if ('Enter' === e.key) { lancer(); } });
         boite.querySelector('.fermer').addEventListener('click', function () { comp.remove(); });
         el.appendChild(boite);
+        // Toutes les idées tiennent sur la rangée (canevas large) : ni flèche
+        // ni fondu, il n'y a rien d'autre à voir.
+        if (chips.scrollWidth <= chips.clientWidth + 2) { boite.classList.add('sans-suite'); }
         setTimeout(function () { champ.focus(); }, 60);
       }
 
@@ -218,7 +287,8 @@
           el.innerHTML = '';
           var sq = blinder(idoc.createElement('div'));
           sq.className = 'sendly-ia-squelette';
-          sq.innerHTML = '<div class="etat">' + ICONE_IA + ' Génération en cours…</div>'
+          sq.setAttribute('role', 'status');
+          sq.innerHTML = '<div class="etat">' + ICONE_IA + '<span>Génération en cours…</span></div>'
             + '<div class="os" style="width:70%"></div><div class="os" style="width:50%"></div><div class="os" style="width:35%; margin-bottom:0"></div>';
           el.appendChild(sq);
         }
@@ -252,10 +322,10 @@
         el.innerHTML = '';
         var barre = blinder(idoc.createElement('div'));
         barre.className = 'sendly-ia-barre';
-        barre.innerHTML = '<button class="regenerer">↻ Régénérer</button>'
-          + '<button class="ajuster">✎ Ajuster</button>'
-          + '<button class="garder">✓ Garder</button>'
-          + '<button class="annuler" title="Supprimer la section">✕</button>';
+        barre.innerHTML = '<button type="button" class="regenerer">' + dessin(DESSINS.refaire, 14) + '<span>Régénérer</span></button>'
+          + '<button type="button" class="ajuster">' + dessin(DESSINS.plume, 14) + '<span>Ajuster</span></button>'
+          + '<button type="button" class="annuler" title="Supprimer la section">Annuler</button>'
+          + '<button type="button" class="garder">' + dessin(DESSINS.coche, 14, 2.6) + '<span>Garder</span></button>';
         function retirerSections() { (sections || []).forEach(function (c) { if (c && c.remove) { c.remove(); } }); }
         barre.querySelector('.garder').addEventListener('click', function () { compBarre.remove(); });
         barre.querySelector('.annuler').addEventListener('click', function () { retirerSections(); compBarre.remove(); });
@@ -319,7 +389,8 @@
         var idoc = frameDoc();
         var barre = blinder(idoc.createElement('div'));
         barre.className = 'sendly-ia-barre';
-        barre.innerHTML = '<button class="garder">✓ Garder</button><button class="annuler">↩ Annuler</button>';
+        barre.innerHTML = '<button type="button" class="annuler">Annuler</button>'
+          + '<button type="button" class="garder">' + dessin(DESSINS.coche, 14, 2.6) + '<span>Garder</span></button>';
         barre.querySelector('.garder').addEventListener('click', function () { compBarre.remove(); });
         barre.querySelector('.annuler').addEventListener('click', function () { surAnnule(); compBarre.remove(); });
         el.innerHTML = '';
@@ -363,8 +434,8 @@
         var barre = comp.get('toolbar') || [];
         if (barre.some(function (b) { return 'sendly-ia-ameliorer' === b.command; })) { return; }
         comp.set('toolbar', barre.concat([
-          { attributes: { class: 'sendly-tb-ia', title: 'Améliorer avec l\'IA' }, command: 'sendly-ia-ameliorer', label: ICONE_IA },
-          { attributes: { class: 'sendly-tb-ia', title: 'Traduire' }, command: 'sendly-ia-traduire', label: ICONE_LANGUES },
+          { attributes: { class: 'sendly-tb-ia', title: 'Améliorer avec Sendly Copilot' }, command: 'sendly-ia-ameliorer', label: ICONE_IA + LIBELLE_TB.replace('%s', 'Améliorer') },
+          { attributes: { class: 'sendly-tb-ia', title: 'Traduire' }, command: 'sendly-ia-traduire', label: ICONE_LANGUES + LIBELLE_TB.replace('%s', 'Traduire') },
         ]));
       }
 
@@ -442,8 +513,12 @@
           // au-dessus des sections générées (recette du lot 2).
           try { editor.DomComponents.clear(); } catch (e) { /* toile déjà vide */ }
           var suite = Promise.resolve();
-          briefPage.sections.slice(0, 6).forEach(function (consigneSection) {
+          // La pastille du Copilot compte les sections, sans rien couvrir.
+          var aFaire = briefPage.sections.slice(0, 6);
+          var SA = window.SendlyAssistant;
+          aFaire.forEach(function (consigneSection, rang) {
             suite = suite.then(function () {
+              if (SA && typeof SA.etape === 'function') { SA.etape('Création de la page', rang + 1, aFaire.length); }
               var w = editor.getWrapper();
               var ajout = w.append(marqueur('invite'), { at: w.components().length });
               var inv = ajout && ajout[0];
@@ -454,14 +529,26 @@
           });
           // Compteur de temps gagné : à la FIN de la composition.
           suite = suite.then(function () {
-            if (window.SendlyAssistant) { window.SendlyAssistant.credit('create_landing_page', 1); }
+            if (window.SendlyAssistant) {
+              window.SendlyAssistant.credit('create_landing_page', 1);
+              if (typeof window.SendlyAssistant.termine === 'function') {
+                window.SendlyAssistant.termine('Page prête, en brouillon', {
+                  type: 'create_landing_page',
+                  etapes: aFaire.map(function (x) { return String(x).slice(0, 60); })
+                });
+              }
+            }
           });
         }
 
         // La TUILE au CLIC : invite après la sélection, sinon en fin de page.
+        // La tuile s'appelle « Sendly Copilot » depuis le 11/11 ; ce câblage
+        // cherchait encore « Assistant IA » et le clic ne faisait plus rien
+        // (constat en direct du 26/11 : seul le glisser-déposer ouvrait
+        // l'invite). L'ancien libellé reste reconnu.
         var tuile = Array.prototype.find.call(
           document.querySelectorAll('.builder-panel .gjs-block'),
-          function (el) { return /assistant ia/i.test(el.textContent || ''); }
+          function (el) { return LIBELLE_TUILE.test(el.textContent || ''); }
         );
         if (tuile) {
           tuile.addEventListener('click', function () {
