@@ -1383,6 +1383,18 @@ class AiCopilotService
      * inconnu = 0 (jamais d'exception, le crédit est du bonus, pas du
      * chemin critique). Seul fill_field se multiplie (borné).
      */
+    /**
+     * Le barème, tel quel, pour l'interface : elle affiche la durée estimée
+     * d'un raccourci et le temps gagné d'un reçu (« ≈ 10 min »). Le serveur
+     * reste seul à CRÉDITER : l'interface ne fait que mettre en mots.
+     *
+     * @return array<string, int>
+     */
+    public function creditBareme(): array
+    {
+        return self::CREDIT_BAREME;
+    }
+
     public function creditSeconds(string $type, int $quantite = 1): int
     {
         $unitaire = self::CREDIT_BAREME[$type] ?? 0;

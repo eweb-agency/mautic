@@ -185,32 +185,85 @@
    */
   var dernierNomIA = null;
   var derniereDescIA = null;
-  function remplirDetails(res) {
-    var faits = [];
+  /** detailsParTour[turnId] = {nom: {avant, pose}, desc: {avant, pose}} : ce
+   *  qu'un tour a écrit dans Nom et Description, et ce qui s'y trouvait. Sans
+   *  cette trace, « Annuler » retirait les critères mais laissait le nom et la
+   *  description posés par le Copilot (constat du 12/11 sur l'espace). */
+  var detailsParTour = {};
+
+  /** L'éditeur riche monté sur la description, ou null. */
+  function editeurDescription($desc) {
+    try {
+      /* global ckEditors */
+      var ed = (typeof ckEditors !== 'undefined' && ckEditors && $desc[0]) ? ckEditors.get($desc[0]) : null;
+      if (!ed && window.CKEDITOR && window.CKEDITOR.instances && window.CKEDITOR.instances.leadlist_description) {
+        ed = window.CKEDITOR.instances.leadlist_description;
+      }
+      return ed || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function ecrireDescription($desc, texte) {
+    $desc.val(texte).trigger('change');
+    var ed = editeurDescription($desc);
+    if (ed) {
+      try {
+        ed.setData(texte ? '<p>' + esc(texte) + '</p>' : '');
+        if (typeof ed.updateSourceElement === 'function') { ed.updateSourceElement(); }
+      } catch (e) { /* le textarea porte déjà la valeur soumise */ }
+    }
+  }
+
+  /** Défait ce qu'un tour a écrit dans Nom et Description, sans toucher à
+   *  une valeur que l'utilisateur a reprise à la main entre-temps. */
+  function annulerDetails(turnId) {
+    var d = detailsParTour[turnId];
+    delete detailsParTour[turnId];
+    if (!d) { return; }
+    if (d.nom) {
+      var $nom = mQuery('#leadlist_name');
+      if ($nom.length && $nom.val() === d.nom.pose) {
+        $nom.val(d.nom.avant).trigger('change').trigger('keyup');
+        dernierNomIA = d.nom.avant || null;
+      }
+    }
+    if (d.desc) {
+      var $desc = mQuery('#leadlist_description');
+      if ($desc.length && String($desc.val() || '') === d.desc.pose) {
+        ecrireDescription($desc, d.desc.avant);
+        derniereDescIA = d.desc.avant || null;
+      }
+    }
+  }
+
+  function remplirDetails(res, turnId) {
+    var faits = { nom: '', description: '' };
+    var trace = {};
     if (res && res.name) {
       var $nom = mQuery('#leadlist_name');
       if ($nom.length && (!$nom.val() || $nom.val() === dernierNomIA)) {
+        trace.nom = { avant: String($nom.val() || ''), pose: res.name };
         $nom.val(res.name).trigger('change').trigger('keyup');
         dernierNomIA = res.name;
-        faits.push(res.name);
+        faits.nom = res.name;
       }
     }
     if (res && res.description) {
       var $desc = mQuery('#leadlist_description');
       var actuel = $desc.length ? String($desc.val() || '') : '';
       if ($desc.length && (!actuel || actuel === derniereDescIA)) {
+        trace.desc = { avant: actuel, pose: res.description };
         $desc.val(res.description).trigger('change');
         derniereDescIA = res.description;
+        faits.description = res.description;
         // L'éditeur riche (s'il est monté) a sa propre copie du texte.
         // Le moteur range ses éditeurs dans `ckEditors` (textarea → éditeur) ;
         // l'ancienne voie (CKEDITOR 4, instance sur le textarea) ne trouvait
         // rien avec l'éditeur actuel : le texte n'apparaissait pas à l'écran.
         try {
-          /* global ckEditors */
-          var ed = (typeof ckEditors !== 'undefined' && ckEditors && $desc[0]) ? ckEditors.get($desc[0]) : null;
-          if (!ed && window.CKEDITOR && window.CKEDITOR.instances && window.CKEDITOR.instances.leadlist_description) {
-            ed = window.CKEDITOR.instances.leadlist_description;
-          }
+          var ed = editeurDescription($desc);
           if (ed) {
             ed.setData('<p>' + esc(res.description) + '</p>');
             if (typeof ed.updateSourceElement === 'function') { ed.updateSourceElement(); }
@@ -218,6 +271,7 @@
         } catch (e) { /* le textarea porte déjà la valeur soumise */ }
       }
     }
+    if (trace.nom || trace.desc) { detailsParTour[turnId] = trace; }
     return faits;
   }
 
@@ -408,35 +462,50 @@
     next();
   }
 
-  /** Ligne « Critères retirés » d'un tour (lot 2). */
-  function resumeRetraits(retires) {
-    if (!retires || !retires.length) { return ''; }
-    return '<div class="sendly-assist-fait">' + esc('Critères retirés : ' + retires.map(function (f) {
-      return fieldLabel(f) + (f.value !== '' && f.value != null ? ' ' + (Array.isArray(f.value) ? f.value.join(', ') : f.value) : '');
-    }).join(' · ')) + '</div>';
+  /** Un critère en clair, en libellés natifs : « Ville est vide ». */
+  function critereLisible(f) {
+    var val = valueLabel(f);
+    return fieldLabel(f) + ' ' + operatorLabel(f) + (val ? ' ' + val : '') +
+      (f.needsInput ? ' (' + t('mautic.lead_list.ai.needs_input', 'valeur à choisir après application') + ')' : '');
   }
 
   /** Les tours qui ont RETIRÉ des lignes : turnId → specs à remettre. */
   var retraitsParTour = {};
 
-  /** Le résumé d'un tour : ce qui a été RÉELLEMENT appliqué, en libellés natifs. */
-  function turnSummary(result, dropped) {
+  /** Le reçu d'un tour : ce qui a été RÉELLEMENT fait, en libellés natifs.
+   *  Une ligne par critère ajouté ou retiré, puis le nom et la description
+   *  s'ils ont été remplis ; les réserves (doublon, critère impossible)
+   *  suivent en clair, hors du reçu. */
+  function turnSummary(result, dropped, retires, nommes, o) {
+    var opts = o || {};
+    var lignes = [];
+    result.applied.forEach(function (f) {
+      lignes.push([t('mautic.lead_list.ai.row.criterion', 'Critère'), critereLisible(f)]);
+    });
+    (retires || []).forEach(function (f) {
+      lignes.push([t('mautic.lead_list.ai.row.removed', 'Retiré'),
+        fieldLabel(f) + (f.value !== '' && f.value != null ? ' ' + (Array.isArray(f.value) ? f.value.join(', ') : f.value) : '')]);
+    });
+    if (nommes && nommes.nom) { lignes.push([t('mautic.lead_list.ai.row.name', 'Nom'), nommes.nom]); }
+    if (nommes && nommes.description) { lignes.push([t('mautic.lead_list.ai.row.description', 'Description'), nommes.description]); }
+
     var html = '';
-    if (result.applied.length) {
-      html += esc(t('mautic.lead_list.ai.added', 'Critères ajoutés au segment :')) + '<ul>';
-      result.applied.forEach(function (f) {
-        var val = valueLabel(f);
-        html += '<li><b>' + esc(fieldLabel(f)) + '</b> ' + esc(operatorLabel(f)) +
-          (val ? ' <b>' + esc(val) + '</b>' : '');
-        if (f.needsInput) {
-          html += ' <span class="sendly-assist-note">' +
-            esc(t('mautic.lead_list.ai.needs_input', 'valeur à choisir après application')) + '</span>';
-        }
-        html += '</li>';
+    if (lignes.length && window.SendlyAssistant && window.SendlyAssistant.recu) {
+      var titre = (nommes && nommes.nom) ? t('mautic.lead_list.ai.receipt.ready', 'Segment préparé')
+        : (result.applied.length > 1 ? result.applied.length + ' ' + t('mautic.lead_list.ai.receipt.added_many', 'critères ajoutés')
+          : (result.applied.length ? t('mautic.lead_list.ai.receipt.added_one', 'Critère ajouté')
+            : t('mautic.lead_list.ai.receipt.removed', 'Critères retirés')));
+      // « Voir le critère » : un clic ouvre l'onglet des filtres, quand le
+      // critère vient d'être posé dans un onglet qui n'est pas affiché.
+      var onglet = document.querySelector ? document.querySelector('a[href="#filters"]') : null;
+      var voletCache = result.applied.length && onglet && !mQuery('#filters').hasClass('active');
+      html += window.SendlyAssistant.recu({
+        titre: titre, lignes: lignes, secondes: opts.secondes || 0, annulable: !!opts.annulable,
+        pied: voletCache ? '<button type="button" class="sendly-assist-lien sendly-assist-voir" data-cible="#filters">' +
+          esc(t('mautic.lead_list.ai.see_criterion', 'Voir le critère')) + '</button>' : ''
       });
-      html += '</ul>';
-    } else {
-      html += esc(t('mautic.lead_list.ai.added_none', 'Aucun nouveau critère à ajouter.'));
+    } else if (!result.applied.length) {
+      html += '<div class="sendly-assist-mut">' + esc(t('mautic.lead_list.ai.added_none', 'Aucun nouveau critère à ajouter.')) + '</div>';
     }
     if (result.dups.length) {
       html += '<div class="sendly-assist-mut">' + esc(t('mautic.lead_list.ai.already_present', 'déjà présent, non ajouté en double')) +
@@ -451,6 +520,19 @@
       html += esc(dropped.map(function (d) { return (d.label || t('mautic.lead_list.ai.unknown_criterion', 'un critère')) + ' : ' + d.message; }).join(' · ')) + '</div>';
     }
     return html;
+  }
+
+  /** Dans la page : les lignes posées et les champs remplis s'allument. */
+  function allumerTour(turnId, nommes) {
+    var SA = window.SendlyAssistant;
+    if (!SA || typeof SA.allumer !== 'function') { return; }
+    var premier = true;
+    mQuery('#leadlist_filters .filter--row[data-sendly-turn="' + turnId + '"]').each(function () {
+      SA.allumer(this, turnId, premier ? t('mautic.lead_list.ai.mark.added', 'Ajouté par Copilot') : '');
+      premier = false;
+    });
+    if (nommes && nommes.nom) { SA.allumer(document.getElementById('leadlist_name'), turnId, t('mautic.lead_list.ai.mark.filled', 'Rempli par Copilot')); }
+    if (nommes && nommes.description) { SA.allumer(document.getElementById('leadlist_description'), turnId, ''); }
   }
 
   // ── Le contexte « segment » du panneau partagé ─────────────────────────
@@ -476,6 +558,11 @@
     title: function () {
       return t('mautic.lead_list.ai.panel_title', 'Sendly Copilot · Segment');
     },
+    /** Le titre de l'accueil, sur deux lignes. */
+    hero: function () {
+      return t('mautic.lead_list.ai.hero1', 'Décrivez vos contacts.') + '\n' +
+        t('mautic.lead_list.ai.hero2', 'Copilot construit le segment.');
+    },
     welcome: function () {
       return t('mautic.lead_list.ai.welcome',
         'Bonjour, quel segment souhaitez-vous créer aujourd\u2019hui ? Décrivez-moi précisément les contacts que vous souhaitez cibler, je m\u2019occupe du reste !');
@@ -487,10 +574,12 @@
       return t('mautic.lead_list.ai.generating', 'Analyse…');
     },
     shortcuts: function () {
+      // [libellé d'une ligne (36 caractères au plus), demande envoyée, type].
       return [
-        t('mautic.lead_list.ai.example1', 'Les contacts ajoutés le mois dernier'),
-        t('mautic.lead_list.ai.example2', 'Ceux qui ont ouvert un e-mail mais jamais cliqué'),
-        t('mautic.lead_list.ai.example3', 'Les contacts sans ville renseignée')
+        [t('mautic.lead_list.ai.example3', 'Les contacts sans ville renseignée'), '', 'create_segment'],
+        [t('mautic.lead_list.ai.example2.short', 'Ceux qui ouvrent sans jamais cliquer'),
+          t('mautic.lead_list.ai.example2', 'Ceux qui ont ouvert un e-mail mais jamais cliqué'), 'create_segment'],
+        [t('mautic.lead_list.ai.example1', 'Les contacts ajoutés le mois dernier'), '', 'create_segment']
       ];
     },
     onSend: function (q, api) {
@@ -505,6 +594,8 @@
         dataType: 'json',
         data: { description: q, history: history, current: etatFiltres() },
         success: function (res) {
+          // « Arrêter » pendant l'attente : rien de la réponse n'est joué.
+          if (typeof api.arrete === 'function' && api.arrete()) { return; }
           var filters = (res && res.filters) || [];
           var dropped = (res && res.dropped) || [];
           var aRetirer = (res && res.remove) || [];
@@ -522,18 +613,22 @@
           setTimeout(function () { applyTurn(filters, turnId, function (result) {
             // Compteur de temps gagné : UNE fois par écran (les tours
             // suivants raffinent le même segment, ils ne recréditent pas).
+            var credite = false;
             if (result.applied.length && !window.__sendlySegmentCredite && window.SendlyAssistant) {
               window.__sendlySegmentCredite = true;
+              credite = true;
               window.SendlyAssistant.credit('create_segment', 1);
             }
-            var resume = (filters.length || !retires.length ? turnSummary(result, dropped) : '') + resumeRetraits(retires);
-            var nommes = remplirDetails(res);
-            if (nommes.length) {
-              resume += '<div class="sendly-assist-fait">' +
-                esc(t('mautic.lead_list.ai.named', 'Nom du segment rempli :')) + ' <b>' + esc(nommes[0]) + '</b></div>';
-            }
-            api.ia(resume,
-              (result.applied.length || retires.length) ? { turnId: turnId, undoable: true } : null);
+            var nommes = remplirDetails(res, turnId);
+            // Annulable dès qu'il y a quelque chose à défaire : un critère
+            // posé ou retiré, un nom ou une description remplis.
+            var annulable = !!(result.applied.length || retires.length || nommes.nom || nommes.description);
+            var resume = turnSummary(result, dropped, retires, nommes, {
+              annulable: annulable,
+              secondes: credite && window.SendlyAssistant.secondes ? window.SendlyAssistant.secondes('create_segment', 1) : 0
+            });
+            allumerTour(turnId, nommes);
+            api.ia(resume, annulable ? { turnId: turnId, undoable: true } : null);
             api.finish();
           }); }, retires.length ? 350 : 0);
         },
@@ -550,6 +645,9 @@
       mQuery('#leadlist_filters .filter--row[data-sendly-turn="' + turnId + '"] a.remove-selected').each(function () {
         mQuery(this).trigger('click');
       });
+      // Le nom et la description posés par ce tour reviennent à leur état
+      // d'avant (avant le 26/11, ils restaient remplis après « Annuler »).
+      annulerDetails(turnId);
       var aRemettre = retraitsParTour[turnId] || [];
       delete retraitsParTour[turnId];
       if (!aRemettre.length) {

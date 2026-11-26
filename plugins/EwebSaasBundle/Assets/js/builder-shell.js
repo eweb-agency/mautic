@@ -14,7 +14,9 @@
  *
  * 2. LE BOUTON IA FLOTTANT SE MASQUE dans l'éditeur (décision proprio
  *    10/08) : la tuile « Assistant IA » de la bibliothèque devient l'unique
- *    entrée IA de l'éditeur. Éditeur fermé → le bouton revient.
+ *    entrée IA de l'éditeur. Éditeur fermé → le bouton revient. Seule
+ *    exception (accord du 26/11) : la pastille d'ÉTAT du Copilot, qui compte
+ *    les étapes d'une création en cours et n'ouvre rien.
  *
  * Le point d'accroche est PUBLIC et stable : builder.js déclenche
  * `builder:show` sur `.builder` (jQuery, bulle jusqu'au document) et
@@ -34,10 +36,14 @@
       .addClass('gjs-mode-' + mode);
   }
 
+  // Depuis la refonte du Copilot (26/11/2026) : dans l'éditeur, seul le
+  // bouton AU REPOS se masque. Quand le Copilot y travaille (création d'un
+  // e-mail ou d'une page demandée ailleurs), `#sendly-assist-fab` devient une
+  // pastille qui compte les étapes, et elle doit se voir. La classe posée sur
+  // <body> laisse la coquille (ai-assistant.js) en décider par son style.
   function toggleFab(hidden) {
-    var fab = document.getElementById('sendly-assist-fab');
-    if (fab) {
-      fab.style.display = hidden ? 'none' : '';
+    if (document.body) {
+      document.body.classList.toggle('sendly-builder-ouvert', !!hidden);
     }
   }
 

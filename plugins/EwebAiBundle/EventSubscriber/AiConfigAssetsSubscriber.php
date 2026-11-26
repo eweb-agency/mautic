@@ -94,6 +94,9 @@ class AiConfigAssetsSubscriber implements EventSubscriberInterface
             'assistEndpoint'   => $this->router->generate('eweb_ai_assist', [], UrlGeneratorInterface::ABSOLUTE_PATH),
             'abtestEndpoint'   => $this->router->generate('eweb_ai_email_abtest', [], UrlGeneratorInterface::ABSOLUTE_PATH),
             'scheduleEndpoint' => $this->router->generate('eweb_ai_email_schedule', [], UrlGeneratorInterface::ABSOLUTE_PATH),
+            // Le barème du temps gagné (secondes par geste) : la coquille en
+            // tire la durée estimée d'un raccourci et celle d'un reçu.
+            'bareme'           => $this->copilot->creditBareme(),
         ];
 
         $assetsEvent->addScriptDeclaration(

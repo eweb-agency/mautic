@@ -172,6 +172,7 @@ if (sc.annuler) {
 const repondues = new Set();
 (sc.etapes || []).forEach(function (e) {
   if (e.confirmer) { SA.repondreConfirmation(e.confirmer, !!e.ok); return; }
+  if (e.annulerEnvoi) { SA.demanderAnnulationEnvoi(e.annulerEnvoi, e.tour); return; }
   const r = requetes.filter(function (q) { return q.url === e.url && !repondues.has(q); })[0];
   if (!r) { throw new Error('aucune requête en attente vers ' + e.url); }
   repondues.add(r);
@@ -461,7 +462,14 @@ JS;
         self::assertCount(1, $r['requetes']);
         self::assertSame(['cancel' => false, 'email_id' => 7, 'send_at' => '2026-11-13T09:00'], $r['requetes'][0]['data']);
         $texte = self::texte($r['tourFinal']);
-        self::assertStringContainsString('Programmer l’envoi de « Newsletter » (objet : « Nos nouveautés ») le 13/11/2026 à 09:00 aux segments Clients : 42 destinataires à ce jour.', $texte);
+        // La carte de confirmation (refonte du 26/11) : la question, le nombre
+        // de destinataires en grand, puis une information par ligne.
+        $html = (string) $r['tourFinal']['html'];
+        self::assertStringContainsString('<h3>Programmer cet envoi ?</h3>', $html);
+        self::assertStringContainsString('<b>42</b> <span>destinataires à ce jour</span>', $html);
+        foreach (['E-mail' => 'Newsletter', 'Objet' => 'Nos nouveautés', 'Départ' => 'le 13/11/2026 à 09:00', 'Segment' => 'Clients'] as $quoi => $valeur) {
+            self::assertStringContainsString('<dt>'.$quoi.'</dt><dd>'.$valeur.'</dd>', $html);
+        }
         self::assertStringContainsString('Confirmer l’envoi', $texte);
         self::assertStringContainsString('Ne rien faire', $texte);
         self::assertStringNotContainsString('✓', $texte);
@@ -484,7 +492,14 @@ JS;
         self::assertTrue($r['requetes'][1]['data']['confirm']);
         self::assertSame(7, $r['requetes'][1]['data']['email_id']);
         $texte = self::texte($r['tourFinal']);
-        self::assertStringContainsString('✓ Envoi programmé le 13/11/2026 à 09:00 : « Newsletter ».', $texte);
+        // Le reçu : ce qui part, quand, à combien, et l'annulation à un clic.
+        $html = (string) $r['tourFinal']['html'];
+        self::assertStringContainsString('✓ Envoi programmé', $texte);
+        self::assertStringContainsString('<dt>E-mail</dt><dd>Newsletter</dd>', $html);
+        self::assertStringContainsString('<dt>Départ</dt><dd>le 13/11/2026 à 09:00</dd>', $html);
+        self::assertStringContainsString('<dt>Destinataires</dt><dd>42 à ce jour</dd>', $html);
+        self::assertStringContainsString('class="sendly-assist-bouton sendly-assist-fantome sendly-assist-annuler-envoi" data-email="7"', $html);
+        self::assertStringContainsString('Annulable jusqu’au départ.', $texte);
         self::assertStringNotContainsString('Confirmer l’envoi', $texte, 'la carte disparaît une fois confirmée');
         self::assertStringContainsString('send scheduled 2026-11-13 09:00', (string) $r['tourFinal']['result']);
         // Un « Enregistrer » ultérieur n'écrasera pas la programmation.
@@ -504,7 +519,61 @@ JS;
         ]);
 
         self::assertCount(1, $r['requetes'], 'ni le refus ni un second clic ne programment');
-        self::assertStringContainsString('✗ Rien n’a été programmé : vous avez choisi de ne rien faire.', self::texte($r['tourFinal']));
+        // Un refus n'est pas un échec : le reçu est « annulé », sans croix rouge.
+        self::assertStringContainsString('Rien n’a été programmé : vous avez choisi de ne rien faire.', self::texte($r['tourFinal']));
+        self::assertStringContainsString('sendly-assist-recu sendly-assist-annule', (string) $r['tourFinal']['html']);
+        self::assertStringNotContainsString('sendly-assist-echec', (string) $r['tourFinal']['html']);
+        self::assertStringNotContainsString('✓', self::texte($r['tourFinal']));
+    }
+
+    public function testAnnulerLEnvoiDepuisLeRecuRepasseParLaConfirmation(): void
+    {
+        // Le bouton « Annuler l'envoi » du reçu (refonte du 26/11) : même
+        // prévisualisation, même carte, même clic que la demande écrite.
+        $r = $this->executer($this->ecranEmail() + [
+            'reponse' => $this->demandeDeProgrammation(),
+            'etapes'  => [
+                ['url' => '/s/ai/email/schedule', 'rep' => self::apercu()],
+                ['confirmer' => 'c1', 'ok' => true],
+                ['url'       => '/s/ai/email/schedule', 'rep' => self::apercu() + ['done' => true]],
+                ['annulerEnvoi' => 7, 'tour' => 't1'],
+                ['url'          => '/s/ai/email/schedule', 'rep' => ['mode' => 'cancel'] + self::apercu()],
+            ],
+        ]);
+
+        // Trois requêtes : aperçu, confirmation, aperçu d'annulation. RIEN
+        // n'est annulé tant que la seconde carte n'a pas reçu son clic.
+        self::assertCount(3, $r['requetes']);
+        self::assertSame(['cancel' => true, 'email_id' => 7], $r['requetes'][2]['data']);
+        $html = (string) $r['tourFinal']['html'];
+        self::assertStringContainsString('<h3>Annuler cet envoi ?</h3>', $html);
+        self::assertStringContainsString('data-carte="c2"', $html);
+        self::assertStringContainsString('Confirmer l’annulation', self::texte($r['tourFinal']));
+        self::assertStringContainsString('confirmation card shown: cancel « Newsletter »', (string) $r['tourFinal']['result']);
+    }
+
+    public function testConfirmerLAnnulationDepublieEtLeDit(): void
+    {
+        $r = $this->executer($this->ecranEmail() + [
+            'reponse' => $this->demandeDeProgrammation(),
+            'etapes'  => [
+                ['url' => '/s/ai/email/schedule', 'rep' => self::apercu()],
+                ['confirmer' => 'c1', 'ok' => true],
+                ['url'       => '/s/ai/email/schedule', 'rep' => self::apercu() + ['done' => true]],
+                ['annulerEnvoi' => 7, 'tour' => 't1'],
+                ['url'          => '/s/ai/email/schedule', 'rep' => ['mode' => 'cancel'] + self::apercu()],
+                ['confirmer' => 'c2', 'ok' => true],
+                ['url'       => '/s/ai/email/schedule', 'rep' => ['mode' => 'cancel', 'done' => true] + self::apercu()],
+            ],
+        ]);
+
+        self::assertCount(4, $r['requetes']);
+        self::assertSame(['cancel' => true, 'email_id' => 7, 'mode' => 'cancel', 'confirm' => true], $r['requetes'][3]['data']);
+        $texte = self::texte($r['tourFinal']);
+        self::assertStringContainsString('✓ Envoi annulé', $texte);
+        self::assertStringContainsString('L’e-mail est dépublié : il ne partira plus.', $texte);
+        self::assertStringContainsString('send cancelled', (string) $r['tourFinal']['result']);
+        self::assertSame(['coché', 'libre'], [$r['champsFinal']['emailform_isPublished_0'], $r['champsFinal']['emailform_isPublished_1']]);
     }
 
     public function testUneProgrammationRefuseeDitSaRaison(): void
