@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\EwebAiBundle\Controller;
 
 use MauticPlugin\EwebAiBundle\Service\AiCopilotService;
+use MauticPlugin\EwebAiBundle\Service\GenerationDesign;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -74,6 +75,7 @@ final class AiController
                     'emojis'       => filter_var($payload['emojis'] ?? false, FILTER_VALIDATE_BOOLEAN),
                     'instructions' => mb_substr((string) ($payload['instructions'] ?? ''), 0, self::MAX_INSTRUCTION),
                     'lang'         => mb_substr((string) ($payload['lang'] ?? ''), 0, 60),
+                    'uiLang'       => mb_substr((string) ($payload['uiLang'] ?? ''), 0, 60),
                     'count'        => (int) ($payload['count'] ?? 3),
                 ]);
 
@@ -84,6 +86,13 @@ final class AiController
                 'content'     => mb_substr((string) ($payload['content'] ?? ''), 0, self::MAX_CONTENT),
                 'instruction' => mb_substr((string) ($payload['instruction'] ?? ''), 0, self::MAX_INSTRUCTION),
                 'lang'        => mb_substr((string) ($payload['lang'] ?? ''), 0, 60),
+                'uiLang'      => mb_substr((string) ($payload['uiLang'] ?? ''), 0, 60),
+                // Ce que l'éditeur a relevé de la page ou de l'e-mail (polices,
+                // couleurs, sections voisines) : la section générée s'y accorde.
+                'context'     => mb_substr((string) ($payload['context'] ?? ''), 0, GenerationDesign::CONTEXT_MAX),
+                // Les images neutres d'un e-mail sont des fichiers de l'espace :
+                // une messagerie veut une adresse complète.
+                'baseUrl'     => $request->getSchemeAndHttpHost().$request->getBasePath(),
                 'format'      => 'mjml' === ($payload['format'] ?? '') ? 'mjml' : 'html',
                 // Les générateurs EN PLACE s'annoncent (prompt dédié) : `page`
                 // = section de landing page, `email-section` = section

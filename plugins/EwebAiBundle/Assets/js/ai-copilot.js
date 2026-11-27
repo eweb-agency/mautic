@@ -184,12 +184,30 @@
     return '';
   }
 
+  /** La langue de l'interface (« French »), repli quand rien n'est choisi. */
+  function langueInterface() {
+    var code = (document.documentElement.lang || 'fr').toLowerCase().slice(0, 2);
+    return LANG_NAMES[code] || 'French';
+  }
+
+  /**
+   * La langue CHOISIE pour l'e-mail, vide si personne ne l'a choisie.
+   *
+   * Sur un nouvel e-mail, le champ « Langue » porte la langue par défaut de
+   * l'espace, qui peut différer de l'interface : constat du 27/11 sur
+   * eweb-agency, « anglais » sur une interface en français, et des objets
+   * proposés en anglais. Tant que l'e-mail n'est pas enregistré et que le
+   * champ garde sa valeur d'arrivée, on ne la tient donc pas pour un choix.
+   */
   function currentLang() {
     var $l = mQuery('#emailform_language');
     if (!$l.length) {
       return '';
     }
     var code = ($l.val() || '').toLowerCase();
+    if (!currentEmailId() && code === String($l.attr('data-sendly-langue-arrivee') || '')) {
+      return '';
+    }
     if (LANG_NAMES[code]) {
       return LANG_NAMES[code];
     }
@@ -233,7 +251,8 @@
           tone: p.tone,
           emojis: p.emojis,
           instructions: p.instructions,
-          lang: currentLang()
+          lang: currentLang(),
+          uiLang: langueInterface()
         })
       })
       .done(function (resp) {
@@ -578,6 +597,11 @@
     if (!$subject.length || document.getElementById('sendly-ai-subject-btn')) {
       return;
     }
+    // La langue d'arrivée du formulaire : la distinguer d'un vrai choix.
+    var $langue = mQuery('#emailform_language');
+    if ($langue.length && !$langue.is('[data-sendly-langue-arrivee]')) {
+      $langue.attr('data-sendly-langue-arrivee', ($langue.val() || '').toLowerCase());
+    }
     ensureStyles();
     var btn = document.createElement('button');
     btn.type = 'button';
@@ -588,6 +612,11 @@
     btn.onclick = ouvrir;
     $subject.after(btn);
   }
+
+  // Lecture seule : la langue que la bulle enverrait (tests et diagnostic).
+  window.SendlyAiObjets = {
+    langues: function () { return { lang: currentLang(), uiLang: langueInterface() }; }
+  };
 
   // Hook de chargement de la page e-mail (email.js appelle Mautic.emailOnLoad,
   // mais on se branche aussi au DOM ready pour les rechargements ajax).

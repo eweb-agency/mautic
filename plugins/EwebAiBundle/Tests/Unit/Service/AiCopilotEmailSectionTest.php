@@ -64,10 +64,10 @@ final class AiCopilotEmailSectionTest extends TestCase
         $this->service()->generate('generate', ['instruction' => 'Un bloc bienvenue', 'format' => 'mjml', 'surface' => 'email-section']);
 
         $system = (string) ($this->sent['system'][0]['text'] ?? '');
-        self::assertStringContainsString('ONE self-contained SECTION of a marketing email', $system);
-        self::assertStringContainsString('exactly one <mj-section>', $system);
-        self::assertStringContainsString('Do NOT wrap it in <mjml>', $system);
-        self::assertStringNotContainsString('starts with <mjml>', $system, 'la règle « document complet » ne s applique pas à une section');
+        self::assertStringContainsString('ONE section of a marketing email', $system);
+        self::assertStringContainsString('Output exactly one <mj-section> element and nothing else', $system);
+        self::assertStringContainsString('no <mjml>, <mj-head>, <mj-body> or <mj-wrapper>', $system);
+        self::assertStringNotContainsString('starting with <mjml>', $system, 'la règle « document complet » ne s applique pas à une section');
     }
 
     public function testLaSectionHtmlEstUneRangeeTable(): void
@@ -75,8 +75,8 @@ final class AiCopilotEmailSectionTest extends TestCase
         $this->service()->generate('generate', ['instruction' => 'Un bloc bienvenue', 'format' => 'html', 'surface' => 'email-section']);
 
         $system = (string) ($this->sent['system'][0]['text'] ?? '');
-        self::assertStringContainsString('exactly one table-based block', $system);
-        self::assertStringContainsString('do not wrap it in <html>', $system);
+        self::assertStringContainsString('Output exactly one outer <table role="presentation" width="100%"> block', $system);
+        self::assertStringContainsString('no <html>, <head> or <body>', $system);
     }
 
     public function testLeCorpsCompletDOrigineEstInchangeSansSurface(): void
@@ -84,8 +84,8 @@ final class AiCopilotEmailSectionTest extends TestCase
         $this->service()->generate('generate', ['instruction' => 'Un e-mail', 'format' => 'mjml']);
 
         $system = (string) ($this->sent['system'][0]['text'] ?? '');
-        self::assertStringContainsString('Produce the BODY of a marketing email', $system);
-        self::assertStringContainsString('starts with <mjml> and ends with </mjml>', $system);
+        self::assertStringContainsString('You write and design a complete marketing email', $system);
+        self::assertStringContainsString('One valid MJML document starting with <mjml> and ending with </mjml>', $system);
     }
 
     public function testLaRetoucheDUnFragmentNeReenveloppePas(): void

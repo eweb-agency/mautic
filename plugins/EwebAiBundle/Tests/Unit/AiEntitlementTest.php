@@ -171,8 +171,9 @@ final class AiEntitlementTest extends TestCase
         self::assertStringContainsString('window.SendlyAiConfig.enabled || window.SendlyAiConfig.teaser', $tuile);
         $page = (string) file_get_contents(__DIR__.'/../../Assets/js/ai-page-builder.js');
         // Lot E5 : le contexte suit l'éditeur (page sur le webpage, email
-        // dans l'éditeur d'e-mails) — toujours les deux portes clic + dépôt.
-        self::assertSame(2, substr_count($page, 'window.SendlyAiUpsell.ouvrir(contexteUpsell())'));
+        // dans l'éditeur d'e-mails). Trois portes depuis le 27/11 : le clic
+        // sur la tuile, son dépôt, et la barre Copilot du canevas.
+        self::assertSame(3, substr_count($page, 'window.SendlyAiUpsell.ouvrir(contexteUpsell())'));
         self::assertStringContainsString('function contexteUpsell()', $page);
         self::assertStringContainsString("'page' === MODE ? 'page' : 'email'", $page);
 
