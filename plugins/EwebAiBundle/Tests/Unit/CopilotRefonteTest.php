@@ -364,7 +364,7 @@ JS;
 
         // Le clic sur la tuile ouvre l'invite : le câblage reconnaît le libellé
         // RÉEL de la tuile (il cherchait « Assistant IA » après le renommage du
-        // 11/11, et le clic ne faisait plus rien).
+        // 11/11). Le comportement lui-même s'exécute dans EditeurTuileClicTest.
         $page  = self::source('Assets/js/ai-page-builder.js');
         $tuile = (string) file_get_contents(__DIR__.'/../../../EwebSaasBundle/Assets/js/builder-composants.js');
         self::assertSame(1, preg_match('#var LIBELLE_TUILE = /([^/]+)/i;#', $page, $motif));
@@ -372,7 +372,9 @@ JS;
         foreach ($libelles[1] as $libelle) {
             self::assertMatchesRegularExpression('/'.$motif[1].'/i', $libelle, 'le clic sur la tuile « '.$libelle.' » doit ouvrir l’invite');
         }
-        self::assertStringContainsString("function (el) { return LIBELLE_TUILE.test(el.textContent || ''); }", $page);
+        self::assertStringContainsString("LIBELLE_TUILE.test(el.textContent || '')", $page);
+        // Plus de recherche de la tuile au « load » : elle n'y est pas encore.
+        self::assertStringNotContainsString("document.querySelectorAll('.builder-panel .gjs-block')", $page);
 
         $email = self::source('Assets/js/ai-email-builder.js');
         foreach (['etape(2);', 'etape(3);', 'etape(4);', "etape(5, 'Rédaction du corps');"] as $annonce) {

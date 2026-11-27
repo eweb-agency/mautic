@@ -75,6 +75,27 @@
   /** Le libellé de la tuile de la bibliothèque (builder-composants.js). */
   var LIBELLE_TUILE = /sendly copilot|assistant ia/i;
 
+  /** Ce que fait le clic sur la tuile, posé par l'éditeur ouvert. */
+  var auClicTuile = null;
+
+  /** Le clic vise-t-il la tuile du Copilot dans la bibliothèque ? */
+  function tuileCopilot(cible) {
+    var el = cible && cible.closest ? cible.closest('.gjs-block') : null;
+    return !!(el && el.closest('.builder-panel') && LIBELLE_TUILE.test(el.textContent || ''));
+  }
+
+  // La TUILE au CLIC. La tuile est ajoutée à la bibliothèque par
+  // builder-composants.js, dans SON « load », qui passe APRÈS celui de ce
+  // fichier (EwebAiBundle est chargé avant EwebSaasBundle) : la chercher au
+  // « load » ne trouvait donc rien, et le clic n'était jamais câblé (constat
+  // en production du 27/11, après un premier correctif qui ne traitait que
+  // le libellé). Le clic s'écoute sur le document et la tuile se reconnaît
+  // AU MOMENT du clic : ni l'ordre des greffons ni un redessin de la
+  // bibliothèque n'y changent rien.
+  document.addEventListener('click', function (e) {
+    if (auClicTuile && tuileCopilot(e.target)) { auClicTuile(); }
+  }, true);
+
   // La MÊME étincelle que la tuile « Assistant IA » (identité visuelle
   // unique de l'IA — question proprio 12/08), en currentColor pour suivre
   // la couleur du contexte ; et une icône « langues » du même trait Lucide.
@@ -479,6 +500,25 @@
       }
       function contexteUpsell() { return 'page' === MODE ? 'page' : 'email'; }
 
+      // La TUILE au CLIC : invite après la sélection, sinon en fin de page.
+      // Posé dès la création de l'éditeur, sans attendre la tuile (l'écoute
+      // du clic est en tête de fichier, et dit pourquoi).
+      auClicTuile = function () {
+        if (window.SendlyAiConfig && window.SendlyAiConfig.teaser) {
+          if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir(contexteUpsell()); }
+          return;
+        }
+        // Une invite déjà ouverte : on y revient, on n'en empile pas une autre.
+        var idoc = frameDoc();
+        var ouverte = idoc ? idoc.querySelector('.sendly-ia-invite input') : null;
+        if (ouverte) {
+          ouverte.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          ouverte.focus();
+          return;
+        }
+        ouvrirApres(editor.getSelected(), '');
+      };
+
       /* ------------------------------------------------------------------ *
        *  CÂBLAGE                                                            *
        * ------------------------------------------------------------------ */
@@ -538,25 +578,6 @@
                 });
               }
             }
-          });
-        }
-
-        // La TUILE au CLIC : invite après la sélection, sinon en fin de page.
-        // La tuile s'appelle « Sendly Copilot » depuis le 11/11 ; ce câblage
-        // cherchait encore « Assistant IA » et le clic ne faisait plus rien
-        // (constat en direct du 26/11 : seul le glisser-déposer ouvrait
-        // l'invite). L'ancien libellé reste reconnu.
-        var tuile = Array.prototype.find.call(
-          document.querySelectorAll('.builder-panel .gjs-block'),
-          function (el) { return LIBELLE_TUILE.test(el.textContent || ''); }
-        );
-        if (tuile) {
-          tuile.addEventListener('click', function () {
-            if (window.SendlyAiConfig && window.SendlyAiConfig.teaser) {
-              if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir(contexteUpsell()); }
-              return;
-            }
-            ouvrirApres(editor.getSelected(), '');
           });
         }
 
