@@ -182,9 +182,10 @@ final class AiPageBuilderTest extends TestCase
     {
         $service = (string) file_get_contents(__DIR__.'/../../Service/AiCopilotService.php');
 
-        self::assertStringContainsString("'page' === (\$params['surface'] ?? '')", $service);
-        self::assertStringContainsString('landing-page conversion copywriter', $service);
-        self::assertStringContainsString('never lorem ipsum', $service);
+        // La consigne de page vit dans GenerationDesign (charte du 27/11) ;
+        // son contenu est vérifié par Service/GenerationDesignTest.
+        self::assertStringContainsString("'page' === \$surface", $service);
+        self::assertStringContainsString('GenerationDesign::pageSystem(', $service);
 
         $controller = (string) file_get_contents(__DIR__.'/../../Controller/AiController.php');
         self::assertStringContainsString("'surface'", $controller);

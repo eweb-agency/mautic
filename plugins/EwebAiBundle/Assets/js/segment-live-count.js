@@ -1,5 +1,5 @@
 /**
- * Compteur en continu du formulaire de segment — « 1 234 contacts ».
+ * Compteur en continu du formulaire de segment : « 1 234 contacts ».
  *
  * Pendant que le client construit ses critères (à la main ou via
  * l'assistant), une pastille au-dessus des lignes de filtre affiche en
@@ -34,26 +34,59 @@
     return !s || s === key ? fallback : s;
   }
 
+  var CHEMIN_ASSETS = (window.mauticBasePath || '') + '/plugins/EwebAiBundle/Assets';
+
+  // Le pictogramme « contacts », du même trait que ceux du Copilot.
+  var ICONE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>' +
+    '<circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+
   function ensureStyles() {
     if (document.getElementById('sendly-seg-count-style')) {
       return;
     }
+    var POLICE = '"Helvena","Helvetica Neue",-apple-system,"Segoe UI",sans-serif';
     var css =
+      '@font-face{font-family:"Helvena";font-weight:400;font-display:swap;src:url("' + CHEMIN_ASSETS + '/fonts/Helvena_Regular.woff2") format("woff2")}' +
+      '@font-face{font-family:"Helvena";font-weight:500;font-display:swap;src:url("' + CHEMIN_ASSETS + '/fonts/Helvena_Medium.woff2") format("woff2")}' +
+      /* Refonte du 27/11/2026, DA de Sendly : une PILULE blanche (rayon 999),
+         un rond bleu clair pour le pictogramme, le nombre en Helvena bleu
+         nuit, l'ombre portée douce du Copilot. Plus de liseré à gauche. La
+         POSITION ne change pas (choix du proprio du 05/08) : flottante,
+         centrée en bas d'écran ; l'élément vit DANS le conteneur du
+         formulaire, la navigation ajax l'emporte avec la page. */
+      '#sendly-seg-count{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);' +
+      'display:inline-flex;align-items:center;gap:12px;max-width:calc(100vw - 32px);' +
+      'padding:8px 22px 8px 8px;background:#fff;border-radius:999px;' +
+      'box-shadow:0 0 0 1px rgba(0,18,72,.08),0 16px 36px rgba(0,18,72,.14),0 2px 6px rgba(0,18,72,.06);' +
+      'font-family:' + POLICE + ';font-size:14px;line-height:1.2;letter-spacing:-.005em;color:#5B6478;' +
+      '-webkit-font-smoothing:antialiased;z-index:1030;white-space:nowrap}' +
+      '#sendly-seg-count .sendly-seg-count-ico{position:relative;flex:none;width:36px;height:36px;border-radius:50%;' +
+      'background:#DFEAFF;color:#004FFF;display:inline-flex;align-items:center;justify-content:center}' +
+      '#sendly-seg-count .sendly-seg-count-ico svg{display:block}' +
+      '#sendly-seg-count .sendly-seg-count-num{font-size:18px;font-weight:500;color:#001248;' +
+      'font-variant-numeric:tabular-nums;letter-spacing:-.01em;transition:opacity .18s ease}' +
+      '#sendly-seg-count .sendly-seg-count-num.nouveau{animation:sendly-seg-num .24s ease-out}' +
+      '#sendly-seg-count .sendly-seg-count-lib{overflow:hidden;text-overflow:ellipsis}' +
+      '#sendly-seg-count .court{display:none}' +
+      '#sendly-seg-count .sendly-seg-count-note{flex:none;display:inline-flex;align-items:center;height:24px;' +
+      'padding:0 10px;border-radius:999px;background:#FFF4E5;color:#8A4B00;font-size:12.5px;font-weight:500}' +
+      /* Pendant le calcul : le dernier nombre reste en place (rien ne saute),
+         estompé, et un anneau tourne autour du pictogramme. */
+      '#sendly-seg-count.calcul .sendly-seg-count-num{opacity:.4}' +
+      '#sendly-seg-count.calcul .sendly-seg-count-ico::after{content:"";position:absolute;inset:-3px;border-radius:50%;' +
+      'border:2px solid transparent;border-top-color:#004FFF;animation:sendly-seg-count-spin .8s linear infinite}' +
+      '#sendly-seg-count.muet .sendly-seg-count-num{color:#5B6478}' +
+      '#sendly-seg-count.muet .sendly-seg-count-ico{background:#F5F7F9;color:#5B6478}' +
       '@keyframes sendly-seg-count-spin{to{transform:rotate(360deg)}}' +
-      /* Pilule FLOTTANTE centrée en bas d'écran — la position du motif de
-         référence, choisie par le proprio sur capture réelle (05/08).
-         position:fixed, mais l'élément vit DANS le conteneur du formulaire :
-         la navigation ajax de Mautic l'emporte avec la page. */
-      '#sendly-seg-count{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);' +
-      'display:flex;align-items:center;gap:10px;padding:12px 18px;background:#fff;' +
-      'border-radius:10px;border-left:4px solid #004FFF;box-shadow:0 10px 28px rgba(22,35,59,.18);' +
-      'font-size:13px;color:#55617a;z-index:1030;white-space:nowrap}' +
-      '#sendly-seg-count .sendly-seg-count-num{font-size:17px;font-weight:700;color:#24303f}' +
-      '#sendly-seg-count .ri-group-line{color:#004FFF;font-size:17px}' +
-      '#sendly-seg-count .sendly-seg-count-spin{display:inline-block;width:12px;height:12px;' +
-      'border:2px solid rgba(0,79,255,.25);border-top-color:#004FFF;border-radius:50%;' +
-      'animation:sendly-seg-count-spin .8s linear infinite}' +
-      '#sendly-seg-count.muted{opacity:.7}';
+      '@keyframes sendly-seg-num{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}' +
+      '@media (max-width:480px){#sendly-seg-count{bottom:16px;gap:10px;padding:6px 16px 6px 6px;font-size:13px}' +
+      '#sendly-seg-count .sendly-seg-count-ico{width:32px;height:32px}' +
+      '#sendly-seg-count .sendly-seg-count-num{font-size:17px}' +
+      /* Au téléphone, avec la mention, les textes courts : rien n'est coupé
+         (audit des largeurs du 27/11, 360 à 430 px). */
+      '#sendly-seg-count.avec-note .long{display:none}#sendly-seg-count.avec-note .court{display:inline}}' +
+      '@media (prefers-reduced-motion:reduce){#sendly-seg-count *,#sendly-seg-count *::after{animation:none!important;transition:none!important}}';
     var style = document.createElement('style');
     style.id = 'sendly-seg-count-style';
     style.textContent = css;
@@ -63,22 +96,37 @@
   var seq = 0;
   var timer = null;
   var lastPayload = null;
+  /** Le dernier nombre affiché : il reste en place pendant un recalcul. */
+  var dernier = null;
 
   function badge() {
     return document.getElementById('sendly-seg-count');
   }
 
-  /** La pilule : icône contacts + nombre en gras + libellé (motif de la
-   *  capture de référence). `num` = chaîne déjà formatée ou spinner HTML. */
-  function render(numHtml, labelText, muted) {
+  /**
+   * La pilule. `etat` : { num (chaîne formatée ou null), libelle, note
+   * (pastille « critères à compléter »), calcul, muet }.
+   */
+  function render(etat) {
     var el = badge();
     if (!el) {
       return;
     }
-    el.innerHTML = '<i class="ri-group-line"></i>' +
-      '<span class="sendly-seg-count-num">' + numHtml + '</span>' +
-      '<span>' + esc(labelText) + '</span>';
-    el.className = muted ? 'muted' : '';
+    var num = null === etat.num || undefined === etat.num ? '…' : etat.num;
+    var nouveau = !etat.calcul && etat.num && etat.num !== el.getAttribute('data-num');
+    el.innerHTML = '<span class="sendly-seg-count-ico">' + ICONE + '</span>' +
+      '<span class="sendly-seg-count-num' + (nouveau ? ' nouveau' : '') + '">' + esc(num) + '</span>' +
+      '<span class="sendly-seg-count-lib"><span class="long">' + esc(etat.libelle) + '</span>' +
+      '<span class="court">' + esc(etat.libelleCourt || etat.libelle) + '</span></span>' +
+      (etat.note ? '<span class="sendly-seg-count-note"><span class="long">' + esc(etat.note) + '</span>' +
+        '<span class="court">' + esc(etat.noteCourte || etat.note) + '</span></span>' : '');
+    el.className = (etat.calcul ? 'calcul' : '') + (etat.muet ? ' muet' : '') + (etat.note ? ' avec-note' : '');
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.setAttribute('aria-busy', etat.calcul ? 'true' : 'false');
+    if (!etat.calcul && etat.num) {
+      el.setAttribute('data-num', etat.num);
+    }
   }
 
   function esc(s) {
@@ -113,13 +161,12 @@
     lastPayload = payload;
 
     if (!payload) {
-      render('…', t('mautic.lead_list.live_count.pill_other', 'contacts correspondants'), true);
+      render({ num: null, libelle: t('mautic.lead_list.live_count.pill_other', 'contacts correspondants'), muet: true });
       return;
     }
 
     var mySeq = ++seq;
-    render('<span class="sendly-seg-count-spin"></span>',
-      t('mautic.lead_list.live_count.counting', 'Calcul…'), false);
+    render({ num: dernier, libelle: t('mautic.lead_list.live_count.counting', 'Calcul…'), calcul: true });
 
     mQuery.ajax({
       url: c.endpoint,
@@ -131,20 +178,29 @@
           return; // une saisie plus récente a relancé le calcul
         }
         if (!res || res.count === null || res.count === undefined) {
-          render('…', t('mautic.lead_list.live_count.unavailable', 'Nombre indisponible'), true);
+          dernier = null;
+          render({ num: null, libelle: t('mautic.lead_list.live_count.unavailable', 'Nombre indisponible'), muet: true });
           return;
         }
         var label = Number(res.count) === 1
           ? t('mautic.lead_list.live_count.pill_one', 'contact correspondant')
           : t('mautic.lead_list.live_count.pill_other', 'contacts correspondants');
-        if (res.ignored > 0) {
-          label += ' · ' + t('mautic.lead_list.live_count.partial', 'hors critères à compléter');
-        }
-        render(esc(formatCount(res.count)), label, false);
+        dernier = formatCount(res.count);
+        var partiel = res.ignored > 0;
+        render({
+          num: dernier,
+          libelle: label,
+          libelleCourt: Number(res.count) === 1
+            ? t('mautic.lead_list.live_count.pill_one_short', 'contact')
+            : t('mautic.lead_list.live_count.pill_other_short', 'contacts'),
+          note: partiel ? t('mautic.lead_list.live_count.pill_partial', 'Critères à compléter') : '',
+          noteCourte: partiel ? t('mautic.lead_list.live_count.pill_partial_short', 'À compléter') : ''
+        });
       },
       error: function () {
         if (mySeq === seq) {
-          render('…', t('mautic.lead_list.live_count.unavailable', 'Nombre indisponible'), true);
+          dernier = null;
+          render({ num: null, libelle: t('mautic.lead_list.live_count.unavailable', 'Nombre indisponible'), muet: true });
         }
       }
     });
@@ -180,7 +236,8 @@
     // Insérée DANS la zone du formulaire (la navigation ajax l'emporte avec
     // la page) mais affichée en position fixe, centrée en bas d'écran.
     $available.closest('.available-filters').before(pill);
-    render('…', t('mautic.lead_list.live_count.pill_other', 'contacts correspondants'), true);
+    dernier = null;
+    render({ num: null, libelle: t('mautic.lead_list.live_count.pill_other', 'contacts correspondants'), muet: true });
 
     // Une seule délégation par surface : les lignes vont et viennent, le
     // conteneur reste. `filter.properties.form.loaded` est l'événement que

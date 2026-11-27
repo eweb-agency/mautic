@@ -66,11 +66,35 @@
     plume: '<path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L7.4 18.6 3 20l1.4-4.4z"/>',
     coche: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     croix: '<path d="M6 6l12 12M18 6L6 18"/>',
-    suite: '<path d="M9 6l6 6-6 6"/>'
+    suite: '<path d="M9 6l6 6-6 6"/>',
+    etapes: '<path d="M4 6h2M4 12h2M4 18h2"/><path d="M10 6h10M10 12h10M10 18h10"/>',
+    question: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6"/><path d="M12 17.2h.01"/>',
+    etiquette: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><path d="M7.5 7.5h.01"/>',
+    lieu: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'
   };
   var CHEMIN_ASSETS = (window.mauticBasePath || '') + '/plugins/EwebAiBundle/Assets';
 
   var LANGUES = ['anglais', 'espagnol', 'allemand', 'italien', 'néerlandais'];
+  var LANGUES_INTERFACE = { fr: 'French', en: 'English', es: 'Spanish', de: 'German', it: 'Italian', pt: 'Portuguese', nl: 'Dutch' };
+
+  // Les idées de la barre Copilot, par éditeur : [pictogramme, libellé, consigne].
+  var IDEES = {
+    page: [
+      ['entete', 'En-tête', 'Un en-tête avec un titre fort, une phrase d’accroche, un bouton et une photo'],
+      ['colonnes', 'Trois avantages', 'Les trois avantages principaux de l’offre, avec un pictogramme chacun'],
+      ['etapes', 'Comment ça marche', 'Comment ça marche, en trois étapes numérotées'],
+      ['bulle', 'Témoignages', 'Une section de témoignages clients'],
+      ['question', 'Questions fréquentes', 'Les questions fréquentes, en accordéon'],
+      ['clic', 'Appel à l’action', 'Un appel à l’action final, sur une bande pleine'],
+    ],
+    email: [
+      ['entete', 'Ouverture', 'Une ouverture avec un surtitre, un grand titre, une phrase et un bouton'],
+      ['etiquette', 'Offre en avant', 'Une carte qui met une offre en avant, avec son bouton'],
+      ['colonnes', 'Trois points forts', 'Trois points forts côte à côte'],
+      ['bulle', 'Témoignage', 'Un témoignage client mis en valeur'],
+      ['clic', 'Rappel final', 'Un rappel final sur une bande pleine, avec le bouton'],
+    ],
+  };
 
   /** Le libellé de la tuile de la bibliothèque (builder-composants.js). */
   var LIBELLE_TUILE = /sendly copilot|assistant ia/i;
@@ -130,6 +154,7 @@
   }
 
   function appelIa(corps) {
+    corps.uiLang = (LANGUES_INTERFACE[(document.documentElement.lang || 'fr').slice(0, 2)] || 'French');
     if ('page' === MODE) {
       corps.format = 'html';
       corps.surface = 'page';
@@ -190,6 +215,9 @@
           // perle, rayons 12 et 999. La police se charge DANS l'iframe.
           + '@font-face { font-family: "Helvena"; font-weight: 400; font-display: swap; src: url("' + CHEMIN_ASSETS + '/fonts/Helvena_Regular.woff2") format("woff2"); }'
           + '@font-face { font-family: "Helvena"; font-weight: 500; font-display: swap; src: url("' + CHEMIN_ASSETS + '/fonts/Helvena_Medium.woff2") format("woff2"); }'
+          // La barre Copilot flotte en bas du canevas : la fin de la page
+          // reste atteignable au-dessus d'elle.
+          + 'body { padding-bottom: 104px !important; }'
           + '.sendly-ia-invite, .sendly-ia-squelette, .sendly-ia-barre, .sendly-ia-menu { font-family: ' + POLICE + '; font-size: 14px; font-weight: 400; line-height: normal; letter-spacing: -.005em; text-align: left; text-transform: none; -webkit-font-smoothing: antialiased; }'
           + '.sendly-ia-invite *, .sendly-ia-barre *, .sendly-ia-menu * { box-sizing: border-box; }'
           + '.sendly-ia-invite button, .sendly-ia-barre button, .sendly-ia-menu button { font-family: inherit; letter-spacing: inherit; text-transform: none; cursor: pointer; margin: 0; }'
@@ -312,8 +340,11 @@
           sq.innerHTML = '<div class="etat">' + ICONE_IA + '<span>Génération en cours…</span></div>'
             + '<div class="os" style="width:70%"></div><div class="os" style="width:50%"></div><div class="os" style="width:35%; margin-bottom:0"></div>';
           el.appendChild(sq);
+          sq.scrollIntoView({ block: 'center', behavior: 'smooth' });
         }
-        return appelIa({ mode: 'generate', instruction: consigne }).then(function (html) {
+        var contexte = '';
+        try { contexte = contexteDesign(compInvite.parent(), compInvite.index()); } catch (e) { contexte = ''; }
+        return appelIa({ mode: 'generate', instruction: consigne, context: contexte }).then(function (html) {
           var parent = compInvite.parent();
           var index = compInvite.index();
           if (!parent) { return; }
@@ -500,6 +531,298 @@
       }
       function contexteUpsell() { return 'page' === MODE ? 'page' : 'email'; }
 
+      /* ------------------------------------------------------------------ *
+       *  LE CONTEXTE DE LA PAGE (charte de génération du 27/11)             *
+       * ------------------------------------------------------------------ */
+
+      /** rgb(…) → #rrggbb ; « transparent » pour un fond sans couleur. */
+      function hex(couleur) {
+        var m = String(couleur || '').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+        if (!m) { return ''; }
+        if (undefined !== m[4] && parseFloat(m[4]) < 0.05) { return 'transparent'; }
+        return '#' + [m[1], m[2], m[3]].map(function (n) { var h = parseInt(n, 10).toString(16); return 1 === h.length ? '0' + h : h; }).join('').toUpperCase();
+      }
+
+      /** Les éléments de notre interface ne sont jamais lus comme la page. */
+      function horsInterface(el) {
+        return !(el.closest && el.closest('.sendly-ia-invite, .sendly-ia-barre, .sendly-ia-squelette, .sendly-ia-menu, [data-sendly-invite], [data-sendly-barre]'));
+      }
+
+      /** Le fond rendu d'un composant voisin (le sien, ou celui de son premier enfant). */
+      function fondDe(comp) {
+        var el = comp && comp.view && comp.view.el;
+        var win = frameWin();
+        if (!el || !win || !el.nodeType || 1 !== el.nodeType) { return ''; }
+        var f = hex(win.getComputedStyle(el).backgroundColor);
+        if ('transparent' === f && el.firstElementChild) { f = hex(win.getComputedStyle(el.firstElementChild).backgroundColor); }
+        return f;
+      }
+
+      /** Le voisin réel à `index` (les marqueurs de notre interface sautés). */
+      function voisin(parent, index, pas) {
+        var liste = parent && parent.components ? parent.components() : null;
+        for (var i = index; liste && i >= 0 && i < liste.length; i += pas) {
+          var c = liste.at(i);
+          var el = c && c.view && c.view.el;
+          if (el && el.getAttribute && !el.getAttribute('data-sendly-invite') && !el.getAttribute('data-sendly-barre')) { return c; }
+        }
+        return null;
+      }
+
+      /**
+       * Ce que la section à venir doit savoir de la page : les jetons posés
+       * par une section déjà générée (`data-sx-*`), les polices, couleurs et
+       * boutons rendus, le fond des voisines, les titres déjà présents.
+       * Des DONNÉES, bornées : le serveur les nettoie encore.
+       */
+      function contexteDesign(parent, index) {
+        var idoc = frameDoc();
+        var win = frameWin();
+        if (!idoc || !win || !idoc.body) { return ''; }
+        var ctx = {};
+        var jeton = idoc.querySelector('[data-sx-accent]');
+        if (jeton) {
+          ctx.tokens = {};
+          ['direction', 'paper', 'ink', 'accent', 'display', 'text', 'radius'].forEach(function (k) {
+            var v = jeton.getAttribute('data-sx-' + k);
+            if (v) { ctx.tokens[k] = String(v).slice(0, 80); }
+          });
+        }
+        // Les textes rendus : le plus grand donne la police de titre, le plus
+        // fréquent sous 19 px celle du texte.
+        var textes = [];
+        var tous = idoc.body.querySelectorAll('h1, h2, h3, h4, p, li, td, div, span, a');
+        for (var i = 0; i < tous.length && textes.length < 160; i++) {
+          var el = tous[i];
+          if (!horsInterface(el)) { continue; }
+          var propre = false;
+          for (var n = el.firstChild; n; n = n.nextSibling) { if (3 === n.nodeType && n.nodeValue.trim().length > 1) { propre = true; break; } }
+          if (!propre) { continue; }
+          var st = win.getComputedStyle(el);
+          textes.push({ taille: parseFloat(st.fontSize) || 0, police: st.fontFamily, couleur: hex(st.color), graisse: st.fontWeight });
+        }
+        // Une page sans aucune police posée hérite du « Times » du navigateur :
+        // ce n'est pas un choix, on ne le transmet pas.
+        var parDefaut = /^"?times( new roman)?"?$/i;
+        if (textes.length) {
+          var titre = textes.reduce(function (a, b) { return b.taille > a.taille ? b : a; });
+          var freq = {};
+          textes.forEach(function (t) { if (t.taille < 19) { freq[t.police] = (freq[t.police] || 0) + 1; } });
+          var texte = Object.keys(freq).sort(function (a, b) { return freq[b] - freq[a]; })[0] || '';
+          var polices = {};
+          if (!parDefaut.test(titre.police)) { polices.display = titre.police + ' ' + titre.graisse + ' ' + Math.round(titre.taille) + 'px'; }
+          if (texte && !parDefaut.test(texte)) { polices.text = texte; }
+          if (polices.display || polices.text) { ctx.fonts = polices; }
+          var couleurs = {};
+          textes.forEach(function (t) { if (t.couleur) { couleurs[t.couleur] = (couleurs[t.couleur] || 0) + 1; } });
+          var tri = Object.keys(couleurs).sort(function (a, b) { return couleurs[b] - couleurs[a]; }).slice(0, 4);
+          if (tri.length) { ctx.colors = { text: tri.join(', ') }; }
+        }
+        // Le premier bouton plein de la page.
+        var liens = idoc.body.querySelectorAll('a, button');
+        for (var j = 0; j < liens.length; j++) {
+          if (!horsInterface(liens[j])) { continue; }
+          var sb = win.getComputedStyle(liens[j]);
+          var fond = hex(sb.backgroundColor);
+          if (fond && 'transparent' !== fond) {
+            ctx.buttons = { background: fond, color: hex(sb.color), radius: sb.borderTopLeftRadius };
+            break;
+          }
+        }
+        var avant = voisin(parent, index - 1, -1);
+        var apres = voisin(parent, index, 1);
+        if (avant) { ctx.previous = fondDe(avant) || 'unknown'; }
+        if (apres) { ctx.next = fondDe(apres) || 'unknown'; }
+        var titres = [];
+        var hs = idoc.body.querySelectorAll('h1, h2');
+        for (var k = 0; k < hs.length && titres.length < 8; k++) {
+          if (horsInterface(hs[k])) { var tx = (hs[k].textContent || '').replace(/\s+/g, ' ').trim(); if (tx) { titres.push(tx.slice(0, 80)); } }
+        }
+        if (titres.length) { ctx.outline = titres; }
+        var nom = mQuery('#page_title').val() || mQuery('#emailform_subject').val() || '';
+        if (nom) { ctx.title = String(nom).slice(0, 120); }
+        var json = JSON.stringify(ctx);
+        return '{}' === json ? '' : json.slice(0, 2900);
+      }
+
+      /* ------------------------------------------------------------------ *
+       *  LA BARRE COPILOT, ancrée en bas du canevas (27/11)                 *
+       * ------------------------------------------------------------------ *
+       * Retour du propriétaire : la tuile « Sendly Copilot » est trop
+       * enfouie parmi les composants. La barre est l'entrée principale :
+       * toujours là, compacte, posée sur le canevas sans rien couvrir (le
+       * canevas garde une marge en bas). Au focus, elle déplie les idées et
+       * dit OÙ la section arrivera : après la section sélectionnée, sinon en
+       * fin de page. La génération se fait sur place, avec la barre
+       * contextuelle habituelle (Régénérer / Ajuster / Garder / Annuler). La
+       * tuile reste pour glisser une section à un endroit précis ; son clic
+       * ouvre cette barre.
+       */
+      var dock = null;
+
+      /** Construit un élément sans innerHTML (seuls les pictogrammes en ont). */
+      function h(doc, tag, attrs, enfants) {
+        var el = doc.createElement(tag);
+        Object.keys(attrs || {}).forEach(function (k) {
+          if ('texte' === k) { el.textContent = attrs[k]; } else if ('svg' === k) { el.innerHTML = attrs[k]; } else { el.setAttribute(k, attrs[k]); }
+        });
+        (enfants || []).forEach(function (e) { if (e) { el.appendChild(e); } });
+        return el;
+      }
+
+      /** La section de premier niveau qui contient la sélection. */
+      function premierNiveau(comp) {
+        var w = editor.getWrapper();
+        var cur = comp;
+        while (cur && cur.parent && cur.parent() && cur.parent() !== w) { cur = cur.parent(); }
+        return cur && cur.parent && cur.parent() === w ? cur : null;
+      }
+
+      /** Où la section arrivera, et comment le dire. */
+      function lieuInsertion() {
+        var sel = editor.getSelected();
+        var el = sel && sel.view && sel.view.el;
+        if (el && el.getAttribute && (el.getAttribute('data-sendly-invite') || el.getAttribute('data-sendly-barre'))) { sel = null; }
+        var finale = 'page' === MODE ? 'À la fin de la page' : 'À la fin de l’e-mail';
+        if ('email-mjml' === MODE) {
+          var c = sel ? cibleSection(sel) : null;
+          if (c) { return { parent: c.parent, index: c.index, libelle: 'Après la section sélectionnée' }; }
+          var b = corpsMjml();
+          return { parent: b, index: b.components().length, libelle: finale };
+        }
+        var haut = sel ? premierNiveau(sel) : null;
+        var w = editor.getWrapper();
+        if (haut) { return { parent: w, index: haut.index() + 1, libelle: 'Après la section sélectionnée' }; }
+        return { parent: w, index: w.components().length, libelle: finale };
+      }
+
+      function monterDock() {
+        var conteneur = editor.Canvas && editor.Canvas.getElement ? editor.Canvas.getElement() : null;
+        if (!conteneur || dock) { return; }
+        var doc = conteneur.ownerDocument;
+        stylesDock(doc);
+        var idees = IDEES['page' === MODE ? 'page' : 'email'];
+        var champ = h(doc, 'input', { type: 'text', 'class': 'sendly-dock-champ', placeholder: 'page' === MODE ? 'Décrivez une section à ajouter…' : 'Décrivez un bloc à ajouter à l’e-mail…', 'aria-label': 'Section à générer avec Sendly Copilot', autocomplete: 'off' });
+        var go = h(doc, 'button', { type: 'button', 'class': 'sendly-dock-go', 'aria-label': 'Générer' }, [h(doc, 'span', { svg: ICONE_IA }), h(doc, 'span', { 'class': 'sendly-dock-go-txt', texte: 'Générer' })]);
+        var lieu = h(doc, 'div', { 'class': 'sendly-dock-lieu' }, [h(doc, 'span', { svg: dessin(DESSINS.lieu, 14) }), h(doc, 'span', { 'class': 'sendly-dock-lieu-txt' })]);
+        var liste = h(doc, 'div', { 'class': 'sendly-dock-idees', role: 'list' });
+        idees.forEach(function (idee) {
+          var b = h(doc, 'button', { type: 'button', 'class': 'sendly-dock-idee', role: 'listitem', 'data-consigne': idee[2] }, [h(doc, 'span', { 'class': 'ico', svg: dessin(DESSINS[idee[0]], 14) }), h(doc, 'span', { texte: idee[1] })]);
+          b.addEventListener('mousedown', function (e) { e.preventDefault(); });
+          b.addEventListener('click', function () { champ.value = idee[2]; lancer(); });
+          liste.appendChild(b);
+        });
+        var erreur = h(doc, 'div', { 'class': 'sendly-dock-erreur', role: 'alert' });
+        var panneau = h(doc, 'div', { 'class': 'sendly-dock-panneau' }, [lieu, liste]);
+        var barre = h(doc, 'div', { 'class': 'sendly-dock-barre' }, [h(doc, 'span', { 'class': 'sendly-dock-eclat', svg: ICONE_IA }), champ, go]);
+        dock = blinder(h(doc, 'div', { 'class': 'sendly-dock', role: 'region', 'aria-label': 'Sendly Copilot' }, [panneau, erreur, barre]));
+
+        function teaser() { return !!(window.SendlyAiConfig && window.SendlyAiConfig.teaser); }
+        function majLieu() { lieu.querySelector('.sendly-dock-lieu-txt').textContent = lieuInsertion().libelle; }
+        function ouvrir() {
+          if (teaser()) { champ.blur(); if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir(contexteUpsell()); } return; }
+          majLieu();
+          dock.classList.add('ouvert');
+        }
+        function replier() { dock.classList.remove('ouvert'); }
+        function etat(e) {
+          dock.classList.toggle('en-cours', 'en-cours' === e);
+          champ.disabled = 'en-cours' === e;
+          go.querySelector('.sendly-dock-go-txt').textContent = 'en-cours' === e ? 'Génération…' : 'Générer';
+        }
+        function lancer() {
+          if (teaser()) { ouvrir(); return; }
+          var consigne = champ.value.trim();
+          erreur.textContent = '';
+          if (!consigne) { champ.focus(); return; }
+          if (dock.classList.contains('en-cours')) { return; }
+          var cible = lieuInsertion();
+          injecterStyles();
+          var ajout = cible.parent.append(marqueur('invite'), { at: cible.index });
+          var inv = ajout && ajout[0];
+          if (!inv) { return; }
+          inv.set({ editable: false, droppable: false, copyable: false, selectable: false, hoverable: false });
+          etat('en-cours');
+          replier();
+          champ.blur();
+          generer(inv, consigne).then(function () {
+            etat('repos');
+            champ.value = '';
+          }, function (err) {
+            // L'invite pré-remplie reste dans la page, avec son message ; la
+            // barre le redit et garde la consigne.
+            etat('repos');
+            erreur.textContent = messageErreur(err);
+          });
+        }
+        champ.addEventListener('focus', ouvrir);
+        champ.addEventListener('click', ouvrir);
+        champ.addEventListener('blur', function () { setTimeout(function () { if (doc.activeElement !== champ) { replier(); } }, 120); });
+        champ.addEventListener('keydown', function (e) {
+          if ('Enter' === e.key) { e.preventDefault(); lancer(); }
+          if ('Escape' === e.key) { champ.blur(); replier(); }
+        });
+        go.addEventListener('mousedown', function (e) { e.preventDefault(); });
+        go.addEventListener('click', lancer);
+        editor.on('component:selected component:deselected', function () { if (dock.classList.contains('ouvert')) { majLieu(); } });
+        ['run:preview', 'run:core:preview'].forEach(function (ev) { editor.on(ev, function () { dock.classList.add('masque'); }); });
+        ['stop:preview', 'stop:core:preview'].forEach(function (ev) { editor.on(ev, function () { dock.classList.remove('masque'); }); });
+        conteneur.appendChild(dock);
+      }
+
+      /** Donner la main à la barre (clic sur la tuile). */
+      function focaliserDock() {
+        var champ = dock && dock.querySelector('.sendly-dock-champ');
+        if (!champ) { return false; }
+        champ.focus();
+        return true;
+      }
+
+      function stylesDock(doc) {
+        if (doc.getElementById('sendly-dock-css')) { return; }
+        var POLICE = '"Helvena", "Helvetica Neue", -apple-system, "Segoe UI", sans-serif';
+        var VERRE_BLEU = 'linear-gradient(120deg, rgba(255,255,255,.14), rgba(255,255,255,0) 45%), linear-gradient(180deg, #2E6BFF, #004FFF 60%, #0043E0)';
+        var st = h(doc, 'style', { id: 'sendly-dock-css' });
+        st.textContent = ''
+          + '@font-face { font-family: "Helvena"; font-weight: 400; font-display: swap; src: url("' + CHEMIN_ASSETS + '/fonts/Helvena_Regular.woff2") format("woff2"); }'
+          + '@font-face { font-family: "Helvena"; font-weight: 500; font-display: swap; src: url("' + CHEMIN_ASSETS + '/fonts/Helvena_Medium.woff2") format("woff2"); }'
+          + '.sendly-dock { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 30; width: min(640px, calc(100% - 32px)); font-family: ' + POLICE + '; font-size: 14px; line-height: normal; letter-spacing: -.005em; color: #001248; -webkit-font-smoothing: antialiased; }'
+          + '.sendly-dock * { box-sizing: border-box; }'
+          + '.sendly-dock.masque { display: none; }'
+          + '.sendly-dock button { font-family: inherit; letter-spacing: inherit; text-transform: none; cursor: pointer; margin: 0; }'
+          + '.sendly-dock svg { display: block; flex: none; }'
+          + '.sendly-dock-barre { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 8px 0 8px; background: #fff; border-radius: 999px; box-shadow: 0 0 0 1px rgba(0,18,72,.10), 0 18px 40px rgba(0,18,72,.16), 0 2px 6px rgba(0,18,72,.06); transition: box-shadow .18s ease; }'
+          + '.sendly-dock.ouvert .sendly-dock-barre, .sendly-dock-barre:focus-within { box-shadow: 0 0 0 2px #004FFF, 0 18px 40px rgba(0,79,255,.18), 0 2px 6px rgba(0,18,72,.06); }'
+          + '.sendly-dock-eclat { flex: none; width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; background: ' + VERRE_BLEU + '; box-shadow: inset 0 1px 0 rgba(255,255,255,.3); }'
+          + '.sendly-dock-eclat svg { width: 18px; height: 18px; }'
+          // Le style global des champs de l'outil (cadre et fond au focus)
+          // ne doit pas dessiner une boîte dans la barre : constat en direct
+          // du 27/11.
+          + '.sendly-dock .sendly-dock-champ, .sendly-dock .sendly-dock-champ:focus, .sendly-dock .sendly-dock-champ:hover { flex: 1; min-width: 0; height: 40px; margin: 0; border: 0 !important; border-radius: 0 !important; outline: none !important; background: transparent !important; box-shadow: none !important; padding: 0 4px; font: 400 15px ' + POLICE + '; color: #000617; }'
+          + '.sendly-dock-champ::placeholder { color: #5B6478; opacity: 1; }'
+          + '.sendly-dock-champ:disabled { color: #5B6478; background: transparent; }'
+          + '.sendly-dock-go { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; border: 0; border-radius: 999px; color: #fff; font-size: 14px; font-weight: 500; background-color: #004FFF; background-image: ' + VERRE_BLEU + '; box-shadow: 0 4px 12px rgba(0,79,255,.22), inset 0 1px 0 rgba(255,255,255,.3); transition: filter .15s ease; }'
+          + '.sendly-dock-go:hover { filter: brightness(1.06); }'
+          + '.sendly-dock-go svg { width: 14px; height: 14px; }'
+          + '.sendly-dock.en-cours .sendly-dock-go svg { animation: sendly-dock-respire 1.4s ease-in-out infinite; }'
+          + '@keyframes sendly-dock-respire { 0%, 100% { transform: scale(.85); opacity: .6; } 50% { transform: scale(1.1); opacity: 1; } }'
+          + '.sendly-dock-panneau { display: none; margin-bottom: 10px; padding: 14px; background: #fff; border-radius: 18px; box-shadow: 0 0 0 1px rgba(0,18,72,.08), 0 18px 40px rgba(0,18,72,.14); }'
+          + '.sendly-dock.ouvert .sendly-dock-panneau { display: block; animation: sendly-dock-monte .16s ease-out; }'
+          + '@keyframes sendly-dock-monte { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }'
+          + '.sendly-dock-lieu { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #5B6478; margin: 0 2px 10px; }'
+          + '.sendly-dock-lieu svg { color: #004FFF; }'
+          + '.sendly-dock-idees { display: flex; flex-wrap: wrap; gap: 8px; }'
+          + '.sendly-dock-idee { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 14px 4px 6px; border: 0; border-radius: 999px; background: #F5F7F9; color: #001248; font-size: 13.5px; font-weight: 500; white-space: nowrap; }'
+          + '.sendly-dock-idee:hover { background: #EAF0FA; }'
+          + '.sendly-dock-idee .ico { width: 26px; height: 26px; border-radius: 50%; background: #DFEAFF; color: #004FFF; display: inline-flex; align-items: center; justify-content: center; }'
+          + '.sendly-dock-erreur:empty { display: none; }'
+          + '.sendly-dock-erreur { margin: 0 12px 8px; padding: 8px 12px; border-radius: 10px; background: #FEF3F2; color: #B42318; font-size: 13px; }'
+          + '.sendly-dock :focus-visible { outline: 3px solid rgba(0,79,255,.45); outline-offset: 2px; }'
+          + '@media (max-width: 520px) { .sendly-dock { bottom: 12px; width: calc(100% - 24px); } .sendly-dock-go-txt { display: none; } .sendly-dock-go { width: 40px; padding: 0; justify-content: center; } .sendly-dock-champ { font-size: 16px; } }'
+          + '@media (prefers-reduced-motion: reduce) { .sendly-dock *, .sendly-dock { animation: none !important; transition: none !important; } }';
+        doc.head.appendChild(st);
+      }
+
       // La TUILE au CLIC : invite après la sélection, sinon en fin de page.
       // Posé dès la création de l'éditeur, sans attendre la tuile (l'écoute
       // du clic est en tête de fichier, et dit pourquoi).
@@ -508,6 +831,9 @@
           if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir(contexteUpsell()); }
           return;
         }
+        // La barre Copilot est l'entrée principale : le clic sur la tuile lui
+        // donne la main (elle dit où la section arrivera).
+        if (focaliserDock()) { return; }
         // Une invite déjà ouverte : on y revient, on n'en empile pas une autre.
         var idoc = frameDoc();
         var ouverte = idoc ? idoc.querySelector('.sendly-ia-invite input') : null;
@@ -530,6 +856,8 @@
 
       editor.on('load', function () {
         injecterStyles();
+        // La barre Copilot. Sans le droit Copilot, elle mène à l'offre.
+        try { monterDock(); } catch (e) { /* l'éditeur garde la tuile */ }
 
         // ── Relais de l'assistant global (lot 2, 27/08) : « Crée-moi une
         //    landing page » — l'écran formulaire a nommé la page, choisi le

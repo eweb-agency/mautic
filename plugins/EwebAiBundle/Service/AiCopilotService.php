@@ -45,6 +45,21 @@ class AiCopilotService
     private const ASSIST_MODEL = 'claude-sonnet-5-5';
 
     /**
+     * Le DESSIN : sections de page, sections d'e-mail, e-mail entier.
+     *
+     * Retour du propriétaire du 27/11/2026 : les pages générées « manquent
+     * de professionnalisme ». Composer une section (grille, échelle de
+     * titres, palette, rythme avec les voisines) demande plus que rédiger un
+     * objet : le dessin monte d'un cran, la rédaction courte (objets,
+     * amélioration, traduction) reste sur le modèle économique. Réversible
+     * par SENDLY_ANTHROPIC_MODEL_DESIGN.
+     */
+    private const DESIGN_MODEL = 'claude-sonnet-5-5';
+
+    /** Plafond de sortie du dessin (feuille de style et règles mobiles comprises). */
+    private const DESIGN_MAX_TOKENS = 12000;
+
+    /**
      * Modèles qui REFUSENT un outil imposé (`tool_choice` de type `tool` ou
      * `any` → 400 « not supported for this model »). Pour eux, l'outil est
      * proposé en `auto`, la consigne exige l'appel, et l'absence d'appel est
@@ -173,6 +188,7 @@ class AiCopilotService
     private readonly string $model;
     private readonly string $segmentModel;
     private readonly string $assistModel;
+    private readonly string $designModel;
 
     public function __construct(
         private readonly Client $httpClient,
@@ -199,6 +215,8 @@ class AiCopilotService
         // surcoût minuscule, réversible par variable d'environnement.
         $this->assistModel = $this->env('SENDLY_ANTHROPIC_MODEL_ASSIST')
             ?? self::ASSIST_MODEL;
+        $this->designModel = $this->env('SENDLY_ANTHROPIC_MODEL_DESIGN')
+            ?? self::DESIGN_MODEL;
     }
 
     /**
@@ -341,6 +359,11 @@ class AiCopilotService
 
         $format = 'mjml' === ($params['format'] ?? 'html') ? 'mjml' : 'html';
 
+        // Les classes d'une section de page sont préfixées par un jeton
+        // propre à CETTE génération : deux sections ne se marchent jamais
+        // dessus dans la feuille de style de la page.
+        $params['_prefix'] = 's'.substr(bin2hex(random_bytes(4)), 0, 5);
+
         [$system, $userContent] = match ($mode) {
             'generate'  => $this->buildGeneratePrompt($params, $format),
             'improve'   => $this->buildImprovePrompt($params, $format),
@@ -348,9 +371,20 @@ class AiCopilotService
             default     => throw new \InvalidArgumentException('Unknown AI mode.'),
         };
 
-        $text = $this->callAnthropic($system, $userContent, self::MAX_TOKENS[$mode] ?? 1024);
+        if ('generate' !== $mode) {
+            $text = $this->callAnthropic($system, $userContent, self::MAX_TOKENS[$mode] ?? 1024);
 
-        return $this->stripFences(trim($text));
+            return $this->stripFences(trim($text));
+        }
+
+        $text    = $this->stripFences(trim($this->callAnthropic($system, $userContent, self::DESIGN_MAX_TOKENS, null, $this->designModel)));
+        $baseUrl = (string) ($params['baseUrl'] ?? '');
+
+        return match ((string) ($params['surface'] ?? '')) {
+            'page'          => GeneratedMarkup::page($text),
+            'email-section' => GeneratedMarkup::emailSection($text, $format, $baseUrl),
+            default         => GeneratedMarkup::emailBody($text, $format, $baseUrl),
+        };
     }
 
     /**
@@ -730,7 +764,7 @@ class AiCopilotService
      * Suggestion d'OBJET façon Webmecanik : renvoie N propositions distinctes,
      * paramétrées (ton, emojis, langue). count=1 sert à régénérer une ligne.
      *
-     * @param array{content?: string, subject?: string, tone?: string, emojis?: bool, instructions?: string, lang?: string, count?: int} $params
+     * @param array{content?: string, subject?: string, tone?: string, emojis?: bool, instructions?: string, lang?: string, uiLang?: string, count?: int} $params
      *
      * @return list<string>
      *
@@ -973,7 +1007,14 @@ class AiCopilotService
     {
         $tone   = $this->sanitizeTone((string) ($params['tone'] ?? ''));
         $emojis = (bool) ($params['emojis'] ?? false);
-        $lang   = trim((string) ($params['lang'] ?? '')) ?: 'the same language as the email body';
+        // La langue : celle du TEXTE réel de l'e-mail d'abord. La langue
+        // choisie, sinon celle de l'interface, ne sert que si le corps n'a
+        // pas encore de vrai texte (constat du 27/11 : sur un nouvel e-mail,
+        // gabarit « Hello World » en anglais et champ « Langue » resté à sa
+        // valeur par défaut, les objets sortaient en anglais pour un
+        // utilisateur français).
+        $repli = trim((string) ($params['lang'] ?? ''))
+            ?: (trim((string) ($params['uiLang'] ?? '')) ?: 'French');
 
         $system = 'You are an expert email-marketing copywriter. Propose '.$count
             .' DISTINCT, compelling subject lines for a marketing email, based on its body. '
@@ -981,7 +1022,8 @@ class AiCopilotService
             .($emojis
                 ? 'You may add ONE relevant emoji per subject. '
                 : 'Do not use any emoji. ')
-            .'Write them in '.$lang.'. '
+            .'Write them in the language the email body is actually written in. '
+            .'If the body has no real copy yet (empty, lorem ipsum, or sample template text such as "Hello World"), write them in '.$repli.'. '
             .'Output EXACTLY '.$count.' subject line(s), each on its own line, at most ~80 characters, '
             .'no numbering, no bullet points, no surrounding quotes, no preamble and no commentary.';
 
@@ -1050,50 +1092,29 @@ class AiCopilotService
      */
     private function buildGeneratePrompt(array $params, string $format): array
     {
-        // Le générateur de LANDING PAGES envoie surface=page : le prompt
-        // e-mail y produisait des sections rédigées comme des corps de mail
-        // (« défauts de texte », recette proprio 12/08). Sans surface, le
-        // comportement e-mail d'origine est inchangé (copilote e-mails).
-        if ('page' === ($params['surface'] ?? '')) {
-            $system = 'You are an expert landing-page conversion copywriter and front-end developer. '
-                .'Produce ONE self-contained SECTION of a landing page based on the user brief below. '
-                .'Output clean semantic HTML (a single <section> wrapping a centered container with headings, short paragraphs and button-style links), '
-                .'styled with tasteful inline CSS only (max-width container, generous padding, clear visual hierarchy, readable contrast) so it renders correctly standalone. '
-                .'No external assets, no scripts, no images unless the brief asks for them, and never lorem ipsum — write real, specific, benefit-driven copy. '
-                .'Write in the same language as the brief, and write it like a NATIVE marketer: idiomatic, natural phrasing — never word-for-word translations or calques from English. '
-                .'Reply with ONLY the markup — no markdown code fences, no commentary.';
+        $surface = (string) ($params['surface'] ?? '');
+        $brief   = trim((string) ($params['instruction'] ?? ''));
+        $langue  = trim((string) ($params['uiLang'] ?? '')) ?: 'French';
 
-            $brief = trim((string) ($params['instruction'] ?? ''));
-            $user  = "Brief:\n".('' !== $brief ? $brief : 'Write a hero section with a strong headline and a call-to-action button.');
-
-            return [$system, $user];
+        // Le générateur de LANDING PAGES envoie surface=page (une section en
+        // place) ; la tuile ou la barre de l'éditeur d'e-mails envoie
+        // surface=email-section (lot E5 : un fragment, jamais un document) ;
+        // sans surface, c'est l'e-mail entier.
+        if ('page' === $surface) {
+            $system = GenerationDesign::pageSystem((string) $params['_prefix']);
+            $defaut = 'A hero section with a strong headline and a call-to-action button.';
+        } elseif ('email-section' === $surface) {
+            $system = GenerationDesign::emailSectionSystem($format);
+            $defaut = 'An intro block with a strong headline, one short paragraph and a call-to-action button.';
+        } else {
+            $system = GenerationDesign::emailBodySystem($format);
+            $defaut = 'A short, friendly marketing email.';
         }
 
-        // Lot E5 (07/09) : la tuile « Assistant IA » de l'éditeur d'e-mails
-        // demande UNE section en place — un fragment, jamais un document.
-        if ('email-section' === ($params['surface'] ?? '')) {
-            $system = 'You are an expert email-marketing copywriter and email developer. '
-                .'Produce ONE self-contained SECTION of a marketing email based on the user brief below. '
-                .('mjml' === $format
-                    ? 'Output exactly one <mj-section> element (one or more <mj-column> holding mj-text / mj-button / mj-image / mj-divider / mj-spacer), styled through MJML attributes only (padding, font-size, color, background-color, align). Do NOT wrap it in <mjml>, <mj-head> or <mj-body>, no comments, no CDATA. '
-                    : 'Output exactly one table-based block (a single outer <table> row) using inline CSS only, email-client safe; do not wrap it in <html>, <head> or <body>. ')
-                .'No external assets, no scripts, no images unless the brief asks for them, and never lorem ipsum — write real, specific, benefit-driven copy. '
-                .'Write in the same language as the brief, and write it like a NATIVE marketer: idiomatic, natural phrasing — never word-for-word translations or calques from English. '
-                .'Reply with ONLY the markup — no markdown code fences, no commentary.';
-
-            $brief = trim((string) ($params['instruction'] ?? ''));
-            $user  = "Brief:\n".('' !== $brief ? $brief : 'Write an intro block with a strong headline, one short paragraph and a call-to-action button.');
-
-            return [$system, $user];
-        }
-
-        $system = 'You are an expert email-marketing copywriter and email developer. '
-            .'Produce the BODY of a marketing email based on the user brief below. '
-            .$this->formatRules($format)
-            .' Write in the same language as the brief. Reply with ONLY the markup — no markdown code fences, no commentary.';
-
-        $brief = trim((string) ($params['instruction'] ?? ''));
-        $user  = "Brief:\n".('' !== $brief ? $brief : 'Write a short, friendly marketing email.');
+        $contexte = GenerationDesign::contextBlock((string) ($params['context'] ?? ''), 'page' === $surface ? 'page' : 'email');
+        $user     = ('' !== $contexte ? $contexte."\n\n" : '')
+            .'Brief:'."\n".('' !== $brief ? $brief : $defaut)."\n\n"
+            .'Write the copy in the language of the brief; if the brief does not make it clear, write in '.$langue.'.';
 
         return [$system, $user];
     }
@@ -1299,7 +1320,10 @@ class AiCopilotService
                     RequestOptions::JSON            => $payload,
                     RequestOptions::HTTP_ERRORS     => false,
                     RequestOptions::CONNECT_TIMEOUT => 5,
-                    RequestOptions::TIMEOUT         => 90,
+                    // Le dessin d'une section complète sur le modèle plus fort
+                    // peut dépasser la minute : 150 s pour lui (PHP et Apache
+                    // laissent 300 s dans l'image), 90 s pour le reste.
+                    RequestOptions::TIMEOUT         => ($payload['max_tokens'] ?? 0) > 6000 ? 150 : 90,
                 ]);
             } catch (\Throwable $e) {
                 // Réseau / transport : ne jamais faire remonter le détail à l'UI.
