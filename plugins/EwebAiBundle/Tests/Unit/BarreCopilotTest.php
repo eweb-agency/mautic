@@ -50,6 +50,8 @@ final class BarreCopilotTest extends TestCase
         El.prototype.focus = function () { this.ownerDocument.activeElement = this; this.declencher('focus'); };
         El.prototype.blur = function () { if (this.ownerDocument.activeElement === this) { this.ownerDocument.activeElement = null; } this.declencher('blur'); };
         El.prototype.scrollIntoView = function () {};
+        El.prototype.contains = function (e) { for (var c = e; c; c = c.parentNode) { if (c === this) { return true; } } return false; };
+        El.prototype.scrollTo = function (o) { this.defilements = (this.defilements || []).concat([o.left]); this.scrollLeft = o.left; this.declencher('scroll'); };
         El.prototype.remove = function () {};
         El.prototype.closest = function () { return null; };
         Object.defineProperty(El.prototype, 'lastChild', { get: function () { return this.children[this.children.length - 1] || new El(this.ownerDocument, 'span'); } });
@@ -67,13 +69,16 @@ final class BarreCopilotTest extends TestCase
         }
 
         const document = new Doc('page');
-        document.addEventListener = function () {};
+        const gestesPage = {};
+        document.addEventListener = function (t, f) { (gestesPage[t] = gestesPage[t] || []).push(f); };
+        document.defaultView = { addEventListener: function () {} };
         const toile = new Doc('toile');
         toile.querySelector = function (s) {
           if ('[data-sx-accent]' === s && sc.jetons) { return { getAttribute: function (k) { return { 'data-sx-accent': '#B4532A', 'data-sx-display': 'Georgia, serif' }[k] || null; } }; }
           return null;
         };
         toile.body.querySelectorAll = function () { return []; };
+        toile.addEventListener = function () {};
         const fenetreToile = { getComputedStyle: function (el) { return { backgroundColor: el.getAttribute('data-fond') || 'rgba(0, 0, 0, 0)' }; } };
         const cadre = { contentDocument: toile, contentWindow: fenetreToile };
         document.querySelector = function (s) { return '.builder-panel .gjs-frame' === s ? cadre : null; };
@@ -145,8 +150,31 @@ final class BarreCopilotTest extends TestCase
         const sections = function () { return wrapper._enfants.map(function (c) { return c.view.el.getAttribute('data-sendly-invite') ? 'invite' : (c.view.el.getAttribute('data-sendly-barre') ? 'barre' : c.html); }); };
 
         (async function () {
+          if (sc.carrousel) {
+            var liste = trouver(dock, function (e) { return e.classes().indexOf('sendly-dock-idees') >= 0; });
+            var rangee = liste.parentNode;
+            liste.clientWidth = 300; liste.scrollWidth = 900; liste.scrollLeft = 0;
+          }
           champ.focus();
           r.ouvert = dock.classList.contains('ouvert');
+          r.eclat = dock.querySelector('.sendly-dock-eclat').innerHTML;
+          if (sc.carrousel) {
+            var fleche = trouver(dock, function (e) { return e.classes().indexOf('sendly-dock-suite') >= 0; });
+            r.carrousel = { rangee: rangee.classes().indexOf('sendly-dock-rangee') >= 0, avecSuite: !rangee.classList.contains('sans-suite'), debut: rangee.classList.contains('debut') };
+            fleche.declencher('click'); fleche.declencher('click'); fleche.declencher('click');
+            r.carrousel.positions = liste.defilements;
+            r.carrousel.fin = rangee.classList.contains('fin');
+            r.carrousel.libelleFin = fleche.getAttribute('aria-label');
+            fleche.declencher('click');
+            r.carrousel.retour = liste.defilements[liste.defilements.length - 1];
+            // Un clic DANS la barre ne la replie pas ; un clic ailleurs, si.
+            (gestesPage.pointerdown || []).forEach(function (f) { f({ target: fleche }); });
+            r.carrousel.ouvertApresClicDedans = dock.classList.contains('ouvert');
+            (gestesPage.pointerdown || []).forEach(function (f) { f({ target: new El(document, 'div') }); });
+            r.carrousel.ouvertApresClicDehors = dock.classList.contains('ouvert');
+            process.stdout.write(JSON.stringify(r));
+            return;
+          }
           r.lieu = dock.querySelector('.sendly-dock-lieu-txt').textContent;
           if (sc.idee) {
             var idees = []; (function tous(e) { e.children.forEach(function (x) { if (x.classes().indexOf('sendly-dock-idee') >= 0) { idees.push(x); } tous(x); }); })(dock);
@@ -238,6 +266,37 @@ final class BarreCopilotTest extends TestCase
         self::assertFalse($r['apres']['enCours']);
         self::assertSame('', $r['apres']['valeur']);
         self::assertSame('', $r['apres']['erreur']);
+    }
+
+    public function testLesIdeesDefilentEnCarrouselSurUneRangee(): void
+    {
+        $r = $this->executer(['selection' => false, 'carrousel' => true]);
+
+        self::assertTrue($r['carrousel']['rangee']);
+        self::assertTrue($r['carrousel']['avecSuite'], 'les idées débordent : la flèche est là');
+        self::assertTrue($r['carrousel']['debut']);
+        // La flèche avance de 70 % de la vue, puis s'arrête au bout…
+        self::assertSame([210, 420, 630], $r['carrousel']['positions']);
+        self::assertTrue($r['carrousel']['fin']);
+        self::assertSame('Revenir aux premières idées', $r['carrousel']['libelleFin']);
+        // … et, au bout, revient au début.
+        self::assertSame(0, $r['carrousel']['retour']);
+        self::assertTrue($r['carrousel']['ouvertApresClicDedans']);
+        self::assertFalse($r['carrousel']['ouvertApresClicDehors']);
+    }
+
+    public function testLaBarrePorteLEclatOfficielDuCopilot(): void
+    {
+        $r         = $this->executer(['selection' => false, 'carrousel' => true]);
+        $assistant = (string) file_get_contents(__DIR__.'/../../Assets/js/ai-assistant.js');
+        self::assertSame(1, preg_match("/var ECLAT = '([^']+)';/", $assistant, $m));
+
+        // La grande ET la petite étoile du bouton rond, pas l'ancienne étincelle seule.
+        self::assertStringContainsString($m[1], $r['eclat']);
+        self::assertStringContainsString('M19.0001 2C19.1872', $r['eclat']);
+        self::assertStringContainsString('sendly-dock-vivant', $r['eclat']);
+        $tuile = (string) file_get_contents(__DIR__.'/../../../EwebSaasBundle/Assets/js/builder-composants.js');
+        self::assertStringContainsString($m[1], $tuile, 'la tuile porte le même éclat');
     }
 
     public function testUneIdeeLanceLaGeneration(): void

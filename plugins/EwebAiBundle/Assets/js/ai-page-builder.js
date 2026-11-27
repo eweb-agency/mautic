@@ -120,10 +120,15 @@
     if (auClicTuile && tuileCopilot(e.target)) { auClicTuile(); }
   }, true);
 
-  // La MÊME étincelle que la tuile « Assistant IA » (identité visuelle
-  // unique de l'IA — question proprio 12/08), en currentColor pour suivre
-  // la couleur du contexte ; et une icône « langues » du même trait Lucide.
-  var ICONE_IA = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px"><path d="M9.1071 5.448C9.7051 3.698 12.1231 3.645 12.8321 5.289L12.8921 5.449L13.6991 7.809C13.884 8.35023 14.1829 8.84551 14.5755 9.26142C14.9682 9.67734 15.4454 10.0042 15.9751 10.22L16.1921 10.301L18.5521 11.107C20.3021 11.705 20.3551 14.123 18.7121 14.832L18.5521 14.892L16.1921 15.699C15.6507 15.8838 15.1552 16.1826 14.7391 16.5753C14.323 16.9679 13.996 17.4452 13.7801 17.975L13.6991 18.191L12.8931 20.552C12.2951 22.302 9.8771 22.355 9.1691 20.712L9.1071 20.552L8.3011 18.192C8.11628 17.6506 7.81748 17.1551 7.42485 16.739C7.03221 16.3229 6.5549 15.9959 6.0251 15.78L5.8091 15.699L3.4491 14.893C1.6981 14.295 1.6451 11.877 3.2891 11.169L3.4491 11.107L5.8091 10.301C6.35034 10.1161 6.84562 9.81719 7.26153 9.42457C7.67744 9.03195 8.00432 8.55469 8.2201 8.025L8.3011 7.809L9.1071 5.448Z"/></svg>';
+  // Une icône « langues » du même trait Lucide que les autres.
+  // L'ÉCLAT officiel du Copilot (grande et petite étoile), le même que le
+  // bouton rond et la bulle des objets (ai-assistant.js, ECLAT) : constat
+  // du propriétaire du 27/11, la barre portait l'ancienne étincelle seule.
+  var ECLAT = 'M9.1071 5.448C9.7051 3.698 12.1231 3.645 12.8321 5.289L12.8921 5.449L13.6991 7.809C13.884 8.35023 14.1829 8.84551 14.5755 9.26142C14.9682 9.67734 15.4454 10.0042 15.9751 10.22L16.1921 10.301L18.5521 11.107C20.3021 11.705 20.3551 14.123 18.7121 14.832L18.5521 14.892L16.1921 15.699C15.6507 15.8838 15.1552 16.1826 14.7391 16.5753C14.323 16.9679 13.996 17.4452 13.7801 17.975L13.6991 18.191L12.8931 20.552C12.2951 22.302 9.8771 22.355 9.1691 20.712L9.1071 20.552L8.3011 18.192C8.11628 17.6506 7.81748 17.1551 7.42485 16.739C7.03221 16.3229 6.5549 15.9959 6.0251 15.78L5.8091 15.699L3.4491 14.893C1.6981 14.295 1.6451 11.877 3.2891 11.169L3.4491 11.107L5.8091 10.301C6.35034 10.1161 6.84562 9.81719 7.26153 9.42457C7.67744 9.03195 8.00432 8.55469 8.2201 8.025L8.3011 7.809L9.1071 5.448ZM19.0001 2C19.1872 2 19.3705 2.05248 19.5293 2.15147C19.688 2.25046 19.8158 2.392 19.8981 2.56L19.9461 2.677L20.2961 3.703L21.3231 4.053C21.5106 4.1167 21.6749 4.23462 21.7953 4.39182C21.9157 4.54902 21.9867 4.73842 21.9994 4.93602C22.012 5.13362 21.9657 5.33053 21.8663 5.50179C21.7669 5.67304 21.6189 5.81094 21.4411 5.898L21.3231 5.946L20.2971 6.296L19.9471 7.323C19.8833 7.51043 19.7653 7.6747 19.608 7.79499C19.4508 7.91529 19.2613 7.98619 19.0637 7.99872C18.8662 8.01125 18.6693 7.96484 18.4981 7.86538C18.3269 7.76591 18.1891 7.61787 18.1021 7.44L18.0541 7.323L17.7041 6.297L16.6771 5.947C16.4896 5.8833 16.3253 5.76538 16.2049 5.60819C16.0845 5.45099 16.0135 5.26158 16.0008 5.06398C15.9882 4.86638 16.0345 4.66947 16.1339 4.49821C16.2333 4.32696 16.3813 4.18906 16.5591 4.102L16.6771 4.054L17.7031 3.704L18.0531 2.677C18.1205 2.47943 18.2481 2.30791 18.4179 2.1865C18.5878 2.06509 18.7913 1.99987 19.0001 2Z';
+  function eclat(taille) {
+    return '<svg width="' + taille + '" height="' + taille + '" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-2px"><path d="' + ECLAT + '"/></svg>';
+  }
+  var ICONE_IA = eclat(14);
   var ICONE_LANGUES = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>';
 
   // Le libellé écrit d'un outil de la mini-barre (deux pictogrammes muets
@@ -712,9 +717,28 @@
           b.addEventListener('click', function () { champ.value = idee[2]; lancer(); });
           liste.appendChild(b);
         });
+        // Les idées en CARROUSEL, sur une seule rangée (retour du propriétaire
+        // du 27/11, comme l'invite en place depuis le 26/11) : la rangée
+        // défile, un fondu dit qu'il y a une suite, la flèche avance d'une
+        // vue et, au bout, revient au début.
+        var suite = h(doc, 'button', { type: 'button', 'class': 'sendly-dock-suite', 'aria-label': 'Voir d’autres idées', svg: dessin(DESSINS.suite, 16, 2.2) });
+        var rangee = h(doc, 'div', { 'class': 'sendly-dock-rangee' }, [liste, suite]);
+        function majCarrousel() {
+          var deborde = liste.scrollWidth > liste.clientWidth + 2;
+          rangee.classList.toggle('sans-suite', !deborde);
+          rangee.classList.toggle('debut', liste.scrollLeft <= 4);
+          rangee.classList.toggle('fin', deborde && liste.scrollLeft + liste.clientWidth >= liste.scrollWidth - 4);
+          suite.setAttribute('aria-label', rangee.classList.contains('fin') ? 'Revenir aux premières idées' : 'Voir d’autres idées');
+        }
+        suite.addEventListener('mousedown', function (e) { e.preventDefault(); });
+        suite.addEventListener('click', function () {
+          var fin = liste.scrollLeft + liste.clientWidth >= liste.scrollWidth - 4;
+          liste.scrollTo({ left: fin ? 0 : liste.scrollLeft + Math.round(liste.clientWidth * 0.7), behavior: 'smooth' });
+        });
+        liste.addEventListener('scroll', majCarrousel);
         var erreur = h(doc, 'div', { 'class': 'sendly-dock-erreur', role: 'alert' });
-        var panneau = h(doc, 'div', { 'class': 'sendly-dock-panneau' }, [lieu, liste]);
-        var barre = h(doc, 'div', { 'class': 'sendly-dock-barre' }, [h(doc, 'span', { 'class': 'sendly-dock-eclat', svg: ICONE_IA }), champ, go]);
+        var panneau = h(doc, 'div', { 'class': 'sendly-dock-panneau' }, [lieu, rangee]);
+        var barre = h(doc, 'div', { 'class': 'sendly-dock-barre' }, [h(doc, 'span', { 'class': 'sendly-dock-eclat', svg: '<span class="sendly-dock-vivant"></span>' + eclat(20) }), champ, go]);
         dock = blinder(h(doc, 'div', { 'class': 'sendly-dock', role: 'region', 'aria-label': 'Sendly Copilot' }, [panneau, erreur, barre]));
 
         function teaser() { return !!(window.SendlyAiConfig && window.SendlyAiConfig.teaser); }
@@ -723,6 +747,7 @@
           if (teaser()) { champ.blur(); if (window.SendlyAiUpsell) { window.SendlyAiUpsell.ouvrir(contexteUpsell()); } return; }
           majLieu();
           dock.classList.add('ouvert');
+          majCarrousel();
         }
         function replier() { dock.classList.remove('ouvert'); }
         function etat(e) {
@@ -757,7 +782,16 @@
         }
         champ.addEventListener('focus', ouvrir);
         champ.addEventListener('click', ouvrir);
-        champ.addEventListener('blur', function () { setTimeout(function () { if (doc.activeElement !== champ) { replier(); } }, 120); });
+        // Le panneau se replie sur un geste HORS de la barre (page ou canevas),
+        // pas à la perte du focus : faire défiler les idées au doigt ou
+        // cliquer la flèche ne doit pas le refermer.
+        function dehors(e) { if (dock && !dock.contains(e.target)) { replier(); } }
+        doc.addEventListener('pointerdown', dehors, true);
+        var docToile = frameDoc();
+        if (docToile && docToile !== doc) { docToile.addEventListener('pointerdown', dehors, true); }
+        dock.addEventListener('focusout', function (e) { if (e.relatedTarget && !dock.contains(e.relatedTarget)) { replier(); } });
+        var vue = doc.defaultView;
+        if (vue) { vue.addEventListener('resize', function () { if (dock.classList.contains('ouvert')) { majCarrousel(); } }); }
         champ.addEventListener('keydown', function (e) {
           if ('Enter' === e.key) { e.preventDefault(); lancer(); }
           if ('Escape' === e.key) { champ.blur(); replier(); }
@@ -793,8 +827,13 @@
           + '.sendly-dock svg { display: block; flex: none; }'
           + '.sendly-dock-barre { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 8px 0 8px; background: #fff; border-radius: 999px; box-shadow: 0 0 0 1px rgba(0,18,72,.10), 0 18px 40px rgba(0,18,72,.16), 0 2px 6px rgba(0,18,72,.06); transition: box-shadow .18s ease; }'
           + '.sendly-dock.ouvert .sendly-dock-barre, .sendly-dock-barre:focus-within { box-shadow: 0 0 0 2px #004FFF, 0 18px 40px rgba(0,79,255,.18), 0 2px 6px rgba(0,18,72,.06); }'
-          + '.sendly-dock-eclat { flex: none; width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; background: ' + VERRE_BLEU + '; box-shadow: inset 0 1px 0 rgba(255,255,255,.3); }'
-          + '.sendly-dock-eclat svg { width: 18px; height: 18px; }'
+          // Le rond : celui du bouton du Copilot (fond bleu, lumière qui
+          // tourne lentement, reflet en haut), en petit.
+          + '.sendly-dock-eclat { position: relative; flex: none; width: 40px; height: 40px; border-radius: 50%; overflow: hidden; isolation: isolate; display: inline-flex; align-items: center; justify-content: center; color: #fff; background: #004FFF; box-shadow: 0 6px 14px rgba(0,18,72,.26), inset 0 1px 0 rgba(255,255,255,.24); }'
+          + '.sendly-dock-vivant { position: absolute; inset: -40%; z-index: -1; border-radius: 50%; filter: blur(6px); background: conic-gradient(from 0deg, #001248 0%, #004FFF 20%, #7BA6FF 38%, #2E6BFF 52%, #004FFF 66%, #0036C7 82%, #001248 100%); animation: sendly-dock-tourne 9s linear infinite; }'
+          + '.sendly-dock-eclat::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 50% 4%, rgba(255,255,255,.30), rgba(255,255,255,0) 58%); }'
+          + '.sendly-dock-eclat svg { width: 20px; height: 20px; vertical-align: 0; }'
+          + '@keyframes sendly-dock-tourne { to { transform: rotate(360deg); } }'
           // Le style global des champs de l'outil (cadre et fond au focus)
           // ne doit pas dessiner une boîte dans la barre : constat en direct
           // du 27/11.
@@ -811,7 +850,18 @@
           + '@keyframes sendly-dock-monte { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }'
           + '.sendly-dock-lieu { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #5B6478; margin: 0 2px 10px; }'
           + '.sendly-dock-lieu svg { color: #004FFF; }'
-          + '.sendly-dock-idees { display: flex; flex-wrap: wrap; gap: 8px; }'
+          + '.sendly-dock-rangee { position: relative; }'
+          + '.sendly-dock-idees { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; scroll-snap-type: x proximity; padding-right: 52px; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 0, #000 calc(100% - 84px), transparent calc(100% - 40px)); mask-image: linear-gradient(90deg, transparent 0, #000 0, #000 calc(100% - 84px), transparent calc(100% - 40px)); }'
+          + '.sendly-dock-idees::-webkit-scrollbar { display: none; }'
+          + '.sendly-dock-rangee:not(.debut) .sendly-dock-idees { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 36px, #000 calc(100% - 84px), transparent calc(100% - 40px)); mask-image: linear-gradient(90deg, transparent 0, #000 36px, #000 calc(100% - 84px), transparent calc(100% - 40px)); }'
+          + '.sendly-dock-rangee.fin .sendly-dock-idees { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 36px, #000 calc(100% - 56px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 36px, #000 calc(100% - 56px), transparent 100%); }'
+          + '.sendly-dock-idee { scroll-snap-align: start; flex: none; }'
+          + '.sendly-dock-suite { position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; padding: 0; border-radius: 50%; border: 1px solid #D5DCED; background: #fff; color: #001248; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,18,72,.08); transition: border-color .15s ease, color .15s ease; }'
+          + '.sendly-dock-suite:hover { border-color: #004FFF; color: #004FFF; }'
+          + '.sendly-dock-suite svg { transition: transform .2s ease; }'
+          + '.sendly-dock-rangee.fin .sendly-dock-suite svg { transform: rotate(180deg); }'
+          + '.sendly-dock-rangee.sans-suite .sendly-dock-suite { display: none; }'
+          + '.sendly-dock-rangee.sans-suite .sendly-dock-idees { padding-right: 0; -webkit-mask-image: none; mask-image: none; }'
           + '.sendly-dock-idee { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 14px 4px 6px; border: 0; border-radius: 999px; background: #F5F7F9; color: #001248; font-size: 13.5px; font-weight: 500; white-space: nowrap; }'
           + '.sendly-dock-idee:hover { background: #EAF0FA; }'
           + '.sendly-dock-idee .ico { width: 26px; height: 26px; border-radius: 50%; background: #DFEAFF; color: #004FFF; display: inline-flex; align-items: center; justify-content: center; }'
